@@ -944,3 +944,36 @@ resource "cozystack_foundationdb" "test" {
 		},
 	})
 }
+
+func TestAccVMInstanceResource(t *testing.T) {
+	config := `
+resource "cozystack_vminstance" "test" {
+  name           = "tfaccvm"
+  namespace      = "tenant-root"
+  instance_type  = "u1.medium"
+  external_ports = [22, 443]
+}
+`
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             checkApplicationDestroy(client.VMInstanceResource(), "cozystack_vminstance"),
+		Steps: []resource.TestStep{
+			{
+				Config: config,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("cozystack_vminstance.test", "id", "tenant-root/tfaccvm"),
+					resource.TestCheckResourceAttr("cozystack_vminstance.test", "instance_type", "u1.medium"),
+					resource.TestCheckResourceAttr("cozystack_vminstance.test", "external_ports.0", "22"),
+				),
+			},
+			{
+				ResourceName:            "cozystack_vminstance.test",
+				ImportState:             true,
+				ImportStateId:           "tenant-root/tfaccvm",
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"wait_for_ready", "wait_timeout", "ready", "chart_version"},
+			},
+		},
+	})
+}

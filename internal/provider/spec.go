@@ -385,6 +385,44 @@ func expandObjectList[T any](
 	return out, diags
 }
 
+// expandIntList decodes a Terraform list of integers into a []any. A null or
+// unknown list yields an empty slice.
+func expandIntList(ctx context.Context, value types.List) ([]any, diag.Diagnostics) {
+	var diags diag.Diagnostics
+
+	out := []any{}
+
+	if value.IsNull() || value.IsUnknown() {
+		return out, diags
+	}
+
+	var items []int64
+
+	diags.Append(value.ElementsAs(ctx, &items, false)...)
+
+	for _, item := range items {
+		out = append(out, item)
+	}
+
+	return out, diags
+}
+
+// flattenIntList builds an integer list from a spec value. An empty or absent
+// list flattens to null so an unset list does not drift.
+func flattenIntList(raw any) types.List {
+	items, ok := raw.([]any)
+	if !ok || len(items) == 0 {
+		return types.ListNull(types.Int64Type)
+	}
+
+	elements := make([]attr.Value, 0, len(items))
+	for _, item := range items {
+		elements = append(elements, types.Int64Value(anyToInt64(item)))
+	}
+
+	return types.ListValueMust(types.Int64Type, elements)
+}
+
 // flattenObjectList builds a Terraform list of objects from a spec []any,
 // delegating per-element conversion to build. An empty or absent list flattens
 // to null so an unset block does not drift.

@@ -172,6 +172,7 @@ func (p *CozystackProvider) Resources(_ context.Context) []func() resource.Resou
 		newAppResource[vmdiskResourceModel, *vmdiskResourceModel](client.VMDiskResource(), "vmdisk", vmdiskSchema),
 		newAppResource[kafkaResourceModel, *kafkaResourceModel](client.KafkaResource(), "kafka", kafkaSchema),
 		newAppResource[foundationdbResourceModel, *foundationdbResourceModel](client.FoundationDBResource(), "foundationdb", foundationdbSchema),
+		newAppResource[vminstanceResourceModel, *vminstanceResourceModel](client.VMInstanceResource(), "vminstance", vminstanceSchema),
 	}
 }
 
@@ -198,6 +199,7 @@ func (p *CozystackProvider) DataSources(_ context.Context) []func() datasource.D
 		newAppDataSource[vmdiskModel, *vmdiskModel](client.VMDiskResource(), "vmdisk", vmdiskDataSourceSchema),
 		newAppDataSource[kafkaModel, *kafkaModel](client.KafkaResource(), "kafka", kafkaDataSourceSchema),
 		newAppDataSource[foundationdbModel, *foundationdbModel](client.FoundationDBResource(), "foundationdb", foundationdbDataSourceSchema),
+		newAppDataSource[vminstanceModel, *vminstanceModel](client.VMInstanceResource(), "vminstance", vminstanceDataSourceSchema),
 	}
 }
 
