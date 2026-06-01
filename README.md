@@ -23,6 +23,7 @@ Every kind is served by the same aggregated API, so the provider is built to gro
 | Managed PostgreSQL | [`cozystack_postgres`](docs/resources/postgres.md) | [`cozystack_postgres`](docs/data-sources/postgres.md) |
 | HTTP cache | [`cozystack_httpcache`](docs/resources/httpcache.md) | [`cozystack_httpcache`](docs/data-sources/httpcache.md) |
 | TCP load balancer | [`cozystack_tcpbalancer`](docs/resources/tcpbalancer.md) | [`cozystack_tcpbalancer`](docs/data-sources/tcpbalancer.md) |
+| Harbor registry | [`cozystack_harbor`](docs/resources/harbor.md) | [`cozystack_harbor`](docs/data-sources/harbor.md) |
 
 More kinds (managed Kubernetes, virtual machines, …) follow the same pattern.
 

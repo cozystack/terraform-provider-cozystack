@@ -779,3 +779,32 @@ resource "cozystack_tcpbalancer" "test" {
 		},
 	})
 }
+
+func TestAccHarborResource(t *testing.T) {
+	config := `
+resource "cozystack_harbor" "test" {
+  name      = "tfacchb"
+  namespace = "tenant-root"
+}
+`
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             checkApplicationDestroy(client.HarborResource(), "cozystack_harbor"),
+		Steps: []resource.TestStep{
+			{
+				Config: config,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("cozystack_harbor.test", "id", "tenant-root/tfacchb"),
+				),
+			},
+			{
+				ResourceName:            "cozystack_harbor.test",
+				ImportState:             true,
+				ImportStateId:           "tenant-root/tfacchb",
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"wait_for_ready", "wait_timeout", "ready", "chart_version"},
+			},
+		},
+	})
+}
