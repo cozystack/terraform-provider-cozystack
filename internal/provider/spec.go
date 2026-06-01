@@ -353,3 +353,68 @@ func flattenObjectMap(
 
 	return value, diags
 }
+
+// expandObjectList decodes a Terraform list of nested objects into a []any of
+// spec maps, delegating per-element conversion to build. A null or unknown list
+// yields an empty slice.
+func expandObjectList[T any](
+	ctx context.Context,
+	value types.List,
+	build func(T) map[string]any,
+) ([]any, diag.Diagnostics) {
+	var diags diag.Diagnostics
+
+	out := []any{}
+
+	if value.IsNull() || value.IsUnknown() {
+		return out, diags
+	}
+
+	var items []T
+
+	diags.Append(value.ElementsAs(ctx, &items, false)...)
+
+	if diags.HasError() {
+		return out, diags
+	}
+
+	for _, item := range items {
+		out = append(out, build(item))
+	}
+
+	return out, diags
+}
+
+// flattenObjectList builds a Terraform list of objects from a spec []any,
+// delegating per-element conversion to build. An empty or absent list flattens
+// to null so an unset block does not drift.
+func flattenObjectList(
+	raw any,
+	objectType map[string]attr.Type,
+	build func(map[string]any) map[string]attr.Value,
+) (types.List, diag.Diagnostics) {
+	var diags diag.Diagnostics
+
+	elementType := types.ObjectType{AttrTypes: objectType}
+
+	items, ok := raw.([]any)
+	if !ok || len(items) == 0 {
+		return types.ListNull(elementType), diags
+	}
+
+	elements := make([]attr.Value, 0, len(items))
+
+	for _, raw := range items {
+		item, _ := raw.(map[string]any)
+
+		object, objectDiags := types.ObjectValue(objectType, build(item))
+		diags.Append(objectDiags...)
+
+		elements = append(elements, object)
+	}
+
+	value, listDiags := types.ListValue(elementType, elements)
+	diags.Append(listDiags...)
+
+	return value, diags
+}

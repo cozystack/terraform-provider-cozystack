@@ -808,3 +808,36 @@ resource "cozystack_harbor" "test" {
 		},
 	})
 }
+
+func TestAccVPCResource(t *testing.T) {
+	config := `
+resource "cozystack_vpc" "test" {
+  name      = "tfaccvpc"
+  namespace = "tenant-root"
+  subnets = [
+    { name = "web", cidr = "10.0.0.0/24" },
+  ]
+}
+`
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             checkApplicationDestroy(client.VPCResource(), "cozystack_vpc"),
+		Steps: []resource.TestStep{
+			{
+				Config: config,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("cozystack_vpc.test", "id", "tenant-root/tfaccvpc"),
+					resource.TestCheckResourceAttr("cozystack_vpc.test", "subnets.0.name", "web"),
+				),
+			},
+			{
+				ResourceName:            "cozystack_vpc.test",
+				ImportState:             true,
+				ImportStateId:           "tenant-root/tfaccvpc",
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"wait_for_ready", "wait_timeout", "ready", "chart_version"},
+			},
+		},
+	})
+}
