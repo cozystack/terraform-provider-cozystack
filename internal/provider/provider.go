@@ -165,6 +165,7 @@ func (p *CozystackProvider) Resources(_ context.Context) []func() resource.Resou
 		newAppResource[natsResourceModel, *natsResourceModel](client.NATSResource(), "nats", natsSchema),
 		newAppResource[opensearchResourceModel, *opensearchResourceModel](client.OpenSearchResource(), "opensearch", opensearchSchema),
 		newAppResource[postgresqlResourceModel, *postgresqlResourceModel](client.PostgresResource(), "postgres", postgresSchema),
+		newAppResource[httpcacheResourceModel, *httpcacheResourceModel](client.HTTPCacheResource(), "httpcache", httpcacheSchema),
 	}
 }
 
@@ -184,6 +185,7 @@ func (p *CozystackProvider) DataSources(_ context.Context) []func() datasource.D
 		newAppDataSource[natsModel, *natsModel](client.NATSResource(), "nats", natsDataSourceSchema),
 		newAppDataSource[opensearchModel, *opensearchModel](client.OpenSearchResource(), "opensearch", opensearchDataSourceSchema),
 		newAppDataSource[postgresqlModel, *postgresqlModel](client.PostgresResource(), "postgres", postgresDataSourceSchema),
+		newAppDataSource[httpcacheModel, *httpcacheModel](client.HTTPCacheResource(), "httpcache", httpcacheDataSourceSchema),
 	}
 }
 

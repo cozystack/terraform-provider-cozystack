@@ -714,3 +714,35 @@ resource "cozystack_postgres" "test" {
 		},
 	})
 }
+
+func TestAccHTTPCacheResource(t *testing.T) {
+	config := `
+resource "cozystack_httpcache" "test" {
+  name      = "tfacchc"
+  namespace = "tenant-root"
+  size      = "1Gi"
+  endpoints = ["192.0.2.10:80"]
+}
+`
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             checkApplicationDestroy(client.HTTPCacheResource(), "cozystack_httpcache"),
+		Steps: []resource.TestStep{
+			{
+				Config: config,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("cozystack_httpcache.test", "id", "tenant-root/tfacchc"),
+					resource.TestCheckResourceAttr("cozystack_httpcache.test", "endpoints.0", "192.0.2.10:80"),
+				),
+			},
+			{
+				ResourceName:            "cozystack_httpcache.test",
+				ImportState:             true,
+				ImportStateId:           "tenant-root/tfacchc",
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"wait_for_ready", "wait_timeout", "ready", "chart_version"},
+			},
+		},
+	})
+}
