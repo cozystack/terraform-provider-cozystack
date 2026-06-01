@@ -1,0 +1,12 @@
+config:
+  default: true
+  # Line length is governed by the prose-wrapping convention (one line per
+  # paragraph, renderer wraps), not a hard column limit.
+  line-length: false
+  # Allow inline HTML where the registry docs need it.
+  no-inline-html: false
+globs:
+  - "**/*.md"
+ignores:
+  - "docs/**"
+  - "vendor/**"
