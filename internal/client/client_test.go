@@ -24,12 +24,12 @@ func newFake(objects ...runtime.Object) *dynamicfake.FakeDynamicClient {
 	return dynamicfake.NewSimpleDynamicClientWithCustomListKinds(scheme, gvrToListKind, objects...)
 }
 
-func TestCreateTenant_RoundTrips(t *testing.T) {
+func TestCreate_RoundTrips(t *testing.T) {
 	t.Parallel()
 
 	c := client.New(newFake())
 
-	in := client.Tenant{
+	in := client.Application{
 		Name:      "dev",
 		Namespace: "tenant-root",
 		Spec: map[string]any{
@@ -38,9 +38,9 @@ func TestCreateTenant_RoundTrips(t *testing.T) {
 		},
 	}
 
-	out, err := c.CreateTenant(context.Background(), &in)
+	out, err := c.Create(context.Background(), client.TenantResource(), &in)
 	if err != nil {
-		t.Fatalf("CreateTenant() error = %v", err)
+		t.Fatalf("Create() error = %v", err)
 	}
 
 	if out.Name != "dev" || out.Namespace != "tenant-root" {
@@ -54,23 +54,24 @@ func TestCreateTenant_RoundTrips(t *testing.T) {
 	}
 }
 
-func TestCreateThenGetTenant(t *testing.T) {
+func TestCreateThenGet(t *testing.T) {
 	t.Parallel()
 
 	c := client.New(newFake())
 	ctx := context.Background()
+	res := client.TenantResource()
 
-	if _, err := c.CreateTenant(ctx, &client.Tenant{
+	if _, err := c.Create(ctx, res, &client.Application{
 		Name:      "dev",
 		Namespace: "tenant-root",
 		Spec:      map[string]any{"monitoring": true},
 	}); err != nil {
-		t.Fatalf("CreateTenant() error = %v", err)
+		t.Fatalf("Create() error = %v", err)
 	}
 
-	got, err := c.GetTenant(ctx, "tenant-root", "dev")
+	got, err := c.Get(ctx, res, "tenant-root", "dev")
 	if err != nil {
-		t.Fatalf("GetTenant() error = %v", err)
+		t.Fatalf("Get() error = %v", err)
 	}
 
 	if got.Spec["monitoring"] != true {
@@ -78,18 +79,18 @@ func TestCreateThenGetTenant(t *testing.T) {
 	}
 }
 
-func TestGetTenant_NotFound(t *testing.T) {
+func TestGet_NotFound(t *testing.T) {
 	t.Parallel()
 
 	c := client.New(newFake())
 
-	_, err := c.GetTenant(context.Background(), "tenant-root", "missing")
+	_, err := c.Get(context.Background(), client.TenantResource(), "tenant-root", "missing")
 	if !client.IsNotFound(err) {
 		t.Fatalf("IsNotFound(%v) = false, want true", err)
 	}
 }
 
-func TestGetTenant_ExtractsStatus(t *testing.T) {
+func TestGet_ExtractsStatus(t *testing.T) {
 	t.Parallel()
 
 	seed := &unstructured.Unstructured{Object: map[string]any{
@@ -112,23 +113,23 @@ func TestGetTenant_ExtractsStatus(t *testing.T) {
 
 	c := client.New(newFake(seed))
 
-	got, err := c.GetTenant(context.Background(), "tenant-root", "root")
+	got, err := c.Get(context.Background(), client.TenantResource(), "tenant-root", "root")
 	if err != nil {
-		t.Fatalf("GetTenant() error = %v", err)
+		t.Fatalf("Get() error = %v", err)
 	}
 
 	if !got.Status.Ready {
 		t.Errorf("Status.Ready = false, want true")
 	}
-	if got.Status.Namespace != "tenant-root" {
-		t.Errorf("Status.Namespace = %q, want tenant-root", got.Status.Namespace)
-	}
 	if got.Status.Version != "1.2.3" {
 		t.Errorf("Status.Version = %q, want 1.2.3", got.Status.Version)
 	}
+	if got.Status.Raw["namespace"] != "tenant-root" {
+		t.Errorf("Status.Raw[namespace] = %v, want tenant-root", got.Status.Raw["namespace"])
+	}
 }
 
-func TestGetTenant_NotReadyWhenConditionFalse(t *testing.T) {
+func TestGet_NotReadyWhenConditionFalse(t *testing.T) {
 	t.Parallel()
 
 	seed := &unstructured.Unstructured{Object: map[string]any{
@@ -144,9 +145,9 @@ func TestGetTenant_NotReadyWhenConditionFalse(t *testing.T) {
 
 	c := client.New(newFake(seed))
 
-	got, err := c.GetTenant(context.Background(), "tenant-root", "root")
+	got, err := c.Get(context.Background(), client.TenantResource(), "tenant-root", "root")
 	if err != nil {
-		t.Fatalf("GetTenant() error = %v", err)
+		t.Fatalf("Get() error = %v", err)
 	}
 
 	if got.Status.Ready {
@@ -154,31 +155,32 @@ func TestGetTenant_NotReadyWhenConditionFalse(t *testing.T) {
 	}
 }
 
-func TestUpdateTenant_ChangesSpec(t *testing.T) {
+func TestUpdate_ChangesSpec(t *testing.T) {
 	t.Parallel()
 
 	c := client.New(newFake())
 	ctx := context.Background()
+	res := client.TenantResource()
 
-	if _, err := c.CreateTenant(ctx, &client.Tenant{
+	if _, err := c.Create(ctx, res, &client.Application{
 		Name:      "dev",
 		Namespace: "tenant-root",
 		Spec:      map[string]any{"monitoring": false},
 	}); err != nil {
-		t.Fatalf("CreateTenant() error = %v", err)
+		t.Fatalf("Create() error = %v", err)
 	}
 
-	if _, err := c.UpdateTenant(ctx, &client.Tenant{
+	if _, err := c.Update(ctx, res, &client.Application{
 		Name:      "dev",
 		Namespace: "tenant-root",
 		Spec:      map[string]any{"monitoring": true, "ingress": true},
 	}); err != nil {
-		t.Fatalf("UpdateTenant() error = %v", err)
+		t.Fatalf("Update() error = %v", err)
 	}
 
-	got, err := c.GetTenant(ctx, "tenant-root", "dev")
+	got, err := c.Get(ctx, res, "tenant-root", "dev")
 	if err != nil {
-		t.Fatalf("GetTenant() error = %v", err)
+		t.Fatalf("Get() error = %v", err)
 	}
 
 	if got.Spec["monitoring"] != true {
@@ -189,19 +191,20 @@ func TestUpdateTenant_ChangesSpec(t *testing.T) {
 	}
 }
 
-func TestUpdateTenant_RetriesOnConflict(t *testing.T) {
+func TestUpdate_RetriesOnConflict(t *testing.T) {
 	t.Parallel()
 
 	fake := newFake()
 	c := client.New(fake)
 	ctx := context.Background()
+	res := client.TenantResource()
 
-	if _, err := c.CreateTenant(ctx, &client.Tenant{
+	if _, err := c.Create(ctx, res, &client.Application{
 		Name:      "dev",
 		Namespace: "tenant-root",
 		Spec:      map[string]any{"etcd": false},
 	}); err != nil {
-		t.Fatalf("CreateTenant() error = %v", err)
+		t.Fatalf("Create() error = %v", err)
 	}
 
 	var updates int
@@ -218,12 +221,12 @@ func TestUpdateTenant_RetriesOnConflict(t *testing.T) {
 		return false, nil, nil
 	})
 
-	if _, err := c.UpdateTenant(ctx, &client.Tenant{
+	if _, err := c.Update(ctx, res, &client.Application{
 		Name:      "dev",
 		Namespace: "tenant-root",
 		Spec:      map[string]any{"etcd": true},
 	}); err != nil {
-		t.Fatalf("UpdateTenant() error = %v, want nil after one conflict", err)
+		t.Fatalf("Update() error = %v, want nil after one conflict", err)
 	}
 
 	if updates < 2 {
@@ -231,40 +234,41 @@ func TestUpdateTenant_RetriesOnConflict(t *testing.T) {
 	}
 }
 
-func TestDeleteTenant(t *testing.T) {
+func TestDelete(t *testing.T) {
 	t.Parallel()
 
 	c := client.New(newFake())
 	ctx := context.Background()
+	res := client.TenantResource()
 
-	if _, err := c.CreateTenant(ctx, &client.Tenant{
+	if _, err := c.Create(ctx, res, &client.Application{
 		Name:      "dev",
 		Namespace: "tenant-root",
 		Spec:      map[string]any{},
 	}); err != nil {
-		t.Fatalf("CreateTenant() error = %v", err)
+		t.Fatalf("Create() error = %v", err)
 	}
 
-	if err := c.DeleteTenant(ctx, "tenant-root", "dev"); err != nil {
-		t.Fatalf("DeleteTenant() error = %v", err)
+	if err := c.Delete(ctx, res, "tenant-root", "dev"); err != nil {
+		t.Fatalf("Delete() error = %v", err)
 	}
 
-	if _, err := c.GetTenant(ctx, "tenant-root", "dev"); !client.IsNotFound(err) {
+	if _, err := c.Get(ctx, res, "tenant-root", "dev"); !client.IsNotFound(err) {
 		t.Errorf("after delete, IsNotFound = false (err=%v), want true", err)
 	}
 }
 
-func TestDeleteTenant_AlreadyGoneIsSuccess(t *testing.T) {
+func TestDelete_AlreadyGoneIsSuccess(t *testing.T) {
 	t.Parallel()
 
 	c := client.New(newFake())
 
-	if err := c.DeleteTenant(context.Background(), "tenant-root", "missing"); err != nil {
-		t.Errorf("DeleteTenant(missing) error = %v, want nil", err)
+	if err := c.Delete(context.Background(), client.TenantResource(), "tenant-root", "missing"); err != nil {
+		t.Errorf("Delete(missing) error = %v, want nil", err)
 	}
 }
 
-func TestWaitForTenantReady_AlreadyReady(t *testing.T) {
+func TestWaitForReady_AlreadyReady(t *testing.T) {
 	t.Parallel()
 
 	seed := &unstructured.Unstructured{Object: map[string]any{
@@ -278,9 +282,9 @@ func TestWaitForTenantReady_AlreadyReady(t *testing.T) {
 
 	c := client.New(newFake(seed))
 
-	got, err := c.WaitForTenantReady(context.Background(), "tenant-root", "dev", time.Minute)
+	got, err := c.WaitForReady(context.Background(), client.TenantResource(), "tenant-root", "dev", time.Minute)
 	if err != nil {
-		t.Fatalf("WaitForTenantReady() error = %v", err)
+		t.Fatalf("WaitForReady() error = %v", err)
 	}
 
 	if !got.Status.Ready {
@@ -288,7 +292,7 @@ func TestWaitForTenantReady_AlreadyReady(t *testing.T) {
 	}
 }
 
-func TestWaitForTenantReady_TimesOut(t *testing.T) {
+func TestWaitForReady_TimesOut(t *testing.T) {
 	t.Parallel()
 
 	seed := &unstructured.Unstructured{Object: map[string]any{
@@ -302,8 +306,8 @@ func TestWaitForTenantReady_TimesOut(t *testing.T) {
 
 	c := client.New(newFake(seed))
 
-	_, err := c.WaitForTenantReady(context.Background(), "tenant-root", "dev", 50*time.Millisecond)
+	_, err := c.WaitForReady(context.Background(), client.TenantResource(), "tenant-root", "dev", 50*time.Millisecond)
 	if err == nil {
-		t.Fatal("WaitForTenantReady() error = nil, want timeout error")
+		t.Fatal("WaitForReady() error = nil, want timeout error")
 	}
 }

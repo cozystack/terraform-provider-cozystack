@@ -39,8 +39,8 @@ type tenantModel struct {
 	Version         types.String `tfsdk:"version"`
 }
 
-// expand converts the Terraform model into a client.Tenant ready to send.
-func (m *tenantModel) expand(ctx context.Context) (*client.Tenant, diag.Diagnostics) {
+// expand converts the Terraform model into a client.Application ready to send.
+func (m *tenantModel) expand(ctx context.Context) (*client.Application, diag.Diagnostics) {
 	var diags diag.Diagnostics
 
 	quotas, qDiags := expandQuotas(ctx, m.ResourceQuotas)
@@ -60,7 +60,7 @@ func (m *tenantModel) expand(ctx context.Context) (*client.Tenant, diag.Diagnost
 		"resourceQuotas":  quotas,
 	}
 
-	return &client.Tenant{
+	return &client.Application{
 		Name:      m.Name.ValueString(),
 		Namespace: m.Namespace.ValueString(),
 		Spec:      spec,
@@ -68,7 +68,7 @@ func (m *tenantModel) expand(ctx context.Context) (*client.Tenant, diag.Diagnost
 }
 
 // flatten populates the Terraform model from the server view of a tenant.
-func (m *tenantModel) flatten(tenant *client.Tenant) diag.Diagnostics {
+func (m *tenantModel) flatten(tenant *client.Application) diag.Diagnostics {
 	var diags diag.Diagnostics
 
 	m.ID = types.StringValue(tenant.Namespace + "/" + tenant.Name)
@@ -86,7 +86,7 @@ func (m *tenantModel) flatten(tenant *client.Tenant) diag.Diagnostics {
 
 	m.ResourceQuotas = quotas
 
-	m.StatusNamespace = types.StringValue(tenant.Status.Namespace)
+	m.StatusNamespace = types.StringValue(rawStatusString(tenant.Status.Raw, "namespace"))
 	m.Ready = types.BoolValue(tenant.Status.Ready)
 	m.Version = types.StringValue(tenant.Status.Version)
 
@@ -151,4 +151,13 @@ func specBool(spec map[string]any, key string) bool {
 	}
 
 	return false
+}
+
+// rawStatusString reads a string field from an application's raw status object.
+func rawStatusString(raw map[string]any, key string) string {
+	if v, ok := raw[key].(string); ok {
+		return v
+	}
+
+	return ""
 }

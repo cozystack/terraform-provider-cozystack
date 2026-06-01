@@ -94,7 +94,7 @@ func waitTenantGone(api *client.Client, namespace, name string) error {
 	deadline := time.Now().Add(tenantTeardownTimeout)
 
 	for {
-		_, err := api.GetTenant(context.Background(), namespace, name)
+		_, err := api.Get(context.Background(), client.TenantResource(), namespace, name)
 		if client.IsNotFound(err) {
 			return nil
 		}

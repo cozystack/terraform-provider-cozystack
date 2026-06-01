@@ -82,7 +82,7 @@ func (d *tenantDataSource) Read(
 		return
 	}
 
-	got, err := d.client.GetTenant(ctx, model.Namespace.ValueString(), model.Name.ValueString())
+	got, err := d.client.Get(ctx, client.TenantResource(), model.Namespace.ValueString(), model.Name.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError("Unable to read tenant", err.Error())
 

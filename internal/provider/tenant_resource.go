@@ -79,7 +79,11 @@ func (r *tenantResource) Create(
 	req resource.CreateRequest,
 	resp *resource.CreateResponse,
 ) {
-	r.applyPlan(ctx, req.Plan, &resp.State, &resp.Diagnostics, "create", r.client.CreateTenant)
+	persist := func(ctx context.Context, app *client.Application) (client.Application, error) {
+		return r.client.Create(ctx, client.TenantResource(), app)
+	}
+
+	r.applyPlan(ctx, req.Plan, &resp.State, &resp.Diagnostics, "create", persist)
 }
 
 func (r *tenantResource) Update(
@@ -87,7 +91,11 @@ func (r *tenantResource) Update(
 	req resource.UpdateRequest,
 	resp *resource.UpdateResponse,
 ) {
-	r.applyPlan(ctx, req.Plan, &resp.State, &resp.Diagnostics, "update", r.client.UpdateTenant)
+	persist := func(ctx context.Context, app *client.Application) (client.Application, error) {
+		return r.client.Update(ctx, client.TenantResource(), app)
+	}
+
+	r.applyPlan(ctx, req.Plan, &resp.State, &resp.Diagnostics, "update", persist)
 }
 
 // applyPlan expands the planned model, persists it through persist, and writes
@@ -98,7 +106,7 @@ func (r *tenantResource) applyPlan(
 	state *tfsdk.State,
 	diags *diag.Diagnostics,
 	action string,
-	persist func(context.Context, *client.Tenant) (client.Tenant, error),
+	persist func(context.Context, *client.Application) (client.Application, error),
 ) {
 	var model tenantResourceModel
 
@@ -141,23 +149,23 @@ func (r *tenantResource) applyPlan(
 // configured timeout elapses.
 func (r *tenantResource) waitForReady(
 	ctx context.Context,
-	tenant *client.Tenant,
+	tenant *client.Application,
 	timeout types.String,
-) (client.Tenant, diag.Diagnostics) {
+) (client.Application, diag.Diagnostics) {
 	var diags diag.Diagnostics
 
 	duration, parseDiags := parseWaitTimeout(timeout)
 	diags.Append(parseDiags...)
 
 	if diags.HasError() {
-		return client.Tenant{}, diags
+		return client.Application{}, diags
 	}
 
-	ready, err := r.client.WaitForTenantReady(ctx, tenant.Namespace, tenant.Name, duration)
+	ready, err := r.client.WaitForReady(ctx, client.TenantResource(), tenant.Namespace, tenant.Name, duration)
 	if err != nil {
 		diags.AddError("Timed out waiting for tenant to become ready", err.Error())
 
-		return client.Tenant{}, diags
+		return client.Application{}, diags
 	}
 
 	return ready, diags
@@ -195,7 +203,7 @@ func (r *tenantResource) Read(
 		return
 	}
 
-	got, err := r.client.GetTenant(ctx, model.Namespace.ValueString(), model.Name.ValueString())
+	got, err := r.client.Get(ctx, client.TenantResource(), model.Namespace.ValueString(), model.Name.ValueString())
 	if err != nil {
 		if client.IsNotFound(err) {
 			resp.State.RemoveResource(ctx)
@@ -225,7 +233,7 @@ func (r *tenantResource) Delete(
 		return
 	}
 
-	err := r.client.DeleteTenant(ctx, model.Namespace.ValueString(), model.Name.ValueString())
+	err := r.client.Delete(ctx, client.TenantResource(), model.Namespace.ValueString(), model.Name.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError("Unable to delete tenant", err.Error())
 	}

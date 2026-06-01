@@ -98,7 +98,7 @@ func TestExpand_NullQuotasYieldEmptyMap(t *testing.T) {
 func TestFlatten_RoundTrip(t *testing.T) {
 	t.Parallel()
 
-	tn := &client.Tenant{
+	tn := &client.Application{
 		Name:      "dev",
 		Namespace: "tenant-root",
 		Spec: map[string]any{
@@ -110,10 +110,10 @@ func TestFlatten_RoundTrip(t *testing.T) {
 			"schedulingClass": "default",
 			"resourceQuotas":  map[string]any{"cpu": "4"},
 		},
-		Status: client.TenantStatus{
-			Namespace: "tenant-dev",
-			Version:   "1.4.2",
-			Ready:     true,
+		Status: client.ApplicationStatus{
+			Version: "1.4.2",
+			Ready:   true,
+			Raw:     map[string]any{"namespace": "tenant-dev"},
 		},
 	}
 
@@ -152,7 +152,7 @@ func TestFlatten_RoundTrip(t *testing.T) {
 func TestFlatten_MissingBoolDefaultsFalse(t *testing.T) {
 	t.Parallel()
 
-	tn := &client.Tenant{
+	tn := &client.Application{
 		Name:      "dev",
 		Namespace: "tenant-root",
 		Spec:      map[string]any{},
