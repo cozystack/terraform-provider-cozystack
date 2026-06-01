@@ -841,3 +841,37 @@ resource "cozystack_vpc" "test" {
 		},
 	})
 }
+
+func TestAccVMDiskResource(t *testing.T) {
+	config := `
+resource "cozystack_vmdisk" "test" {
+  name      = "tfaccdisk"
+  namespace = "tenant-root"
+  storage   = "1Gi"
+  source = {
+    http = { url = "http://download.cirros-cloud.net/0.6.2/cirros-0.6.2-x86_64-disk.img" }
+  }
+}
+`
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             checkApplicationDestroy(client.VMDiskResource(), "cozystack_vmdisk"),
+		Steps: []resource.TestStep{
+			{
+				Config: config,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("cozystack_vmdisk.test", "id", "tenant-root/tfaccdisk"),
+					resource.TestCheckResourceAttrSet("cozystack_vmdisk.test", "source.http.url"),
+				),
+			},
+			{
+				ResourceName:            "cozystack_vmdisk.test",
+				ImportState:             true,
+				ImportStateId:           "tenant-root/tfaccdisk",
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"wait_for_ready", "wait_timeout", "ready", "chart_version"},
+			},
+		},
+	})
+}
