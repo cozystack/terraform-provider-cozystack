@@ -74,7 +74,7 @@ func (d *tenantDataSource) Read(
 	req datasource.ReadRequest,
 	resp *datasource.ReadResponse,
 ) {
-	var model tenantResourceModel
+	var model tenantModel
 
 	resp.Diagnostics.Append(req.Config.Get(ctx, &model)...)
 

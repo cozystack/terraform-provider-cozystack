@@ -12,8 +12,8 @@ import (
 	"github.com/lexfrei/terraform-provider-cozystack/internal/client"
 )
 
-func fullModel() tenantResourceModel {
-	return tenantResourceModel{
+func fullModel() tenantModel {
+	return tenantModel{
 		Name:            types.StringValue("dev"),
 		Namespace:       types.StringValue("tenant-root"),
 		Host:            types.StringValue("dev.example.test"),
@@ -117,7 +117,7 @@ func TestFlatten_RoundTrip(t *testing.T) {
 		},
 	}
 
-	var model tenantResourceModel
+	var model tenantModel
 
 	diags := model.flatten(tn)
 	if diags.HasError() {
@@ -158,7 +158,7 @@ func TestFlatten_MissingBoolDefaultsFalse(t *testing.T) {
 		Spec:      map[string]any{},
 	}
 
-	var model tenantResourceModel
+	var model tenantModel
 
 	if diags := model.flatten(tn); diags.HasError() {
 		t.Fatalf("flatten diagnostics: %v", diags)

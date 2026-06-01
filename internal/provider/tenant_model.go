@@ -20,9 +20,10 @@ const (
 	attrSeaweedfs  = "seaweedfs"
 )
 
-// tenantResourceModel maps the cozystack_tenant schema to Go types. The spec
+// tenantModel maps the common cozystack_tenant attributes to Go types. The spec
 // attributes mirror the json tags of the pinned tenant.ConfigSpec one-to-one.
-type tenantResourceModel struct {
+// The resource embeds this model and adds its own behaviour attributes.
+type tenantModel struct {
 	ID              types.String `tfsdk:"id"`
 	Name            types.String `tfsdk:"name"`
 	Namespace       types.String `tfsdk:"namespace"`
@@ -39,7 +40,7 @@ type tenantResourceModel struct {
 }
 
 // expand converts the Terraform model into a client.Tenant ready to send.
-func (m *tenantResourceModel) expand(ctx context.Context) (*client.Tenant, diag.Diagnostics) {
+func (m *tenantModel) expand(ctx context.Context) (*client.Tenant, diag.Diagnostics) {
 	var diags diag.Diagnostics
 
 	quotas, qDiags := expandQuotas(ctx, m.ResourceQuotas)
@@ -67,7 +68,7 @@ func (m *tenantResourceModel) expand(ctx context.Context) (*client.Tenant, diag.
 }
 
 // flatten populates the Terraform model from the server view of a tenant.
-func (m *tenantResourceModel) flatten(tenant *client.Tenant) diag.Diagnostics {
+func (m *tenantModel) flatten(tenant *client.Tenant) diag.Diagnostics {
 	var diags diag.Diagnostics
 
 	m.ID = types.StringValue(tenant.Namespace + "/" + tenant.Name)

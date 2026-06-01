@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/lexfrei/terraform-provider-cozystack/internal/client"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -260,5 +261,49 @@ func TestDeleteTenant_AlreadyGoneIsSuccess(t *testing.T) {
 
 	if err := c.DeleteTenant(context.Background(), "tenant-root", "missing"); err != nil {
 		t.Errorf("DeleteTenant(missing) error = %v, want nil", err)
+	}
+}
+
+func TestWaitForTenantReady_AlreadyReady(t *testing.T) {
+	t.Parallel()
+
+	seed := &unstructured.Unstructured{Object: map[string]any{
+		"apiVersion": "apps.cozystack.io/v1alpha1",
+		"kind":       "Tenant",
+		"metadata":   map[string]any{"name": "dev", "namespace": "tenant-root"},
+		"status": map[string]any{
+			"conditions": []any{map[string]any{"type": "Ready", "status": "True"}},
+		},
+	}}
+
+	c := client.New(newFake(seed))
+
+	got, err := c.WaitForTenantReady(context.Background(), "tenant-root", "dev", time.Minute)
+	if err != nil {
+		t.Fatalf("WaitForTenantReady() error = %v", err)
+	}
+
+	if !got.Status.Ready {
+		t.Errorf("Status.Ready = false, want true")
+	}
+}
+
+func TestWaitForTenantReady_TimesOut(t *testing.T) {
+	t.Parallel()
+
+	seed := &unstructured.Unstructured{Object: map[string]any{
+		"apiVersion": "apps.cozystack.io/v1alpha1",
+		"kind":       "Tenant",
+		"metadata":   map[string]any{"name": "dev", "namespace": "tenant-root"},
+		"status": map[string]any{
+			"conditions": []any{map[string]any{"type": "Ready", "status": "False"}},
+		},
+	}}
+
+	c := client.New(newFake(seed))
+
+	_, err := c.WaitForTenantReady(context.Background(), "tenant-root", "dev", 50*time.Millisecond)
+	if err == nil {
+		t.Fatal("WaitForTenantReady() error = nil, want timeout error")
 	}
 }

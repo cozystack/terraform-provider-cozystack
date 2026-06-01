@@ -3,17 +3,20 @@ package client
 import (
 	"context"
 	"fmt"
+	"time"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 const (
-	tenantAPIVersion = "apps.cozystack.io/v1alpha1"
-	tenantKind       = "Tenant"
-	updateMaxRetries = 2
+	tenantAPIVersion  = "apps.cozystack.io/v1alpha1"
+	tenantKind        = "Tenant"
+	updateMaxRetries  = 2
+	readyPollInterval = 5 * time.Second
 )
 
 // tenantGVR is the namespaced GroupVersionResource for Cozystack tenants.
@@ -92,6 +95,34 @@ func (c *Client) UpdateTenant(ctx context.Context, tenant *Tenant) (Tenant, erro
 	}
 
 	return Tenant{}, fmt.Errorf("updating tenant %s/%s after retry: %w", tenant.Namespace, tenant.Name, lastErr)
+}
+
+// WaitForTenantReady polls the tenant until its Ready condition is true or the
+// timeout elapses, returning the most recent observation.
+func (c *Client) WaitForTenantReady(
+	ctx context.Context,
+	namespace, name string,
+	timeout time.Duration,
+) (Tenant, error) {
+	var last Tenant
+
+	condition := func(ctx context.Context) (bool, error) {
+		tenant, err := c.GetTenant(ctx, namespace, name)
+		if err != nil {
+			return false, err
+		}
+
+		last = tenant
+
+		return tenant.Status.Ready, nil
+	}
+
+	err := wait.PollUntilContextTimeout(ctx, readyPollInterval, timeout, true, condition)
+	if err != nil {
+		return last, fmt.Errorf("waiting for tenant %s/%s to become ready: %w", namespace, name, err)
+	}
+
+	return last, nil
 }
 
 // DeleteTenant deletes a Tenant. A missing object is treated as success.

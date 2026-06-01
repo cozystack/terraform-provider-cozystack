@@ -2,8 +2,10 @@ package provider
 
 import (
 	"context"
+	"fmt"
 	"maps"
 	"strings"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
@@ -26,9 +28,21 @@ var (
 	_ resource.ResourceWithImportState = (*tenantResource)(nil)
 )
 
+// defaultWaitTimeout bounds how long Create/Update block on readiness.
+const defaultWaitTimeout = 10 * time.Minute
+
 // tenantResource implements the cozystack_tenant managed resource.
 type tenantResource struct {
 	client *client.Client
+}
+
+// tenantResourceModel is the resource model: the shared tenant attributes plus
+// the optional create/update wait behaviour.
+type tenantResourceModel struct {
+	tenantModel
+
+	WaitForReady types.Bool   `tfsdk:"wait_for_ready"`
+	WaitTimeout  types.String `tfsdk:"wait_timeout"`
 }
 
 // NewTenantResource is the resource factory registered with the provider.
@@ -108,8 +122,64 @@ func (r *tenantResource) applyPlan(
 		return
 	}
 
+	if model.WaitForReady.ValueBool() {
+		ready, waitDiags := r.waitForReady(ctx, &result, model.WaitTimeout)
+		diags.Append(waitDiags...)
+
+		if diags.HasError() {
+			return
+		}
+
+		result = ready
+	}
+
 	diags.Append(model.flatten(&result)...)
 	diags.Append(state.Set(ctx, &model)...)
+}
+
+// waitForReady blocks until the tenant reports a Ready condition or the
+// configured timeout elapses.
+func (r *tenantResource) waitForReady(
+	ctx context.Context,
+	tenant *client.Tenant,
+	timeout types.String,
+) (client.Tenant, diag.Diagnostics) {
+	var diags diag.Diagnostics
+
+	duration, parseDiags := parseWaitTimeout(timeout)
+	diags.Append(parseDiags...)
+
+	if diags.HasError() {
+		return client.Tenant{}, diags
+	}
+
+	ready, err := r.client.WaitForTenantReady(ctx, tenant.Namespace, tenant.Name, duration)
+	if err != nil {
+		diags.AddError("Timed out waiting for tenant to become ready", err.Error())
+
+		return client.Tenant{}, diags
+	}
+
+	return ready, diags
+}
+
+// parseWaitTimeout parses the wait_timeout attribute as a Go duration.
+func parseWaitTimeout(value types.String) (time.Duration, diag.Diagnostics) {
+	var diags diag.Diagnostics
+
+	raw := value.ValueString()
+	if raw == "" {
+		return defaultWaitTimeout, diags
+	}
+
+	duration, err := time.ParseDuration(raw)
+	if err != nil {
+		diags.AddError("Invalid wait_timeout", fmt.Sprintf("%q is not a valid Go duration: %s", raw, err))
+
+		return 0, diags
+	}
+
+	return duration, diags
 }
 
 func (r *tenantResource) Read(
@@ -197,6 +267,7 @@ func tenantSchema() schema.Schema {
 	maps.Copy(attributes, tenantIdentityAttributes())
 	maps.Copy(attributes, tenantSpecAttributes())
 	maps.Copy(attributes, tenantStatusAttributes())
+	maps.Copy(attributes, tenantBehaviorAttributes())
 
 	return schema.Schema{
 		MarkdownDescription: "A Cozystack tenant: an isolated namespace under a parent tenant " +
@@ -250,6 +321,23 @@ func tenantSpecAttributes() map[string]schema.Attribute {
 			ElementType:         types.StringType,
 			Default:             mapdefault.StaticValue(types.MapValueMust(types.StringType, map[string]attr.Value{})),
 			MarkdownDescription: "Resource quotas for the tenant, as quantity strings (for example `{cpu = \"4\"}`).",
+		},
+	}
+}
+
+func tenantBehaviorAttributes() map[string]schema.Attribute {
+	return map[string]schema.Attribute{
+		"wait_for_ready": schema.BoolAttribute{
+			Optional:            true,
+			Computed:            true,
+			Default:             booldefault.StaticBool(false),
+			MarkdownDescription: "Block on create/update until the tenant's `Ready` condition is true.",
+		},
+		"wait_timeout": schema.StringAttribute{
+			Optional:            true,
+			Computed:            true,
+			Default:             stringdefault.StaticString("10m"),
+			MarkdownDescription: "Maximum time to wait when `wait_for_ready` is set (Go duration, e.g. `10m`).",
 		},
 	}
 }
