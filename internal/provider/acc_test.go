@@ -533,6 +533,54 @@ resource "cozystack_rabbitmq" "test" {
 	})
 }
 
+func TestAccMariadbResource(t *testing.T) {
+	base := `
+resource "cozystack_mariadb" "test" {
+  name      = "tfaccmaria"
+  namespace = "tenant-root"
+  replicas  = 1
+  users     = { app = { password = "pw-123" } }
+  databases = { appdb = { roles = { admin = ["app"] } } }
+}
+`
+	updated := `
+resource "cozystack_mariadb" "test" {
+  name      = "tfaccmaria"
+  namespace = "tenant-root"
+  replicas  = 1
+  users     = { app = { password = "pw-123" }, ro = { password = "pw-456" } }
+  databases = { appdb = { roles = { admin = ["app"], readonly = ["ro"] } } }
+}
+`
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             checkApplicationDestroy(client.MariaDBResource(), "cozystack_mariadb"),
+		Steps: []resource.TestStep{
+			{
+				Config: base,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("cozystack_mariadb.test", "id", "tenant-root/tfaccmaria"),
+					resource.TestCheckResourceAttr("cozystack_mariadb.test", "users.app.password", "pw-123"),
+					resource.TestCheckResourceAttr("cozystack_mariadb.test", "databases.appdb.roles.admin.0", "app"),
+				),
+			},
+			{
+				ResourceName:            "cozystack_mariadb.test",
+				ImportState:             true,
+				ImportStateId:           "tenant-root/tfaccmaria",
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"wait_for_ready", "wait_timeout", "ready", "chart_version"},
+			},
+			{
+				Config: updated,
+				Check:  resource.TestCheckResourceAttr("cozystack_mariadb.test", "databases.appdb.roles.readonly.0", "ro"),
+			},
+		},
+	})
+}
+
 func TestAccBucketDataSource(t *testing.T) {
 	config := testAccBucketConfigOneUser("tfaccbucketds") + `
 data "cozystack_bucket" "test" {

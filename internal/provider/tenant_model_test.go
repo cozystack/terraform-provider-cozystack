@@ -205,6 +205,31 @@ func TestExpandKeysMatchConfigSpec(t *testing.T) {
 	}
 }
 
+// assertSpecCoverage checks that every emitted spec key is a valid ConfigSpec
+// json tag, and that every tag except the intentionally-omitted ones is emitted.
+func assertSpecCoverage(t *testing.T, emitted map[string]bool, spec any, omit ...string) {
+	t.Helper()
+
+	omitted := make(map[string]bool, len(omit))
+	for _, key := range omit {
+		omitted[key] = true
+	}
+
+	tags := configSpecJSONTags(spec)
+
+	for key := range emitted {
+		if !tags[key] {
+			t.Errorf("expand emits %q, which is not a ConfigSpec json tag", key)
+		}
+	}
+
+	for tag := range tags {
+		if !emitted[tag] && !omitted[tag] {
+			t.Errorf("ConfigSpec has %q but expand does not emit it", tag)
+		}
+	}
+}
+
 func configSpecJSONTags(spec any) map[string]bool {
 	tags := map[string]bool{}
 
