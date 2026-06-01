@@ -912,3 +912,35 @@ resource "cozystack_kafka" "test" {
 		},
 	})
 }
+
+func TestAccFoundationDBResource(t *testing.T) {
+	config := `
+resource "cozystack_foundationdb" "test" {
+  name      = "tfaccfdb"
+  namespace = "tenant-root"
+  storage   = { size = "1Gi" }
+}
+`
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             checkApplicationDestroy(client.FoundationDBResource(), "cozystack_foundationdb"),
+		Steps: []resource.TestStep{
+			{
+				Config: config,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("cozystack_foundationdb.test", "id", "tenant-root/tfaccfdb"),
+					resource.TestCheckResourceAttr("cozystack_foundationdb.test", "storage.size", "1Gi"),
+					resource.TestCheckResourceAttr("cozystack_foundationdb.test", "image_type", "unified"),
+				),
+			},
+			{
+				ResourceName:            "cozystack_foundationdb.test",
+				ImportState:             true,
+				ImportStateId:           "tenant-root/tfaccfdb",
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"wait_for_ready", "wait_timeout", "ready", "chart_version"},
+			},
+		},
+	})
+}
