@@ -405,6 +405,45 @@ func TestAccBucketResource(t *testing.T) {
 	})
 }
 
+func testAccOpenbaoConfig(name string, ui bool) string {
+	return fmt.Sprintf(`
+resource "cozystack_openbao" "test" {
+  name      = %[1]q
+  namespace = "tenant-root"
+  ui        = %[2]t
+}
+`, name, ui)
+}
+
+func TestAccOpenbaoResource(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             checkApplicationDestroy(client.OpenBaoResource(), "cozystack_openbao"),
+		Steps: []resource.TestStep{
+			{
+				Config: testAccOpenbaoConfig("tfaccvault", true),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("cozystack_openbao.test", "name", "tfaccvault"),
+					resource.TestCheckResourceAttr("cozystack_openbao.test", "ui", "true"),
+					resource.TestCheckResourceAttr("cozystack_openbao.test", "id", "tenant-root/tfaccvault"),
+				),
+			},
+			{
+				ResourceName:            "cozystack_openbao.test",
+				ImportState:             true,
+				ImportStateId:           "tenant-root/tfaccvault",
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"wait_for_ready", "wait_timeout", "ready", "chart_version"},
+			},
+			{
+				Config: testAccOpenbaoConfig("tfaccvault", false),
+				Check:  resource.TestCheckResourceAttr("cozystack_openbao.test", "ui", "false"),
+			},
+		},
+	})
+}
+
 func TestAccBucketDataSource(t *testing.T) {
 	config := testAccBucketConfigOneUser("tfaccbucketds") + `
 data "cozystack_bucket" "test" {

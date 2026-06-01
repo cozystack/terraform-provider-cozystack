@@ -12,6 +12,7 @@ Every kind is served by the same aggregated API, so the provider is built to gro
 | Managed Redis | [`cozystack_redis`](docs/resources/redis.md) | [`cozystack_redis`](docs/data-sources/redis.md) |
 | Managed Qdrant (vector database) | [`cozystack_qdrant`](docs/resources/qdrant.md) | [`cozystack_qdrant`](docs/data-sources/qdrant.md) |
 | S3-compatible bucket | [`cozystack_bucket`](docs/resources/bucket.md) | [`cozystack_bucket`](docs/data-sources/bucket.md) |
+| Managed OpenBAO (Vault-compatible) | [`cozystack_openbao`](docs/resources/openbao.md) | [`cozystack_openbao`](docs/data-sources/openbao.md) |
 
 More kinds (PostgreSQL, managed Kubernetes, virtual machines, …) follow the same pattern.
 

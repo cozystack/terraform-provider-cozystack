@@ -156,6 +156,7 @@ func (p *CozystackProvider) Resources(_ context.Context) []func() resource.Resou
 		NewRedisResource,
 		NewQdrantResource,
 		NewBucketResource,
+		newAppResource[openbaoResourceModel, *openbaoResourceModel](client.OpenBaoResource(), "openbao", openbaoSchema),
 	}
 }
 
@@ -166,6 +167,7 @@ func (p *CozystackProvider) DataSources(_ context.Context) []func() datasource.D
 		NewRedisDataSource,
 		NewQdrantDataSource,
 		NewBucketDataSource,
+		newAppDataSource[openbaoModel, *openbaoModel](client.OpenBaoResource(), "openbao", openbaoDataSourceSchema),
 	}
 }
 
