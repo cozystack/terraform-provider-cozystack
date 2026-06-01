@@ -77,6 +77,8 @@ linters:
         - c
         - m
         - n
+        - v
+        - pm
         - tt
         - rw
   exclusions:

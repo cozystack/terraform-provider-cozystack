@@ -5,6 +5,7 @@ go 1.26.3
 require (
 	github.com/cozystack/cozystack/api/apps/v1alpha1 v1.4.2
 	github.com/hashicorp/terraform-plugin-framework v1.19.0
+	github.com/hashicorp/terraform-plugin-framework-validators v0.19.0
 	github.com/hashicorp/terraform-plugin-go v0.31.0
 	github.com/hashicorp/terraform-plugin-testing v1.16.0
 	k8s.io/apimachinery v0.36.0

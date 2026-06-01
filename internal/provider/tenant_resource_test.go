@@ -95,7 +95,7 @@ func TestParseTenantImportID(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			namespace, name, ok := parseTenantImportID(tc.id)
+			namespace, name, ok := parseImportID(tc.id)
 			if ok != tc.ok {
 				t.Fatalf("ok = %v, want %v", ok, tc.ok)
 			}

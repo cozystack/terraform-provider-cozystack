@@ -190,7 +190,7 @@ func TestExpandKeysMatchConfigSpec(t *testing.T) {
 		emitted[key] = true
 	}
 
-	tags := configSpecJSONTags()
+	tags := configSpecJSONTags(tenant.ConfigSpec{})
 
 	for key := range emitted {
 		if !tags[key] {
@@ -205,10 +205,10 @@ func TestExpandKeysMatchConfigSpec(t *testing.T) {
 	}
 }
 
-func configSpecJSONTags() map[string]bool {
+func configSpecJSONTags(spec any) map[string]bool {
 	tags := map[string]bool{}
 
-	typ := reflect.TypeOf(tenant.ConfigSpec{})
+	typ := reflect.TypeOf(spec)
 	for i := range typ.NumField() {
 		name := strings.Split(typ.Field(i).Tag.Get("json"), ",")[0]
 		if name != "" && name != "-" {

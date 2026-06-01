@@ -48,9 +48,9 @@ func (d *tenantDataSource) Schema(
 	resp.Schema = schema.Schema{
 		MarkdownDescription: "Read an existing Cozystack tenant by name and parent namespace.",
 		Attributes: map[string]schema.Attribute{
-			"id":               schema.StringAttribute{Computed: true, MarkdownDescription: "Synthetic identifier `namespace/name`."},
-			"name":             schema.StringAttribute{Required: true, MarkdownDescription: "Tenant name (`metadata.name`)."},
-			"namespace":        schema.StringAttribute{Required: true, MarkdownDescription: "Parent tenant namespace."},
+			attrID:             schema.StringAttribute{Computed: true, MarkdownDescription: "Synthetic identifier `namespace/name`."},
+			attrName:           schema.StringAttribute{Required: true, MarkdownDescription: "Tenant name (`metadata.name`)."},
+			attrNamespace:      schema.StringAttribute{Required: true, MarkdownDescription: "Parent tenant namespace."},
 			attrHost:           schema.StringAttribute{Computed: true, MarkdownDescription: "Hostname used to access tenant services."},
 			attrEtcd:           schema.BoolAttribute{Computed: true, MarkdownDescription: "Whether a dedicated etcd cluster is deployed."},
 			attrMonitoring:     schema.BoolAttribute{Computed: true, MarkdownDescription: "Whether a dedicated monitoring stack is deployed."},
@@ -63,7 +63,7 @@ func (d *tenantDataSource) Schema(
 				MarkdownDescription: "Resource quotas for the tenant, as quantity strings.",
 			},
 			"status_namespace": schema.StringAttribute{Computed: true, MarkdownDescription: "Namespace created for the tenant."},
-			"ready":            schema.BoolAttribute{Computed: true, MarkdownDescription: "Whether the tenant's `Ready` condition is true."},
+			attrReady:          schema.BoolAttribute{Computed: true, MarkdownDescription: "Whether the tenant's `Ready` condition is true."},
 			"version":          schema.StringAttribute{Computed: true, MarkdownDescription: "Deployed chart version."},
 		},
 	}
@@ -74,21 +74,5 @@ func (d *tenantDataSource) Read(
 	req datasource.ReadRequest,
 	resp *datasource.ReadResponse,
 ) {
-	var model tenantModel
-
-	resp.Diagnostics.Append(req.Config.Get(ctx, &model)...)
-
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
-	got, err := d.client.Get(ctx, client.TenantResource(), model.Namespace.ValueString(), model.Name.ValueString())
-	if err != nil {
-		resp.Diagnostics.AddError("Unable to read tenant", err.Error())
-
-		return
-	}
-
-	resp.Diagnostics.Append(model.flatten(&got)...)
-	resp.Diagnostics.Append(resp.State.Set(ctx, &model)...)
+	readDataSource[tenantModel](ctx, d.client, client.TenantResource(), req.Config, &resp.State, &resp.Diagnostics)
 }

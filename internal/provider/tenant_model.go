@@ -39,6 +39,11 @@ type tenantModel struct {
 	Version         types.String `tfsdk:"version"`
 }
 
+// identity returns the tenant's namespace and name.
+func (m *tenantModel) identity() (string, string) {
+	return m.Namespace.ValueString(), m.Name.ValueString()
+}
+
 // expand converts the Terraform model into a client.Application ready to send.
 func (m *tenantModel) expand(ctx context.Context) (*client.Application, diag.Diagnostics) {
 	var diags diag.Diagnostics
@@ -135,29 +140,4 @@ func quantityToString(value any) string {
 	}
 
 	return fmt.Sprintf("%v", value)
-}
-
-func specString(spec map[string]any, key string) string {
-	if v, ok := spec[key].(string); ok {
-		return v
-	}
-
-	return ""
-}
-
-func specBool(spec map[string]any, key string) bool {
-	if v, ok := spec[key].(bool); ok {
-		return v
-	}
-
-	return false
-}
-
-// rawStatusString reads a string field from an application's raw status object.
-func rawStatusString(raw map[string]any, key string) string {
-	if v, ok := raw[key].(string); ok {
-		return v
-	}
-
-	return ""
 }

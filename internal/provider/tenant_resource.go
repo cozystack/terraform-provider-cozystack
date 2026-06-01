@@ -2,13 +2,9 @@ package provider
 
 import (
 	"context"
-	"fmt"
 	"maps"
-	"strings"
-	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
-	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -17,7 +13,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
-	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/lexfrei/terraform-provider-cozystack/internal/client"
 )
@@ -27,9 +22,6 @@ var (
 	_ resource.ResourceWithConfigure   = (*tenantResource)(nil)
 	_ resource.ResourceWithImportState = (*tenantResource)(nil)
 )
-
-// defaultWaitTimeout bounds how long Create/Update block on readiness.
-const defaultWaitTimeout = 10 * time.Minute
 
 // tenantResource implements the cozystack_tenant managed resource.
 type tenantResource struct {
@@ -43,6 +35,11 @@ type tenantResourceModel struct {
 
 	WaitForReady types.Bool   `tfsdk:"wait_for_ready"`
 	WaitTimeout  types.String `tfsdk:"wait_timeout"`
+}
+
+// waitConfig exposes the wait-for-ready settings to the shared CRUD helpers.
+func (m *tenantResourceModel) waitConfig() (types.Bool, types.String) {
+	return m.WaitForReady, m.WaitTimeout
 }
 
 // NewTenantResource is the resource factory registered with the provider.
@@ -79,11 +76,9 @@ func (r *tenantResource) Create(
 	req resource.CreateRequest,
 	resp *resource.CreateResponse,
 ) {
-	persist := func(ctx context.Context, app *client.Application) (client.Application, error) {
-		return r.client.Create(ctx, client.TenantResource(), app)
-	}
-
-	r.applyPlan(ctx, req.Plan, &resp.State, &resp.Diagnostics, "create", persist)
+	createOrUpdate[tenantResourceModel](
+		ctx, r.client, client.TenantResource(), true, req.Plan, &resp.State, &resp.Diagnostics,
+	)
 }
 
 func (r *tenantResource) Update(
@@ -91,152 +86,25 @@ func (r *tenantResource) Update(
 	req resource.UpdateRequest,
 	resp *resource.UpdateResponse,
 ) {
-	persist := func(ctx context.Context, app *client.Application) (client.Application, error) {
-		return r.client.Update(ctx, client.TenantResource(), app)
-	}
-
-	r.applyPlan(ctx, req.Plan, &resp.State, &resp.Diagnostics, "update", persist)
-}
-
-// applyPlan expands the planned model, persists it through persist, and writes
-// the server view back to state. It is shared by Create and Update.
-func (r *tenantResource) applyPlan(
-	ctx context.Context,
-	plan tfsdk.Plan,
-	state *tfsdk.State,
-	diags *diag.Diagnostics,
-	action string,
-	persist func(context.Context, *client.Application) (client.Application, error),
-) {
-	var model tenantResourceModel
-
-	diags.Append(plan.Get(ctx, &model)...)
-
-	if diags.HasError() {
-		return
-	}
-
-	tenant, expandDiags := model.expand(ctx)
-	diags.Append(expandDiags...)
-
-	if diags.HasError() {
-		return
-	}
-
-	result, err := persist(ctx, tenant)
-	if err != nil {
-		diags.AddError("Unable to "+action+" tenant", err.Error())
-
-		return
-	}
-
-	if model.WaitForReady.ValueBool() {
-		ready, waitDiags := r.waitForReady(ctx, &result, model.WaitTimeout)
-		diags.Append(waitDiags...)
-
-		if diags.HasError() {
-			return
-		}
-
-		result = ready
-	}
-
-	diags.Append(model.flatten(&result)...)
-	diags.Append(state.Set(ctx, &model)...)
-}
-
-// waitForReady blocks until the tenant reports a Ready condition or the
-// configured timeout elapses.
-func (r *tenantResource) waitForReady(
-	ctx context.Context,
-	tenant *client.Application,
-	timeout types.String,
-) (client.Application, diag.Diagnostics) {
-	var diags diag.Diagnostics
-
-	duration, parseDiags := parseWaitTimeout(timeout)
-	diags.Append(parseDiags...)
-
-	if diags.HasError() {
-		return client.Application{}, diags
-	}
-
-	ready, err := r.client.WaitForReady(ctx, client.TenantResource(), tenant.Namespace, tenant.Name, duration)
-	if err != nil {
-		diags.AddError("Timed out waiting for tenant to become ready", err.Error())
-
-		return client.Application{}, diags
-	}
-
-	return ready, diags
-}
-
-// parseWaitTimeout parses the wait_timeout attribute as a Go duration.
-func parseWaitTimeout(value types.String) (time.Duration, diag.Diagnostics) {
-	var diags diag.Diagnostics
-
-	raw := value.ValueString()
-	if raw == "" {
-		return defaultWaitTimeout, diags
-	}
-
-	duration, err := time.ParseDuration(raw)
-	if err != nil {
-		diags.AddError("Invalid wait_timeout", fmt.Sprintf("%q is not a valid Go duration: %s", raw, err))
-
-		return 0, diags
-	}
-
-	return duration, diags
+	createOrUpdate[tenantResourceModel](
+		ctx, r.client, client.TenantResource(), false, req.Plan, &resp.State, &resp.Diagnostics,
+	)
 }
 
 func (r *tenantResource) Read(
 	ctx context.Context,
-	req resource.ReadRequest,
+	_ resource.ReadRequest,
 	resp *resource.ReadResponse,
 ) {
-	var model tenantResourceModel
-
-	resp.Diagnostics.Append(req.State.Get(ctx, &model)...)
-
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
-	got, err := r.client.Get(ctx, client.TenantResource(), model.Namespace.ValueString(), model.Name.ValueString())
-	if err != nil {
-		if client.IsNotFound(err) {
-			resp.State.RemoveResource(ctx)
-
-			return
-		}
-
-		resp.Diagnostics.AddError("Unable to read tenant", err.Error())
-
-		return
-	}
-
-	resp.Diagnostics.Append(model.flatten(&got)...)
-	resp.Diagnostics.Append(resp.State.Set(ctx, &model)...)
+	readResource[tenantResourceModel](ctx, r.client, client.TenantResource(), &resp.State, &resp.Diagnostics)
 }
 
 func (r *tenantResource) Delete(
 	ctx context.Context,
-	req resource.DeleteRequest,
+	_ resource.DeleteRequest,
 	resp *resource.DeleteResponse,
 ) {
-	var model tenantResourceModel
-
-	resp.Diagnostics.Append(req.State.Get(ctx, &model)...)
-
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
-	err := r.client.Delete(ctx, client.TenantResource(), model.Namespace.ValueString(), model.Name.ValueString())
-	if err != nil {
-		resp.Diagnostics.AddError("Unable to delete tenant", err.Error())
-	}
+	deleteResource[tenantResourceModel](ctx, r.client, client.TenantResource(), &resp.State, &resp.Diagnostics)
 }
 
 func (r *tenantResource) ImportState(
@@ -244,7 +112,7 @@ func (r *tenantResource) ImportState(
 	req resource.ImportStateRequest,
 	resp *resource.ImportStateResponse,
 ) {
-	namespace, name, ok := parseTenantImportID(req.ID)
+	namespace, name, ok := parseImportID(req.ID)
 	if !ok {
 		resp.Diagnostics.AddError(
 			"Invalid import ID",
@@ -254,19 +122,8 @@ func (r *tenantResource) ImportState(
 		return
 	}
 
-	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("namespace"), namespace)...)
-	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("name"), name)...)
-}
-
-// parseTenantImportID splits a "namespace/name" import identifier, reporting
-// false when it is malformed.
-func parseTenantImportID(id string) (string, string, bool) {
-	parts := strings.SplitN(id, "/", 2)
-	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
-		return "", "", false
-	}
-
-	return parts[0], parts[1], true
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root(attrNamespace), namespace)...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root(attrName), name)...)
 }
 
 // tenantSchema returns the cozystack_tenant resource schema.
@@ -275,7 +132,7 @@ func tenantSchema() schema.Schema {
 	maps.Copy(attributes, tenantIdentityAttributes())
 	maps.Copy(attributes, tenantSpecAttributes())
 	maps.Copy(attributes, tenantStatusAttributes())
-	maps.Copy(attributes, tenantBehaviorAttributes())
+	maps.Copy(attributes, waitBehaviorAttributes())
 
 	return schema.Schema{
 		MarkdownDescription: "A Cozystack tenant: an isolated namespace under a parent tenant " +
@@ -286,17 +143,17 @@ func tenantSchema() schema.Schema {
 
 func tenantIdentityAttributes() map[string]schema.Attribute {
 	return map[string]schema.Attribute{
-		"id": schema.StringAttribute{
+		attrID: schema.StringAttribute{
 			Computed:            true,
 			MarkdownDescription: "Synthetic identifier in the form `namespace/name`.",
 			PlanModifiers:       []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 		},
-		"name": schema.StringAttribute{
+		attrName: schema.StringAttribute{
 			Required:            true,
 			MarkdownDescription: "Tenant name (`metadata.name`). Immutable.",
 			PlanModifiers:       []planmodifier.String{stringplanmodifier.RequiresReplace()},
 		},
-		"namespace": schema.StringAttribute{
+		attrNamespace: schema.StringAttribute{
 			Required: true,
 			MarkdownDescription: "Parent tenant namespace the tenant is created in " +
 				"(the cluster root is `tenant-root`). Immutable.",
@@ -333,7 +190,9 @@ func tenantSpecAttributes() map[string]schema.Attribute {
 	}
 }
 
-func tenantBehaviorAttributes() map[string]schema.Attribute {
+// waitBehaviorAttributes returns the optional create/update wait attributes
+// shared by every resource kind.
+func waitBehaviorAttributes() map[string]schema.Attribute {
 	return map[string]schema.Attribute{
 		"wait_for_ready": schema.BoolAttribute{
 			Optional:            true,
@@ -356,7 +215,7 @@ func tenantStatusAttributes() map[string]schema.Attribute {
 			Computed:            true,
 			MarkdownDescription: "Namespace created for the tenant (`status.namespace`).",
 		},
-		"ready": schema.BoolAttribute{
+		attrReady: schema.BoolAttribute{
 			Computed:            true,
 			MarkdownDescription: "Whether the tenant's `Ready` condition is true.",
 		},

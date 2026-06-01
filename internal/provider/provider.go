@@ -153,6 +153,7 @@ func (m *providerModel) connectionConfig() client.Config {
 func (p *CozystackProvider) Resources(_ context.Context) []func() resource.Resource {
 	return []func() resource.Resource{
 		NewTenantResource,
+		NewRedisResource,
 	}
 }
 
@@ -160,6 +161,7 @@ func (p *CozystackProvider) Resources(_ context.Context) []func() resource.Resou
 func (p *CozystackProvider) DataSources(_ context.Context) []func() datasource.DataSource {
 	return []func() datasource.DataSource{
 		NewTenantDataSource,
+		NewRedisDataSource,
 	}
 }
 
