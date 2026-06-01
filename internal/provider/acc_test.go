@@ -746,3 +746,36 @@ resource "cozystack_httpcache" "test" {
 		},
 	})
 }
+
+func TestAccTCPBalancerResource(t *testing.T) {
+	config := `
+resource "cozystack_tcpbalancer" "test" {
+  name           = "tfacclb"
+  namespace      = "tenant-root"
+  replicas       = 1
+  whitelist_http = true
+  whitelist      = ["192.0.2.0/24"]
+}
+`
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             checkApplicationDestroy(client.TCPBalancerResource(), "cozystack_tcpbalancer"),
+		Steps: []resource.TestStep{
+			{
+				Config: config,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("cozystack_tcpbalancer.test", "id", "tenant-root/tfacclb"),
+					resource.TestCheckResourceAttr("cozystack_tcpbalancer.test", "whitelist.0", "192.0.2.0/24"),
+				),
+			},
+			{
+				ResourceName:            "cozystack_tcpbalancer.test",
+				ImportState:             true,
+				ImportStateId:           "tenant-root/tfacclb",
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"wait_for_ready", "wait_timeout", "ready", "chart_version"},
+			},
+		},
+	})
+}

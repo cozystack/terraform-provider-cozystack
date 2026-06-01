@@ -22,6 +22,7 @@ Every kind is served by the same aggregated API, so the provider is built to gro
 | Managed OpenSearch | [`cozystack_opensearch`](docs/resources/opensearch.md) | [`cozystack_opensearch`](docs/data-sources/opensearch.md) |
 | Managed PostgreSQL | [`cozystack_postgres`](docs/resources/postgres.md) | [`cozystack_postgres`](docs/data-sources/postgres.md) |
 | HTTP cache | [`cozystack_httpcache`](docs/resources/httpcache.md) | [`cozystack_httpcache`](docs/data-sources/httpcache.md) |
+| TCP load balancer | [`cozystack_tcpbalancer`](docs/resources/tcpbalancer.md) | [`cozystack_tcpbalancer`](docs/data-sources/tcpbalancer.md) |
 
 More kinds (managed Kubernetes, virtual machines, …) follow the same pattern.
 

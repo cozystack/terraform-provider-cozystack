@@ -166,6 +166,7 @@ func (p *CozystackProvider) Resources(_ context.Context) []func() resource.Resou
 		newAppResource[opensearchResourceModel, *opensearchResourceModel](client.OpenSearchResource(), "opensearch", opensearchSchema),
 		newAppResource[postgresqlResourceModel, *postgresqlResourceModel](client.PostgresResource(), "postgres", postgresSchema),
 		newAppResource[httpcacheResourceModel, *httpcacheResourceModel](client.HTTPCacheResource(), "httpcache", httpcacheSchema),
+		newAppResource[tcpbalancerResourceModel, *tcpbalancerResourceModel](client.TCPBalancerResource(), "tcpbalancer", tcpbalancerSchema),
 	}
 }
 
@@ -186,6 +187,7 @@ func (p *CozystackProvider) DataSources(_ context.Context) []func() datasource.D
 		newAppDataSource[opensearchModel, *opensearchModel](client.OpenSearchResource(), "opensearch", opensearchDataSourceSchema),
 		newAppDataSource[postgresqlModel, *postgresqlModel](client.PostgresResource(), "postgres", postgresDataSourceSchema),
 		newAppDataSource[httpcacheModel, *httpcacheModel](client.HTTPCacheResource(), "httpcache", httpcacheDataSourceSchema),
+		newAppDataSource[tcpbalancerModel, *tcpbalancerModel](client.TCPBalancerResource(), "tcpbalancer", tcpbalancerDataSourceSchema),
 	}
 }
 
