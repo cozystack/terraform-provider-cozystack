@@ -39,8 +39,10 @@ type Application struct {
 	Name            string
 	Namespace       string
 	ResourceVersion string
-	Spec            map[string]any
-	Status          ApplicationStatus
+	// Deleting is true when the object has a deletion timestamp (terminating).
+	Deleting bool
+	Spec     map[string]any
+	Status   ApplicationStatus
 }
 
 // ApplicationStatus carries the computed status surfaced to Terraform. Raw holds
@@ -173,6 +175,7 @@ func fromUnstructured(obj *unstructured.Unstructured) Application {
 		Name:            obj.GetName(),
 		Namespace:       obj.GetNamespace(),
 		ResourceVersion: obj.GetResourceVersion(),
+		Deleting:        obj.GetDeletionTimestamp() != nil,
 		Status:          extractStatus(obj),
 	}
 

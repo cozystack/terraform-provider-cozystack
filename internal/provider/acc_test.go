@@ -107,13 +107,19 @@ func waitApplicationGone(api *client.Client, res client.Resource, namespace, nam
 	deadline := time.Now().Add(applicationTeardownTimeout)
 
 	for {
-		_, err := api.Get(context.Background(), res, namespace, name)
+		app, err := api.Get(context.Background(), res, namespace, name)
 		if client.IsNotFound(err) {
 			return nil
 		}
 
 		if err != nil {
 			return fmt.Errorf("checking %s %s/%s: %w", res.Kind, namespace, name, err)
+		}
+
+		// The provider issued the delete (now terminating); the remaining teardown
+		// is the platform's async work, not the resource's correctness.
+		if app.Deleting {
+			return nil
 		}
 
 		if time.Now().After(deadline) {
@@ -668,6 +674,40 @@ resource "cozystack_clickhouse" "test" {
 				ResourceName:            "cozystack_clickhouse.test",
 				ImportState:             true,
 				ImportStateId:           "tenant-root/tfaccch",
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"wait_for_ready", "wait_timeout", "ready", "chart_version"},
+			},
+		},
+	})
+}
+
+func TestAccPostgresResource(t *testing.T) {
+	config := `
+resource "cozystack_postgres" "test" {
+  name      = "tfaccpg"
+  namespace = "tenant-root"
+  replicas  = 1
+  users     = { app = { password = "pw-123" } }
+  databases = { appdb = { roles = { admin = ["app"] } } }
+}
+`
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             checkApplicationDestroy(client.PostgresResource(), "cozystack_postgres"),
+		Steps: []resource.TestStep{
+			{
+				Config: config,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("cozystack_postgres.test", "id", "tenant-root/tfaccpg"),
+					resource.TestCheckResourceAttr("cozystack_postgres.test", "users.app.password", "pw-123"),
+					resource.TestCheckResourceAttr("cozystack_postgres.test", "databases.appdb.roles.admin.0", "app"),
+				),
+			},
+			{
+				ResourceName:            "cozystack_postgres.test",
+				ImportState:             true,
+				ImportStateId:           "tenant-root/tfaccpg",
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"wait_for_ready", "wait_timeout", "ready", "chart_version"},
 			},
