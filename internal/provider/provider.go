@@ -155,6 +155,7 @@ func (p *CozystackProvider) Resources(_ context.Context) []func() resource.Resou
 		NewTenantResource,
 		NewRedisResource,
 		NewQdrantResource,
+		NewBucketResource,
 	}
 }
 
@@ -164,6 +165,7 @@ func (p *CozystackProvider) DataSources(_ context.Context) []func() datasource.D
 		NewTenantDataSource,
 		NewRedisDataSource,
 		NewQdrantDataSource,
+		NewBucketDataSource,
 	}
 }
 

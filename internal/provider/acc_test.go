@@ -348,3 +348,86 @@ data "cozystack_qdrant" "test" {
 		},
 	})
 }
+
+func testAccBucketConfigOneUser(name string) string {
+	return fmt.Sprintf(`
+resource "cozystack_bucket" "test" {
+  name      = %[1]q
+  namespace = "tenant-root"
+  users = {
+    reader = { readonly = true }
+  }
+}
+`, name)
+}
+
+func testAccBucketConfigTwoUsers(name string) string {
+	return fmt.Sprintf(`
+resource "cozystack_bucket" "test" {
+  name      = %[1]q
+  namespace = "tenant-root"
+  users = {
+    reader = { readonly = true }
+    writer = { readonly = false }
+  }
+}
+`, name)
+}
+
+func TestAccBucketResource(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             checkApplicationDestroy(client.BucketResource(), "cozystack_bucket"),
+		Steps: []resource.TestStep{
+			{
+				Config: testAccBucketConfigOneUser("tfaccbucket"),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("cozystack_bucket.test", "name", "tfaccbucket"),
+					resource.TestCheckResourceAttr("cozystack_bucket.test", "id", "tenant-root/tfaccbucket"),
+					resource.TestCheckResourceAttr("cozystack_bucket.test", "users.reader.readonly", "true"),
+				),
+			},
+			{
+				ResourceName:            "cozystack_bucket.test",
+				ImportState:             true,
+				ImportStateId:           "tenant-root/tfaccbucket",
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"wait_for_ready", "wait_timeout", "ready", "chart_version"},
+			},
+			{
+				Config: testAccBucketConfigTwoUsers("tfaccbucket"),
+				Check: resource.TestCheckResourceAttr(
+					"cozystack_bucket.test", "users.writer.readonly", "false",
+				),
+			},
+		},
+	})
+}
+
+func TestAccBucketDataSource(t *testing.T) {
+	config := testAccBucketConfigOneUser("tfaccbucketds") + `
+data "cozystack_bucket" "test" {
+  name      = cozystack_bucket.test.name
+  namespace = cozystack_bucket.test.namespace
+}
+`
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             checkApplicationDestroy(client.BucketResource(), "cozystack_bucket"),
+		Steps: []resource.TestStep{
+			{
+				Config: config,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttrPair(
+						"data.cozystack_bucket.test", "name",
+						"cozystack_bucket.test", "name",
+					),
+					resource.TestCheckResourceAttr("data.cozystack_bucket.test", "users.reader.readonly", "true"),
+				),
+			},
+		},
+	})
+}
