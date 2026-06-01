@@ -18,7 +18,9 @@ linters:
       threshold: 100
     goconst:
       min-len: 2
-      min-occurrences: 2
+      # goconst's own default; 2 over-couples coincidentally-equal short strings
+      # (e.g. the provider's kube "host" vs a tenant spec "host" key).
+      min-occurrences: 3
       ignore-tests: true
     gocritic:
       disabled-checks:
