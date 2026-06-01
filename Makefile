@@ -25,7 +25,8 @@ test-cover: ## Run unit tests with a coverage profile (coverage.out)
 	go test -race -coverprofile=coverage.out ./...
 
 testacc: ## Run acceptance tests (needs a live Cozystack cluster via KUBECONFIG/KUBE_CTX)
-	TF_ACC=1 go test -race -timeout 30m ./internal/provider/...
+	TF_ACC=1 TF_ACC_TERRAFORM_PATH=$${TF_ACC_TERRAFORM_PATH:-$$(command -v tofu || command -v terraform)} \
+		go test -race -timeout 30m ./internal/provider/...
 
 ##@ Linting & formatting
 

@@ -116,6 +116,8 @@ linters:
           # Inline error checks and ad-hoc errors are the idiomatic test style.
           - noinlineerr
           - err113
+          # Acceptance tests share provider factories via package-level vars.
+          - gochecknoglobals
         path: _test\.go
       - linters:
           - forbidigo
