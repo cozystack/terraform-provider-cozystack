@@ -9,29 +9,29 @@ import (
 )
 
 var (
-	_ datasource.DataSource              = (*redisDataSource)(nil)
-	_ datasource.DataSourceWithConfigure = (*redisDataSource)(nil)
+	_ datasource.DataSource              = (*qdrantDataSource)(nil)
+	_ datasource.DataSourceWithConfigure = (*qdrantDataSource)(nil)
 )
 
-// redisDataSource implements the cozystack_redis data source.
-type redisDataSource struct {
+// qdrantDataSource implements the cozystack_qdrant data source.
+type qdrantDataSource struct {
 	client *client.Client
 }
 
-// NewRedisDataSource is the data source factory registered with the provider.
-func NewRedisDataSource() datasource.DataSource {
-	return &redisDataSource{}
+// NewQdrantDataSource is the data source factory registered with the provider.
+func NewQdrantDataSource() datasource.DataSource {
+	return &qdrantDataSource{}
 }
 
-func (d *redisDataSource) Metadata(
+func (d *qdrantDataSource) Metadata(
 	_ context.Context,
 	req datasource.MetadataRequest,
 	resp *datasource.MetadataResponse,
 ) {
-	resp.TypeName = req.ProviderTypeName + "_redis"
+	resp.TypeName = req.ProviderTypeName + "_qdrant"
 }
 
-func (d *redisDataSource) Configure(
+func (d *qdrantDataSource) Configure(
 	_ context.Context,
 	req datasource.ConfigureRequest,
 	resp *datasource.ConfigureResponse,
@@ -39,23 +39,21 @@ func (d *redisDataSource) Configure(
 	d.client = providerClient(req.ProviderData, &resp.Diagnostics)
 }
 
-func (d *redisDataSource) Schema(
+func (d *qdrantDataSource) Schema(
 	_ context.Context,
 	_ datasource.SchemaRequest,
 	resp *datasource.SchemaResponse,
 ) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "Read an existing Cozystack Redis instance by name and namespace.",
+		MarkdownDescription: "Read an existing Cozystack Qdrant instance by name and namespace.",
 		Attributes: map[string]schema.Attribute{
 			attrID:              schema.StringAttribute{Computed: true, MarkdownDescription: "Synthetic identifier `namespace/name`."},
-			attrName:            schema.StringAttribute{Required: true, MarkdownDescription: "Redis instance name."},
+			attrName:            schema.StringAttribute{Required: true, MarkdownDescription: "Qdrant instance name."},
 			attrNamespace:       schema.StringAttribute{Required: true, MarkdownDescription: "Tenant namespace."},
-			attrReplicas:        schema.Int64Attribute{Computed: true, MarkdownDescription: "Number of Redis replicas."},
+			attrReplicas:        schema.Int64Attribute{Computed: true, MarkdownDescription: "Number of Qdrant replicas."},
 			attrSize:            schema.StringAttribute{Computed: true, MarkdownDescription: "Persistent volume size."},
 			attrStorageClass:    schema.StringAttribute{Computed: true, MarkdownDescription: "StorageClass used to store the data."},
 			attrExternal:        schema.BoolAttribute{Computed: true, MarkdownDescription: "Whether external access is enabled."},
-			attrVersion:         schema.StringAttribute{Computed: true, MarkdownDescription: "Redis major version."},
-			attrAuthEnabled:     schema.BoolAttribute{Computed: true, MarkdownDescription: "Whether authentication is enabled."},
 			attrResourcesPreset: schema.StringAttribute{Computed: true, MarkdownDescription: "Sizing preset."},
 			attrResources: schema.SingleNestedAttribute{
 				Computed:            true,
@@ -71,10 +69,10 @@ func (d *redisDataSource) Schema(
 	}
 }
 
-func (d *redisDataSource) Read(
+func (d *qdrantDataSource) Read(
 	ctx context.Context,
 	req datasource.ReadRequest,
 	resp *datasource.ReadResponse,
 ) {
-	readDataSource[redisModel](ctx, d.client, client.RedisResource(), req.Config, &resp.State, &resp.Diagnostics)
+	readDataSource[qdrantModel](ctx, d.client, client.QdrantResource(), req.Config, &resp.State, &resp.Diagnostics)
 }

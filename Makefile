@@ -43,8 +43,8 @@ fmt: ## Format Go sources
 
 ##@ Documentation
 
-docs: ## Regenerate registry docs from schema + examples (needs tfplugindocs)
-	tfplugindocs generate --provider-name cozystack
+docs: ## Regenerate registry docs from schema + examples (tofu-based, see scripts/gen-docs.sh)
+	./scripts/gen-docs.sh
 
 ##@ Misc
 

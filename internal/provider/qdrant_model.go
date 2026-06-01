@@ -8,9 +8,9 @@ import (
 	"github.com/lexfrei/terraform-provider-cozystack/internal/client"
 )
 
-// redisModel maps the cozystack_redis schema to Go types. The spec attributes
-// mirror the json tags of the pinned redis.ConfigSpec one-to-one.
-type redisModel struct {
+// qdrantModel maps the cozystack_qdrant schema to Go types. The spec attributes
+// mirror the json tags of the pinned qdrant.ConfigSpec one-to-one.
+type qdrantModel struct {
 	ID              types.String `tfsdk:"id"`
 	Name            types.String `tfsdk:"name"`
 	Namespace       types.String `tfsdk:"namespace"`
@@ -18,21 +18,19 @@ type redisModel struct {
 	Size            types.String `tfsdk:"size"`
 	StorageClass    types.String `tfsdk:"storage_class"`
 	External        types.Bool   `tfsdk:"external"`
-	Version         types.String `tfsdk:"version"`
-	AuthEnabled     types.Bool   `tfsdk:"auth_enabled"`
 	ResourcesPreset types.String `tfsdk:"resources_preset"`
 	Resources       types.Object `tfsdk:"resources"`
 	Ready           types.Bool   `tfsdk:"ready"`
 	ChartVersion    types.String `tfsdk:"chart_version"`
 }
 
-// identity returns the redis instance's namespace and name.
-func (m *redisModel) identity() (string, string) {
+// identity returns the qdrant instance's namespace and name.
+func (m *qdrantModel) identity() (string, string) {
 	return m.Namespace.ValueString(), m.Name.ValueString()
 }
 
 // expand converts the Terraform model into a client.Application ready to send.
-func (m *redisModel) expand(ctx context.Context) (*client.Application, diag.Diagnostics) {
+func (m *qdrantModel) expand(ctx context.Context) (*client.Application, diag.Diagnostics) {
 	var diags diag.Diagnostics
 
 	resources, rDiags := expandResources(ctx, m.Resources)
@@ -47,8 +45,6 @@ func (m *redisModel) expand(ctx context.Context) (*client.Application, diag.Diag
 		attrSize:            m.Size.ValueString(),
 		specStorageClass:    m.StorageClass.ValueString(),
 		attrExternal:        m.External.ValueBool(),
-		attrVersion:         m.Version.ValueString(),
-		specAuthEnabled:     m.AuthEnabled.ValueBool(),
 		specResourcesPreset: m.ResourcesPreset.ValueString(),
 		attrResources:       resources,
 	}
@@ -60,8 +56,8 @@ func (m *redisModel) expand(ctx context.Context) (*client.Application, diag.Diag
 	}, diags
 }
 
-// flatten populates the Terraform model from the server view of a redis.
-func (m *redisModel) flatten(app *client.Application) diag.Diagnostics {
+// flatten populates the Terraform model from the server view of a qdrant.
+func (m *qdrantModel) flatten(app *client.Application) diag.Diagnostics {
 	var diags diag.Diagnostics
 
 	m.ID = types.StringValue(app.Namespace + "/" + app.Name)
@@ -71,8 +67,6 @@ func (m *redisModel) flatten(app *client.Application) diag.Diagnostics {
 	m.Size = types.StringValue(specString(app.Spec, attrSize))
 	m.StorageClass = types.StringValue(specString(app.Spec, specStorageClass))
 	m.External = types.BoolValue(specBool(app.Spec, attrExternal))
-	m.Version = types.StringValue(specString(app.Spec, attrVersion))
-	m.AuthEnabled = types.BoolValue(specBool(app.Spec, specAuthEnabled))
 	m.ResourcesPreset = types.StringValue(specString(app.Spec, specResourcesPreset))
 
 	resources, rDiags := flattenResources(app.Spec[attrResources])

@@ -4,7 +4,6 @@ import (
 	"context"
 	"maps"
 
-	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -13,58 +12,57 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
-	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/lexfrei/terraform-provider-cozystack/internal/client"
 )
 
 var (
-	_ resource.Resource                = (*redisResource)(nil)
-	_ resource.ResourceWithConfigure   = (*redisResource)(nil)
-	_ resource.ResourceWithImportState = (*redisResource)(nil)
+	_ resource.Resource                = (*qdrantResource)(nil)
+	_ resource.ResourceWithConfigure   = (*qdrantResource)(nil)
+	_ resource.ResourceWithImportState = (*qdrantResource)(nil)
 )
 
-// redisResource implements the cozystack_redis managed resource.
-type redisResource struct {
+// qdrantResource implements the cozystack_qdrant managed resource.
+type qdrantResource struct {
 	client *client.Client
 }
 
-// redisResourceModel is the resource model: the shared redis attributes plus the
-// optional create/update wait behaviour.
-type redisResourceModel struct {
-	redisModel
+// qdrantResourceModel is the resource model: the shared qdrant attributes plus
+// the optional create/update wait behaviour.
+type qdrantResourceModel struct {
+	qdrantModel
 
 	WaitForReady types.Bool   `tfsdk:"wait_for_ready"`
 	WaitTimeout  types.String `tfsdk:"wait_timeout"`
 }
 
 // waitConfig exposes the wait-for-ready settings to the shared CRUD helpers.
-func (m *redisResourceModel) waitConfig() (types.Bool, types.String) {
+func (m *qdrantResourceModel) waitConfig() (types.Bool, types.String) {
 	return m.WaitForReady, m.WaitTimeout
 }
 
-// NewRedisResource is the resource factory registered with the provider.
-func NewRedisResource() resource.Resource {
-	return &redisResource{}
+// NewQdrantResource is the resource factory registered with the provider.
+func NewQdrantResource() resource.Resource {
+	return &qdrantResource{}
 }
 
-func (r *redisResource) Metadata(
+func (r *qdrantResource) Metadata(
 	_ context.Context,
 	req resource.MetadataRequest,
 	resp *resource.MetadataResponse,
 ) {
-	resp.TypeName = req.ProviderTypeName + "_redis"
+	resp.TypeName = req.ProviderTypeName + "_qdrant"
 }
 
-func (r *redisResource) Schema(
+func (r *qdrantResource) Schema(
 	_ context.Context,
 	_ resource.SchemaRequest,
 	resp *resource.SchemaResponse,
 ) {
-	resp.Schema = redisSchema()
+	resp.Schema = qdrantSchema()
 }
 
-func (r *redisResource) Configure(
+func (r *qdrantResource) Configure(
 	_ context.Context,
 	req resource.ConfigureRequest,
 	resp *resource.ConfigureResponse,
@@ -72,43 +70,43 @@ func (r *redisResource) Configure(
 	r.client = providerClient(req.ProviderData, &resp.Diagnostics)
 }
 
-func (r *redisResource) Create(
+func (r *qdrantResource) Create(
 	ctx context.Context,
 	req resource.CreateRequest,
 	resp *resource.CreateResponse,
 ) {
-	createOrUpdate[redisResourceModel](
-		ctx, r.client, client.RedisResource(), true, req.Plan, &resp.State, &resp.Diagnostics,
+	createOrUpdate[qdrantResourceModel](
+		ctx, r.client, client.QdrantResource(), true, req.Plan, &resp.State, &resp.Diagnostics,
 	)
 }
 
-func (r *redisResource) Update(
+func (r *qdrantResource) Update(
 	ctx context.Context,
 	req resource.UpdateRequest,
 	resp *resource.UpdateResponse,
 ) {
-	createOrUpdate[redisResourceModel](
-		ctx, r.client, client.RedisResource(), false, req.Plan, &resp.State, &resp.Diagnostics,
+	createOrUpdate[qdrantResourceModel](
+		ctx, r.client, client.QdrantResource(), false, req.Plan, &resp.State, &resp.Diagnostics,
 	)
 }
 
-func (r *redisResource) Read(
+func (r *qdrantResource) Read(
 	ctx context.Context,
 	_ resource.ReadRequest,
 	resp *resource.ReadResponse,
 ) {
-	readResource[redisResourceModel](ctx, r.client, client.RedisResource(), &resp.State, &resp.Diagnostics)
+	readResource[qdrantResourceModel](ctx, r.client, client.QdrantResource(), &resp.State, &resp.Diagnostics)
 }
 
-func (r *redisResource) Delete(
+func (r *qdrantResource) Delete(
 	ctx context.Context,
 	_ resource.DeleteRequest,
 	resp *resource.DeleteResponse,
 ) {
-	deleteResource[redisResourceModel](ctx, r.client, client.RedisResource(), &resp.State, &resp.Diagnostics)
+	deleteResource[qdrantResourceModel](ctx, r.client, client.QdrantResource(), &resp.State, &resp.Diagnostics)
 }
 
-func (r *redisResource) ImportState(
+func (r *qdrantResource) ImportState(
 	ctx context.Context,
 	req resource.ImportStateRequest,
 	resp *resource.ImportStateResponse,
@@ -117,7 +115,7 @@ func (r *redisResource) ImportState(
 	if !ok {
 		resp.Diagnostics.AddError(
 			"Invalid import ID",
-			`expected "namespace/name", for example "tenant-root/cache"`,
+			`expected "namespace/name", for example "tenant-root/vectors"`,
 		)
 
 		return
@@ -127,21 +125,21 @@ func (r *redisResource) ImportState(
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root(attrName), name)...)
 }
 
-// redisSchema returns the cozystack_redis resource schema.
-func redisSchema() schema.Schema {
+// qdrantSchema returns the cozystack_qdrant resource schema.
+func qdrantSchema() schema.Schema {
 	attributes := map[string]schema.Attribute{}
-	maps.Copy(attributes, redisIdentityAttributes())
-	maps.Copy(attributes, redisSpecAttributes())
-	maps.Copy(attributes, redisStatusAttributes())
+	maps.Copy(attributes, qdrantIdentityAttributes())
+	maps.Copy(attributes, qdrantSpecAttributes())
+	maps.Copy(attributes, qdrantStatusAttributes())
 	maps.Copy(attributes, waitBehaviorAttributes())
 
 	return schema.Schema{
-		MarkdownDescription: "A Cozystack managed Redis instance, deployed inside a tenant namespace.",
+		MarkdownDescription: "A Cozystack managed Qdrant vector database, deployed inside a tenant namespace.",
 		Attributes:          attributes,
 	}
 }
 
-func redisIdentityAttributes() map[string]schema.Attribute {
+func qdrantIdentityAttributes() map[string]schema.Attribute {
 	return map[string]schema.Attribute{
 		attrID: schema.StringAttribute{
 			Computed:            true,
@@ -150,7 +148,7 @@ func redisIdentityAttributes() map[string]schema.Attribute {
 		},
 		attrName: schema.StringAttribute{
 			Required:            true,
-			MarkdownDescription: "Redis instance name (`metadata.name`). Immutable.",
+			MarkdownDescription: "Qdrant instance name (`metadata.name`). Immutable.",
 			PlanModifiers:       []planmodifier.String{stringplanmodifier.RequiresReplace()},
 		},
 		attrNamespace: schema.StringAttribute{
@@ -161,19 +159,19 @@ func redisIdentityAttributes() map[string]schema.Attribute {
 	}
 }
 
-func redisSpecAttributes() map[string]schema.Attribute {
+func qdrantSpecAttributes() map[string]schema.Attribute {
 	return map[string]schema.Attribute{
 		attrReplicas: schema.Int64Attribute{
 			Optional:            true,
 			Computed:            true,
-			Default:             int64default.StaticInt64(2),
-			MarkdownDescription: "Number of Redis replicas.",
+			Default:             int64default.StaticInt64(1),
+			MarkdownDescription: "Number of Qdrant replicas (cluster mode is enabled when > 1).",
 		},
 		attrSize: schema.StringAttribute{
 			Optional:            true,
 			Computed:            true,
-			Default:             stringdefault.StaticString("1Gi"),
-			MarkdownDescription: "Persistent volume size for application data (quantity, e.g. `1Gi`).",
+			Default:             stringdefault.StaticString("10Gi"),
+			MarkdownDescription: "Persistent volume size for vector data (quantity, e.g. `10Gi`).",
 		},
 		attrStorageClass: schema.StringAttribute{
 			Optional:            true,
@@ -187,24 +185,11 @@ func redisSpecAttributes() map[string]schema.Attribute {
 			Default:             booldefault.StaticBool(false),
 			MarkdownDescription: "Enable external access from outside the cluster.",
 		},
-		attrVersion: schema.StringAttribute{
-			Optional:            true,
-			Computed:            true,
-			Default:             stringdefault.StaticString("v8"),
-			Validators:          []validator.String{stringvalidator.OneOf("v7", "v8")},
-			MarkdownDescription: "Redis major version to deploy (`v7` or `v8`).",
-		},
-		attrAuthEnabled: schema.BoolAttribute{
-			Optional:            true,
-			Computed:            true,
-			Default:             booldefault.StaticBool(true),
-			MarkdownDescription: "Generate a password and require authentication.",
-		},
 		attrResourcesPreset: schema.StringAttribute{
 			Optional:            true,
 			Computed:            true,
-			Default:             stringdefault.StaticString("t1.nano"),
-			MarkdownDescription: "Sizing preset applied when `resources` is omitted (e.g. `t1.nano`).",
+			Default:             stringdefault.StaticString("t1.small"),
+			MarkdownDescription: "Sizing preset applied when `resources` is omitted (e.g. `t1.small`).",
 		},
 		attrResources: schema.SingleNestedAttribute{
 			Optional: true,
@@ -224,7 +209,7 @@ func redisSpecAttributes() map[string]schema.Attribute {
 	}
 }
 
-func redisStatusAttributes() map[string]schema.Attribute {
+func qdrantStatusAttributes() map[string]schema.Attribute {
 	return map[string]schema.Attribute{
 		attrReady: schema.BoolAttribute{
 			Computed:            true,

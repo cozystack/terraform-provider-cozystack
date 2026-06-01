@@ -26,6 +26,19 @@ const (
 	attrMemory    = "memory"
 )
 
+// Attribute names (snake_case) and their differing camelCase spec keys, shared
+// by the managed stateful-workload kinds (redis, qdrant, …).
+const (
+	attrStorageClass    = "storage_class"
+	attrResourcesPreset = "resources_preset"
+	attrChartVersion    = "chart_version"
+	attrAuthEnabled     = "auth_enabled"
+
+	specStorageClass    = "storageClass"
+	specResourcesPreset = "resourcesPreset"
+	specAuthEnabled     = "authEnabled"
+)
+
 // Shared helpers for reading and writing the free-form application spec across
 // Cozystack resource kinds.
 

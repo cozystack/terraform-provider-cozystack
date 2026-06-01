@@ -13,15 +13,14 @@ linters:
     - gocheckcompilerdirectives
     # Deprecated since golangci-lint v2.12.0; no module guard rules configured.
     - gomodguard
+    # A typed provider repeats schema field names and description strings across
+    # every kind by design; field-name single-sourcing is handled by explicit
+    # attr*/spec* constants, and constantising shared descriptions hurts
+    # inline readability without adding safety.
+    - goconst
   settings:
     dupl:
       threshold: 100
-    goconst:
-      min-len: 2
-      # goconst's own default; 2 over-couples coincidentally-equal short strings
-      # (e.g. the provider's kube "host" vs a tenant spec "host" key).
-      min-occurrences: 3
-      ignore-tests: true
     gocritic:
       disabled-checks:
         - dupImport

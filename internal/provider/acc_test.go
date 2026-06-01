@@ -268,3 +268,83 @@ data "cozystack_redis" "test" {
 		},
 	})
 }
+
+func testAccQdrantConfigBasic(name string) string {
+	return fmt.Sprintf(`
+resource "cozystack_qdrant" "test" {
+  name      = %[1]q
+  namespace = "tenant-root"
+  replicas  = 1
+}
+`, name)
+}
+
+func testAccQdrantConfigPreset(name string) string {
+	return fmt.Sprintf(`
+resource "cozystack_qdrant" "test" {
+  name             = %[1]q
+  namespace        = "tenant-root"
+  replicas         = 1
+  resources_preset = "t1.medium"
+}
+`, name)
+}
+
+func TestAccQdrantResource(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             checkApplicationDestroy(client.QdrantResource(), "cozystack_qdrant"),
+		Steps: []resource.TestStep{
+			{
+				Config: testAccQdrantConfigBasic("tfaccqdrant"),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("cozystack_qdrant.test", "name", "tfaccqdrant"),
+					resource.TestCheckResourceAttr("cozystack_qdrant.test", "namespace", "tenant-root"),
+					resource.TestCheckResourceAttr("cozystack_qdrant.test", "replicas", "1"),
+					resource.TestCheckResourceAttr("cozystack_qdrant.test", "id", "tenant-root/tfaccqdrant"),
+				),
+			},
+			{
+				ResourceName:            "cozystack_qdrant.test",
+				ImportState:             true,
+				ImportStateId:           "tenant-root/tfaccqdrant",
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"wait_for_ready", "wait_timeout", "ready", "chart_version"},
+			},
+			{
+				Config: testAccQdrantConfigPreset("tfaccqdrant"),
+				Check: resource.TestCheckResourceAttr(
+					"cozystack_qdrant.test", "resources_preset", "t1.medium",
+				),
+			},
+		},
+	})
+}
+
+func TestAccQdrantDataSource(t *testing.T) {
+	config := testAccQdrantConfigBasic("tfaccqdrantds") + `
+data "cozystack_qdrant" "test" {
+  name      = cozystack_qdrant.test.name
+  namespace = cozystack_qdrant.test.namespace
+}
+`
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             checkApplicationDestroy(client.QdrantResource(), "cozystack_qdrant"),
+		Steps: []resource.TestStep{
+			{
+				Config: config,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttrPair(
+						"data.cozystack_qdrant.test", "name",
+						"cozystack_qdrant.test", "name",
+					),
+					resource.TestCheckResourceAttrSet("data.cozystack_qdrant.test", "id"),
+				),
+			},
+		},
+	})
+}
