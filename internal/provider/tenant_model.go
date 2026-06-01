@@ -10,6 +10,16 @@ import (
 	"github.com/lexfrei/terraform-provider-cozystack/internal/client"
 )
 
+// Field names shared between the Terraform schema (attribute name) and the
+// Cozystack tenant spec (json key); for these fields the two are identical.
+const (
+	attrHost       = "host"
+	attrEtcd       = "etcd"
+	attrMonitoring = "monitoring"
+	attrIngress    = "ingress"
+	attrSeaweedfs  = "seaweedfs"
+)
+
 // tenantResourceModel maps the cozystack_tenant schema to Go types. The spec
 // attributes mirror the json tags of the pinned tenant.ConfigSpec one-to-one.
 type tenantResourceModel struct {
@@ -40,11 +50,11 @@ func (m *tenantResourceModel) expand(ctx context.Context) (*client.Tenant, diag.
 	}
 
 	spec := map[string]any{
-		"host":            m.Host.ValueString(),
-		"etcd":            m.Etcd.ValueBool(),
-		"monitoring":      m.Monitoring.ValueBool(),
-		"ingress":         m.Ingress.ValueBool(),
-		"seaweedfs":       m.Seaweedfs.ValueBool(),
+		attrHost:          m.Host.ValueString(),
+		attrEtcd:          m.Etcd.ValueBool(),
+		attrMonitoring:    m.Monitoring.ValueBool(),
+		attrIngress:       m.Ingress.ValueBool(),
+		attrSeaweedfs:     m.Seaweedfs.ValueBool(),
 		"schedulingClass": m.SchedulingClass.ValueString(),
 		"resourceQuotas":  quotas,
 	}
@@ -63,11 +73,11 @@ func (m *tenantResourceModel) flatten(tenant *client.Tenant) diag.Diagnostics {
 	m.ID = types.StringValue(tenant.Namespace + "/" + tenant.Name)
 	m.Name = types.StringValue(tenant.Name)
 	m.Namespace = types.StringValue(tenant.Namespace)
-	m.Host = types.StringValue(specString(tenant.Spec, "host"))
-	m.Etcd = types.BoolValue(specBool(tenant.Spec, "etcd"))
-	m.Monitoring = types.BoolValue(specBool(tenant.Spec, "monitoring"))
-	m.Ingress = types.BoolValue(specBool(tenant.Spec, "ingress"))
-	m.Seaweedfs = types.BoolValue(specBool(tenant.Spec, "seaweedfs"))
+	m.Host = types.StringValue(specString(tenant.Spec, attrHost))
+	m.Etcd = types.BoolValue(specBool(tenant.Spec, attrEtcd))
+	m.Monitoring = types.BoolValue(specBool(tenant.Spec, attrMonitoring))
+	m.Ingress = types.BoolValue(specBool(tenant.Spec, attrIngress))
+	m.Seaweedfs = types.BoolValue(specBool(tenant.Spec, attrSeaweedfs))
 	m.SchedulingClass = types.StringValue(specString(tenant.Spec, "schedulingClass"))
 
 	quotas, qDiags := flattenQuotas(tenant.Spec["resourceQuotas"])

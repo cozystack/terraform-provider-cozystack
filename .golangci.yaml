@@ -26,6 +26,9 @@ linters:
       disabled-checks:
         - dupImport
         - unnamedResult
+        # terraform-plugin-framework mandates value request parameters in the
+        # resource/datasource/provider method signatures, so hugeParam is moot.
+        - hugeParam
       enabled-tags:
         - diagnostic
         - experimental

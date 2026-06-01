@@ -149,7 +149,9 @@ func (m *providerModel) connectionConfig() client.Config {
 
 // Resources returns the resource types implemented by the provider.
 func (p *CozystackProvider) Resources(_ context.Context) []func() resource.Resource {
-	return []func() resource.Resource{}
+	return []func() resource.Resource{
+		NewTenantResource,
+	}
 }
 
 // DataSources returns the data source types implemented by the provider.
