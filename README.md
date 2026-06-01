@@ -4,10 +4,10 @@ A Terraform/OpenTofu provider for [Cozystack](https://cozystack.io). It manages 
 
 ## Status
 
-This is an MVP. It currently manages **tenants** — the isolated namespaces under a parent tenant in which other Cozystack applications run. More application kinds (Postgres, Kubernetes, virtual machines, and so on) follow the same pattern and can be added incrementally.
+It currently manages **tenants** (the isolated namespaces under a parent tenant in which other Cozystack applications run) and **Redis** instances. Every kind is served by the same aggregated API, so more kinds (Postgres, Kubernetes, virtual machines, and so on) follow the same pattern and can be added incrementally.
 
-- Resource: [`cozystack_tenant`](docs/resources/tenant.md)
-- Data source: [`cozystack_tenant`](docs/data-sources/tenant.md)
+- Resources: [`cozystack_tenant`](docs/resources/tenant.md), [`cozystack_redis`](docs/resources/redis.md)
+- Data sources: [`cozystack_tenant`](docs/data-sources/tenant.md), [`cozystack_redis`](docs/data-sources/redis.md)
 
 ## Requirements
 

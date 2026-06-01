@@ -15,9 +15,9 @@ import (
 	"github.com/lexfrei/terraform-provider-cozystack/internal/provider"
 )
 
-// tenantTeardownTimeout bounds how long CheckDestroy waits for the async
-// HelmRelease teardown behind a deleted tenant to complete.
-const tenantTeardownTimeout = 3 * time.Minute
+// applicationTeardownTimeout bounds how long CheckDestroy waits for the async
+// HelmRelease teardown behind a deleted application to complete.
+const applicationTeardownTimeout = 3 * time.Minute
 
 // testAccProtoV6ProviderFactories registers the in-process provider server used
 // by the acceptance tests.
@@ -61,50 +61,63 @@ resource "cozystack_tenant" "test" {
 `, name)
 }
 
-func testAccCheckTenantDestroy(state *terraform.State) error {
+func newAccClient() (*client.Client, error) {
 	conn := client.Config{}
 	conn.ApplyEnvDefaults()
 
 	restConfig, err := conn.RestConfig()
 	if err != nil {
-		return fmt.Errorf("building rest config: %w", err)
+		return nil, fmt.Errorf("building rest config: %w", err)
 	}
 
 	api, err := client.NewForConfig(restConfig)
 	if err != nil {
-		return fmt.Errorf("building client: %w", err)
+		return nil, fmt.Errorf("building client: %w", err)
 	}
 
-	for _, rs := range state.RootModule().Resources {
-		if rs.Type != "cozystack_tenant" {
-			continue
-		}
-
-		if err := waitTenantGone(api, rs.Primary.Attributes["namespace"], rs.Primary.Attributes["name"]); err != nil {
-			return err
-		}
-	}
-
-	return nil
+	return api, nil
 }
 
-// waitTenantGone polls until the tenant disappears, tolerating the asynchronous
-// HelmRelease teardown behind a deleted tenant.
-func waitTenantGone(api *client.Client, namespace, name string) error {
-	deadline := time.Now().Add(tenantTeardownTimeout)
+// checkApplicationDestroy returns a CheckDestroy that waits for every resource of
+// the given Terraform type to disappear from the cluster.
+func checkApplicationDestroy(res client.Resource, tfType string) resource.TestCheckFunc {
+	return func(state *terraform.State) error {
+		api, err := newAccClient()
+		if err != nil {
+			return err
+		}
+
+		for _, rs := range state.RootModule().Resources {
+			if rs.Type != tfType {
+				continue
+			}
+
+			if err := waitApplicationGone(api, res, rs.Primary.Attributes["namespace"], rs.Primary.Attributes["name"]); err != nil {
+				return err
+			}
+		}
+
+		return nil
+	}
+}
+
+// waitApplicationGone polls until the application disappears, tolerating the
+// asynchronous HelmRelease teardown behind a deleted application.
+func waitApplicationGone(api *client.Client, res client.Resource, namespace, name string) error {
+	deadline := time.Now().Add(applicationTeardownTimeout)
 
 	for {
-		_, err := api.Get(context.Background(), client.TenantResource(), namespace, name)
+		_, err := api.Get(context.Background(), res, namespace, name)
 		if client.IsNotFound(err) {
 			return nil
 		}
 
 		if err != nil {
-			return fmt.Errorf("checking tenant %s/%s: %w", namespace, name, err)
+			return fmt.Errorf("checking %s %s/%s: %w", res.Kind, namespace, name, err)
 		}
 
 		if time.Now().After(deadline) {
-			return fmt.Errorf("tenant %s/%s still exists after %s", namespace, name, tenantTeardownTimeout)
+			return fmt.Errorf("%s %s/%s still exists after %s", res.Kind, namespace, name, applicationTeardownTimeout)
 		}
 
 		time.Sleep(3 * time.Second)
@@ -115,7 +128,7 @@ func TestAccTenantResource(t *testing.T) {
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-		CheckDestroy:             testAccCheckTenantDestroy,
+		CheckDestroy:             checkApplicationDestroy(client.TenantResource(), "cozystack_tenant"),
 		Steps: []resource.TestStep{
 			{
 				Config: testAccTenantConfigBasic("tfacc"),
@@ -157,7 +170,7 @@ data "cozystack_tenant" "test" {
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-		CheckDestroy:             testAccCheckTenantDestroy,
+		CheckDestroy:             checkApplicationDestroy(client.TenantResource(), "cozystack_tenant"),
 		Steps: []resource.TestStep{
 			{
 				Config: config,
@@ -168,6 +181,88 @@ data "cozystack_tenant" "test" {
 					),
 					resource.TestCheckResourceAttr("data.cozystack_tenant.test", "namespace", "tenant-root"),
 					resource.TestCheckResourceAttrSet("data.cozystack_tenant.test", "id"),
+				),
+			},
+		},
+	})
+}
+
+func testAccRedisConfigBasic(name string) string {
+	return fmt.Sprintf(`
+resource "cozystack_redis" "test" {
+  name      = %[1]q
+  namespace = "tenant-root"
+  replicas  = 1
+}
+`, name)
+}
+
+func testAccRedisConfigPreset(name string) string {
+	return fmt.Sprintf(`
+resource "cozystack_redis" "test" {
+  name             = %[1]q
+  namespace        = "tenant-root"
+  replicas         = 1
+  resources_preset = "t1.micro"
+}
+`, name)
+}
+
+func TestAccRedisResource(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             checkApplicationDestroy(client.RedisResource(), "cozystack_redis"),
+		Steps: []resource.TestStep{
+			{
+				Config: testAccRedisConfigBasic("tfaccredis"),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("cozystack_redis.test", "name", "tfaccredis"),
+					resource.TestCheckResourceAttr("cozystack_redis.test", "namespace", "tenant-root"),
+					resource.TestCheckResourceAttr("cozystack_redis.test", "version", "v8"),
+					resource.TestCheckResourceAttr("cozystack_redis.test", "replicas", "1"),
+					resource.TestCheckResourceAttr("cozystack_redis.test", "id", "tenant-root/tfaccredis"),
+				),
+			},
+			{
+				ResourceName:            "cozystack_redis.test",
+				ImportState:             true,
+				ImportStateId:           "tenant-root/tfaccredis",
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"wait_for_ready", "wait_timeout", "ready", "chart_version"},
+			},
+			{
+				Config: testAccRedisConfigPreset("tfaccredis"),
+				Check: resource.TestCheckResourceAttr(
+					"cozystack_redis.test", "resources_preset", "t1.micro",
+				),
+			},
+		},
+	})
+}
+
+func TestAccRedisDataSource(t *testing.T) {
+	config := testAccRedisConfigBasic("tfaccredisds") + `
+data "cozystack_redis" "test" {
+  name      = cozystack_redis.test.name
+  namespace = cozystack_redis.test.namespace
+}
+`
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             checkApplicationDestroy(client.RedisResource(), "cozystack_redis"),
+		Steps: []resource.TestStep{
+			{
+				Config: config,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttrPair(
+						"data.cozystack_redis.test", "name",
+						"cozystack_redis.test", "name",
+					),
+					resource.TestCheckResourceAttr("data.cozystack_redis.test", "version", "v8"),
+					resource.TestCheckResourceAttrSet("data.cozystack_redis.test", "id"),
 				),
 			},
 		},
