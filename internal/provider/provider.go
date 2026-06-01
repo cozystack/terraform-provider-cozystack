@@ -161,6 +161,7 @@ func (p *CozystackProvider) Resources(_ context.Context) []func() resource.Resou
 		newAppResource[rabbitmqResourceModel, *rabbitmqResourceModel](client.RabbitMQResource(), "rabbitmq", rabbitmqSchema),
 		newAppResource[mariadbResourceModel, *mariadbResourceModel](client.MariaDBResource(), "mariadb", mariadbSchema),
 		newAppResource[mongodbResourceModel, *mongodbResourceModel](client.MongoDBResource(), "mongodb", mongodbSchema),
+		newAppResource[clickhouseResourceModel, *clickhouseResourceModel](client.ClickHouseResource(), "clickhouse", clickhouseSchema),
 	}
 }
 
@@ -176,6 +177,7 @@ func (p *CozystackProvider) DataSources(_ context.Context) []func() datasource.D
 		newAppDataSource[rabbitmqModel, *rabbitmqModel](client.RabbitMQResource(), "rabbitmq", rabbitmqDataSourceSchema),
 		newAppDataSource[mariadbModel, *mariadbModel](client.MariaDBResource(), "mariadb", mariadbDataSourceSchema),
 		newAppDataSource[mongodbModel, *mongodbModel](client.MongoDBResource(), "mongodb", mongodbDataSourceSchema),
+		newAppDataSource[clickhouseModel, *clickhouseModel](client.ClickHouseResource(), "clickhouse", clickhouseDataSourceSchema),
 	}
 }
 

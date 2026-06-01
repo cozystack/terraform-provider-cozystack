@@ -642,3 +642,35 @@ data "cozystack_bucket" "test" {
 		},
 	})
 }
+
+func TestAccClickhouseResource(t *testing.T) {
+	config := `
+resource "cozystack_clickhouse" "test" {
+  name      = "tfaccch"
+  namespace = "tenant-root"
+  replicas  = 1
+  users     = { reader = { password = "pw-123", readonly = true } }
+}
+`
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             checkApplicationDestroy(client.ClickHouseResource(), "cozystack_clickhouse"),
+		Steps: []resource.TestStep{
+			{
+				Config: config,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("cozystack_clickhouse.test", "id", "tenant-root/tfaccch"),
+					resource.TestCheckResourceAttr("cozystack_clickhouse.test", "users.reader.readonly", "true"),
+				),
+			},
+			{
+				ResourceName:            "cozystack_clickhouse.test",
+				ImportState:             true,
+				ImportStateId:           "tenant-root/tfaccch",
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"wait_for_ready", "wait_timeout", "ready", "chart_version"},
+			},
+		},
+	})
+}
