@@ -163,6 +163,7 @@ func (p *CozystackProvider) Resources(_ context.Context) []func() resource.Resou
 		newAppResource[mongodbResourceModel, *mongodbResourceModel](client.MongoDBResource(), "mongodb", mongodbSchema),
 		newAppResource[clickhouseResourceModel, *clickhouseResourceModel](client.ClickHouseResource(), "clickhouse", clickhouseSchema),
 		newAppResource[natsResourceModel, *natsResourceModel](client.NATSResource(), "nats", natsSchema),
+		newAppResource[opensearchResourceModel, *opensearchResourceModel](client.OpenSearchResource(), "opensearch", opensearchSchema),
 	}
 }
 
@@ -180,6 +181,7 @@ func (p *CozystackProvider) DataSources(_ context.Context) []func() datasource.D
 		newAppDataSource[mongodbModel, *mongodbModel](client.MongoDBResource(), "mongodb", mongodbDataSourceSchema),
 		newAppDataSource[clickhouseModel, *clickhouseModel](client.ClickHouseResource(), "clickhouse", clickhouseDataSourceSchema),
 		newAppDataSource[natsModel, *natsModel](client.NATSResource(), "nats", natsDataSourceSchema),
+		newAppDataSource[opensearchModel, *opensearchModel](client.OpenSearchResource(), "opensearch", opensearchDataSourceSchema),
 	}
 }
 

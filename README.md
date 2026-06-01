@@ -19,6 +19,7 @@ Every kind is served by the same aggregated API, so the provider is built to gro
 | Managed MongoDB | [`cozystack_mongodb`](docs/resources/mongodb.md) | [`cozystack_mongodb`](docs/data-sources/mongodb.md) |
 | Managed ClickHouse | [`cozystack_clickhouse`](docs/resources/clickhouse.md) | [`cozystack_clickhouse`](docs/data-sources/clickhouse.md) |
 | Managed NATS | [`cozystack_nats`](docs/resources/nats.md) | [`cozystack_nats`](docs/data-sources/nats.md) |
+| Managed OpenSearch | [`cozystack_opensearch`](docs/resources/opensearch.md) | [`cozystack_opensearch`](docs/data-sources/opensearch.md) |
 
 More kinds (PostgreSQL, managed Kubernetes, virtual machines, …) follow the same pattern.
 
