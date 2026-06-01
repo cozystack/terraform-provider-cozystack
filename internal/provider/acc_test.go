@@ -875,3 +875,40 @@ resource "cozystack_vmdisk" "test" {
 		},
 	})
 }
+
+func TestAccKafkaResource(t *testing.T) {
+	config := `
+resource "cozystack_kafka" "test" {
+  name      = "tfacckafka"
+  namespace = "tenant-root"
+  kafka     = { replicas = 1 }
+  zookeeper = { replicas = 1 }
+  topics = [
+    { name = "events", partitions = 1, replicas = 1 },
+  ]
+}
+`
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             checkApplicationDestroy(client.KafkaResource(), "cozystack_kafka"),
+		Steps: []resource.TestStep{
+			{
+				Config: config,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("cozystack_kafka.test", "id", "tenant-root/tfacckafka"),
+					resource.TestCheckResourceAttr("cozystack_kafka.test", "topics.0.name", "events"),
+					resource.TestCheckResourceAttr("cozystack_kafka.test", "kafka.replicas", "1"),
+					resource.TestCheckResourceAttr("cozystack_kafka.test", "kafka.size", "10Gi"),
+				),
+			},
+			{
+				ResourceName:            "cozystack_kafka.test",
+				ImportState:             true,
+				ImportStateId:           "tenant-root/tfacckafka",
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"wait_for_ready", "wait_timeout", "ready", "chart_version"},
+			},
+		},
+	})
+}

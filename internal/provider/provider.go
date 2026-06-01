@@ -170,6 +170,7 @@ func (p *CozystackProvider) Resources(_ context.Context) []func() resource.Resou
 		newAppResource[harborResourceModel, *harborResourceModel](client.HarborResource(), "harbor", harborSchema),
 		newAppResource[vpcResourceModel, *vpcResourceModel](client.VPCResource(), "vpc", vpcSchema),
 		newAppResource[vmdiskResourceModel, *vmdiskResourceModel](client.VMDiskResource(), "vmdisk", vmdiskSchema),
+		newAppResource[kafkaResourceModel, *kafkaResourceModel](client.KafkaResource(), "kafka", kafkaSchema),
 	}
 }
 
@@ -194,6 +195,7 @@ func (p *CozystackProvider) DataSources(_ context.Context) []func() datasource.D
 		newAppDataSource[harborModel, *harborModel](client.HarborResource(), "harbor", harborDataSourceSchema),
 		newAppDataSource[vpcModel, *vpcModel](client.VPCResource(), "vpc", vpcDataSourceSchema),
 		newAppDataSource[vmdiskModel, *vmdiskModel](client.VMDiskResource(), "vmdisk", vmdiskDataSourceSchema),
+		newAppDataSource[kafkaModel, *kafkaModel](client.KafkaResource(), "kafka", kafkaDataSourceSchema),
 	}
 }
 

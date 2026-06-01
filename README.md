@@ -26,6 +26,7 @@ Every kind is served by the same aggregated API, so the provider is built to gro
 | Harbor registry | [`cozystack_harbor`](docs/resources/harbor.md) | [`cozystack_harbor`](docs/data-sources/harbor.md) |
 | Virtual private cloud | [`cozystack_vpc`](docs/resources/vpc.md) | [`cozystack_vpc`](docs/data-sources/vpc.md) |
 | Virtual machine disk | [`cozystack_vmdisk`](docs/resources/vmdisk.md) | [`cozystack_vmdisk`](docs/data-sources/vmdisk.md) |
+| Managed Kafka | [`cozystack_kafka`](docs/resources/kafka.md) | [`cozystack_kafka`](docs/data-sources/kafka.md) |
 
 More kinds (managed Kubernetes, virtual machines, …) follow the same pattern.
 
