@@ -444,6 +444,47 @@ func TestAccOpenbaoResource(t *testing.T) {
 	})
 }
 
+func testAccVPNConfig(name string, users string) string {
+	return fmt.Sprintf(`
+resource "cozystack_vpn" "test" {
+  name      = %[1]q
+  namespace = "tenant-root"
+  users = {
+%[2]s
+  }
+}
+`, name, users)
+}
+
+func TestAccVPNResource(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             checkApplicationDestroy(client.VPNResource(), "cozystack_vpn"),
+		Steps: []resource.TestStep{
+			{
+				Config: testAccVPNConfig("tfaccvpn", `    alice = { password = "test-password-123" }`),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("cozystack_vpn.test", "name", "tfaccvpn"),
+					resource.TestCheckResourceAttr("cozystack_vpn.test", "id", "tenant-root/tfaccvpn"),
+					resource.TestCheckResourceAttr("cozystack_vpn.test", "users.alice.password", "test-password-123"),
+				),
+			},
+			{
+				ResourceName:            "cozystack_vpn.test",
+				ImportState:             true,
+				ImportStateId:           "tenant-root/tfaccvpn",
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"wait_for_ready", "wait_timeout", "ready", "chart_version"},
+			},
+			{
+				Config: testAccVPNConfig("tfaccvpn", "    alice = { password = \"test-password-123\" }\n    bob = { password = \"another-pass-456\" }"),
+				Check:  resource.TestCheckResourceAttr("cozystack_vpn.test", "users.bob.password", "another-pass-456"),
+			},
+		},
+	})
+}
+
 func TestAccBucketDataSource(t *testing.T) {
 	config := testAccBucketConfigOneUser("tfaccbucketds") + `
 data "cozystack_bucket" "test" {

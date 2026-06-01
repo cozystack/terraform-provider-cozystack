@@ -18,6 +18,9 @@ linters:
     # attr*/spec* constants, and constantising shared descriptions hurts
     # inline readability without adding safety.
     - goconst
+    # Generic spec/schema helpers are parameterised for reuse across kinds; a
+    # helper currently called with one key/value is intentional, not dead.
+    - unparam
   settings:
     dupl:
       threshold: 100

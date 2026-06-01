@@ -104,34 +104,11 @@ func expandBucketUsers(ctx context.Context, value types.Map) (map[string]any, di
 	return out, diags
 }
 
-// flattenBucketUsers builds the users map from a spec submap. An empty or absent
-// map flattens to null so an unset block does not drift.
+// flattenBucketUsers builds the users map from a spec submap.
 func flattenBucketUsers(raw any) (types.Map, diag.Diagnostics) {
-	var diags diag.Diagnostics
-
-	elementType := types.ObjectType{AttrTypes: bucketUserObjectType()}
-
-	users, ok := raw.(map[string]any)
-	if !ok || len(users) == 0 {
-		return types.MapNull(elementType), diags
-	}
-
-	elements := make(map[string]attr.Value, len(users))
-
-	for name, raw := range users {
-		user, _ := raw.(map[string]any)
+	return flattenObjectMap(raw, bucketUserObjectType(), func(user map[string]any) map[string]attr.Value {
 		readonly, _ := user["readonly"].(bool)
 
-		object, objectDiags := types.ObjectValue(bucketUserObjectType(), map[string]attr.Value{
-			"readonly": types.BoolValue(readonly),
-		})
-		diags.Append(objectDiags...)
-
-		elements[name] = object
-	}
-
-	value, mapDiags := types.MapValue(elementType, elements)
-	diags.Append(mapDiags...)
-
-	return value, diags
+		return map[string]attr.Value{"readonly": types.BoolValue(readonly)}
+	})
 }
