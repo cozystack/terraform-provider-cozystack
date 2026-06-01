@@ -3,8 +3,10 @@ package provider
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/provider"
 	"github.com/hashicorp/terraform-plugin-framework/provider/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -156,5 +158,28 @@ func (p *CozystackProvider) Resources(_ context.Context) []func() resource.Resou
 
 // DataSources returns the data source types implemented by the provider.
 func (p *CozystackProvider) DataSources(_ context.Context) []func() datasource.DataSource {
-	return []func() datasource.DataSource{}
+	return []func() datasource.DataSource{
+		NewTenantDataSource,
+	}
+}
+
+// providerClient extracts the configured API client from provider data,
+// recording a diagnostic if the type is unexpected. It is shared by the
+// Configure methods of resources and data sources.
+func providerClient(providerData any, diags *diag.Diagnostics) *client.Client {
+	if providerData == nil {
+		return nil
+	}
+
+	api, ok := providerData.(*client.Client)
+	if !ok {
+		diags.AddError(
+			"Unexpected provider data type",
+			fmt.Sprintf("expected *client.Client, got %T", providerData),
+		)
+
+		return nil
+	}
+
+	return api
 }

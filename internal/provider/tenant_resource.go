@@ -2,7 +2,6 @@ package provider
 
 import (
 	"context"
-	"fmt"
 	"maps"
 	"strings"
 
@@ -58,21 +57,7 @@ func (r *tenantResource) Configure(
 	req resource.ConfigureRequest,
 	resp *resource.ConfigureResponse,
 ) {
-	if req.ProviderData == nil {
-		return
-	}
-
-	api, ok := req.ProviderData.(*client.Client)
-	if !ok {
-		resp.Diagnostics.AddError(
-			"Unexpected provider data type",
-			fmt.Sprintf("expected *client.Client, got %T", req.ProviderData),
-		)
-
-		return
-	}
-
-	r.client = api
+	r.client = providerClient(req.ProviderData, &resp.Diagnostics)
 }
 
 func (r *tenantResource) Create(
