@@ -32,6 +32,9 @@ release/
 # Locally built provider binary
 terraform-provider-cozystack
 
+# Transient provider schema dump used for local docs generation
+.schema.json
+
 # Terraform / OpenTofu
 .terraform/
 .terraform.lock.hcl
