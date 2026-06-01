@@ -108,6 +108,9 @@ linters:
           - perfsprint
           - paralleltest
           - maintidx
+          # Inline error checks and ad-hoc errors are the idiomatic test style.
+          - noinlineerr
+          - err113
         path: _test\.go
       - linters:
           - forbidigo
