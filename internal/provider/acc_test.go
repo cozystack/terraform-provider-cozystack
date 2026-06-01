@@ -581,6 +581,41 @@ resource "cozystack_mariadb" "test" {
 	})
 }
 
+func TestAccMongodbResource(t *testing.T) {
+	config := `
+resource "cozystack_mongodb" "test" {
+  name      = "tfaccmongo"
+  namespace = "tenant-root"
+  replicas  = 1
+  users     = { app = { password = "pw-123" } }
+  databases = { appdb = { roles = { admin = ["app"] } } }
+}
+`
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             checkApplicationDestroy(client.MongoDBResource(), "cozystack_mongodb"),
+		Steps: []resource.TestStep{
+			{
+				Config: config,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("cozystack_mongodb.test", "id", "tenant-root/tfaccmongo"),
+					resource.TestCheckResourceAttr("cozystack_mongodb.test", "sharding", "false"),
+					resource.TestCheckResourceAttr("cozystack_mongodb.test", "users.app.password", "pw-123"),
+				),
+			},
+			{
+				ResourceName:            "cozystack_mongodb.test",
+				ImportState:             true,
+				ImportStateId:           "tenant-root/tfaccmongo",
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"wait_for_ready", "wait_timeout", "ready", "chart_version"},
+			},
+		},
+	})
+}
+
 func TestAccBucketDataSource(t *testing.T) {
 	config := testAccBucketConfigOneUser("tfaccbucketds") + `
 data "cozystack_bucket" "test" {

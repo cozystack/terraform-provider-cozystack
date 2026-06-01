@@ -160,6 +160,7 @@ func (p *CozystackProvider) Resources(_ context.Context) []func() resource.Resou
 		newAppResource[vpnResourceModel, *vpnResourceModel](client.VPNResource(), "vpn", vpnSchema),
 		newAppResource[rabbitmqResourceModel, *rabbitmqResourceModel](client.RabbitMQResource(), "rabbitmq", rabbitmqSchema),
 		newAppResource[mariadbResourceModel, *mariadbResourceModel](client.MariaDBResource(), "mariadb", mariadbSchema),
+		newAppResource[mongodbResourceModel, *mongodbResourceModel](client.MongoDBResource(), "mongodb", mongodbSchema),
 	}
 }
 
@@ -174,6 +175,7 @@ func (p *CozystackProvider) DataSources(_ context.Context) []func() datasource.D
 		newAppDataSource[vpnModel, *vpnModel](client.VPNResource(), "vpn", vpnDataSourceSchema),
 		newAppDataSource[rabbitmqModel, *rabbitmqModel](client.RabbitMQResource(), "rabbitmq", rabbitmqDataSourceSchema),
 		newAppDataSource[mariadbModel, *mariadbModel](client.MariaDBResource(), "mariadb", mariadbDataSourceSchema),
+		newAppDataSource[mongodbModel, *mongodbModel](client.MongoDBResource(), "mongodb", mongodbDataSourceSchema),
 	}
 }
 
