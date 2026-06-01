@@ -14,6 +14,7 @@ Every kind is served by the same aggregated API, so the provider is built to gro
 | S3-compatible bucket | [`cozystack_bucket`](docs/resources/bucket.md) | [`cozystack_bucket`](docs/data-sources/bucket.md) |
 | Managed OpenBAO (Vault-compatible) | [`cozystack_openbao`](docs/resources/openbao.md) | [`cozystack_openbao`](docs/data-sources/openbao.md) |
 | VPN server | [`cozystack_vpn`](docs/resources/vpn.md) | [`cozystack_vpn`](docs/data-sources/vpn.md) |
+| Managed RabbitMQ | [`cozystack_rabbitmq`](docs/resources/rabbitmq.md) | [`cozystack_rabbitmq`](docs/data-sources/rabbitmq.md) |
 
 More kinds (PostgreSQL, managed Kubernetes, virtual machines, …) follow the same pattern.
 

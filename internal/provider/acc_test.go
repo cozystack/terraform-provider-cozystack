@@ -485,6 +485,54 @@ func TestAccVPNResource(t *testing.T) {
 	})
 }
 
+func TestAccRabbitmqResource(t *testing.T) {
+	base := `
+resource "cozystack_rabbitmq" "test" {
+  name      = "tfaccrabbit"
+  namespace = "tenant-root"
+  replicas  = 1
+  users     = { app = { password = "pw-123" } }
+  vhosts    = { main = { roles = { admin = ["app"] } } }
+}
+`
+	updated := `
+resource "cozystack_rabbitmq" "test" {
+  name      = "tfaccrabbit"
+  namespace = "tenant-root"
+  replicas  = 1
+  users     = { app = { password = "pw-123" } }
+  vhosts    = { main = { roles = { admin = ["app"], readonly = ["guest"] } } }
+}
+`
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             checkApplicationDestroy(client.RabbitMQResource(), "cozystack_rabbitmq"),
+		Steps: []resource.TestStep{
+			{
+				Config: base,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("cozystack_rabbitmq.test", "id", "tenant-root/tfaccrabbit"),
+					resource.TestCheckResourceAttr("cozystack_rabbitmq.test", "users.app.password", "pw-123"),
+					resource.TestCheckResourceAttr("cozystack_rabbitmq.test", "vhosts.main.roles.admin.0", "app"),
+				),
+			},
+			{
+				ResourceName:            "cozystack_rabbitmq.test",
+				ImportState:             true,
+				ImportStateId:           "tenant-root/tfaccrabbit",
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"wait_for_ready", "wait_timeout", "ready", "chart_version"},
+			},
+			{
+				Config: updated,
+				Check:  resource.TestCheckResourceAttr("cozystack_rabbitmq.test", "vhosts.main.roles.readonly.0", "guest"),
+			},
+		},
+	})
+}
+
 func TestAccBucketDataSource(t *testing.T) {
 	config := testAccBucketConfigOneUser("tfaccbucketds") + `
 data "cozystack_bucket" "test" {

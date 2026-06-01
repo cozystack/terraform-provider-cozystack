@@ -1,0 +1,111 @@
+package provider
+
+import (
+	"context"
+
+	"github.com/hashicorp/terraform-plugin-framework/diag"
+	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/lexfrei/terraform-provider-cozystack/internal/client"
+)
+
+// rabbitmqModel maps the cozystack_rabbitmq schema to Go types.
+type rabbitmqModel struct {
+	ID              types.String `tfsdk:"id"`
+	Name            types.String `tfsdk:"name"`
+	Namespace       types.String `tfsdk:"namespace"`
+	Replicas        types.Int64  `tfsdk:"replicas"`
+	Resources       types.Object `tfsdk:"resources"`
+	ResourcesPreset types.String `tfsdk:"resources_preset"`
+	Size            types.String `tfsdk:"size"`
+	StorageClass    types.String `tfsdk:"storage_class"`
+	External        types.Bool   `tfsdk:"external"`
+	Version         types.String `tfsdk:"version"`
+	Users           types.Map    `tfsdk:"users"`
+	Vhosts          types.Map    `tfsdk:"vhosts"`
+	Ready           types.Bool   `tfsdk:"ready"`
+	ChartVersion    types.String `tfsdk:"chart_version"`
+}
+
+type rabbitmqResourceModel struct {
+	rabbitmqModel
+
+	WaitForReady types.Bool   `tfsdk:"wait_for_ready"`
+	WaitTimeout  types.String `tfsdk:"wait_timeout"`
+}
+
+func (m *rabbitmqResourceModel) waitConfig() (types.Bool, types.String) {
+	return m.WaitForReady, m.WaitTimeout
+}
+
+func (m *rabbitmqModel) identity() (string, string) {
+	return m.Namespace.ValueString(), m.Name.ValueString()
+}
+
+func (m *rabbitmqModel) expand(ctx context.Context) (*client.Application, diag.Diagnostics) {
+	var diags diag.Diagnostics
+
+	resources, rDiags := expandResources(ctx, m.Resources)
+	diags.Append(rDiags...)
+
+	users, uDiags := expandPasswordUsers(ctx, m.Users)
+	diags.Append(uDiags...)
+
+	vhosts, vDiags := expandRolesMap(ctx, m.Vhosts)
+	diags.Append(vDiags...)
+
+	if diags.HasError() {
+		return nil, diags
+	}
+
+	spec := map[string]any{
+		attrReplicas:        m.Replicas.ValueInt64(),
+		attrResources:       resources,
+		specResourcesPreset: m.ResourcesPreset.ValueString(),
+		attrSize:            m.Size.ValueString(),
+		specStorageClass:    m.StorageClass.ValueString(),
+		attrExternal:        m.External.ValueBool(),
+		attrVersion:         m.Version.ValueString(),
+		"users":             users,
+		"vhosts":            vhosts,
+	}
+
+	return &client.Application{
+		Name:      m.Name.ValueString(),
+		Namespace: m.Namespace.ValueString(),
+		Spec:      spec,
+	}, diags
+}
+
+func (m *rabbitmqModel) flatten(app *client.Application) diag.Diagnostics {
+	var diags diag.Diagnostics
+
+	m.ID = types.StringValue(app.Namespace + "/" + app.Name)
+	m.Name = types.StringValue(app.Name)
+	m.Namespace = types.StringValue(app.Namespace)
+	m.Replicas = types.Int64Value(specInt64(app.Spec, attrReplicas))
+	m.ResourcesPreset = types.StringValue(specString(app.Spec, specResourcesPreset))
+	m.Size = types.StringValue(specString(app.Spec, attrSize))
+	m.StorageClass = types.StringValue(specString(app.Spec, specStorageClass))
+	m.External = types.BoolValue(specBool(app.Spec, attrExternal))
+	m.Version = types.StringValue(specString(app.Spec, attrVersion))
+
+	resources, rDiags := flattenResources(app.Spec[attrResources])
+	diags.Append(rDiags...)
+
+	m.Resources = resources
+
+	users, uDiags := flattenPasswordUsers(app.Spec["users"])
+	diags.Append(uDiags...)
+
+	m.Users = users
+
+	vhosts, vDiags := flattenRolesMap(app.Spec["vhosts"])
+	diags.Append(vDiags...)
+
+	m.Vhosts = vhosts
+
+	m.Ready = types.BoolValue(app.Status.Ready)
+	m.ChartVersion = types.StringValue(app.Status.Version)
+
+	return diags
+}

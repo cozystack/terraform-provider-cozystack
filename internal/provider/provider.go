@@ -158,6 +158,7 @@ func (p *CozystackProvider) Resources(_ context.Context) []func() resource.Resou
 		NewBucketResource,
 		newAppResource[openbaoResourceModel, *openbaoResourceModel](client.OpenBaoResource(), "openbao", openbaoSchema),
 		newAppResource[vpnResourceModel, *vpnResourceModel](client.VPNResource(), "vpn", vpnSchema),
+		newAppResource[rabbitmqResourceModel, *rabbitmqResourceModel](client.RabbitMQResource(), "rabbitmq", rabbitmqSchema),
 	}
 }
 
@@ -170,6 +171,7 @@ func (p *CozystackProvider) DataSources(_ context.Context) []func() datasource.D
 		NewBucketDataSource,
 		newAppDataSource[openbaoModel, *openbaoModel](client.OpenBaoResource(), "openbao", openbaoDataSourceSchema),
 		newAppDataSource[vpnModel, *vpnModel](client.VPNResource(), "vpn", vpnDataSourceSchema),
+		newAppDataSource[rabbitmqModel, *rabbitmqModel](client.RabbitMQResource(), "rabbitmq", rabbitmqDataSourceSchema),
 	}
 }
 

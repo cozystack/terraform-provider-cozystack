@@ -171,11 +171,15 @@ func expandStringList(ctx context.Context, value types.List) ([]any, diag.Diagno
 // flattenStringList builds a string list from a spec value. An empty or absent
 // list flattens to null so an unset list does not drift.
 func flattenStringList(raw any) (types.List, diag.Diagnostics) {
-	var diags diag.Diagnostics
+	return stringListOrNull(raw), nil
+}
 
+// stringListOrNull converts a spec []any into a Terraform string list, or null
+// when empty. It is diagnostic-free for use inside object builders.
+func stringListOrNull(raw any) types.List {
 	items, ok := raw.([]any)
 	if !ok || len(items) == 0 {
-		return types.ListNull(types.StringType), diags
+		return types.ListNull(types.StringType)
 	}
 
 	elements := make([]attr.Value, 0, len(items))
@@ -184,10 +188,87 @@ func flattenStringList(raw any) (types.List, diag.Diagnostics) {
 		elements = append(elements, types.StringValue(text))
 	}
 
-	value, listDiags := types.ListValue(types.StringType, elements)
-	diags.Append(listDiags...)
+	return types.ListValueMust(types.StringType, elements)
+}
 
-	return value, diags
+// rolesObjectType is the {admin,readonly} object shared by database/vhost roles.
+func rolesObjectType() map[string]attr.Type {
+	return map[string]attr.Type{
+		"admin":    types.ListType{ElemType: types.StringType},
+		"readonly": types.ListType{ElemType: types.StringType},
+	}
+}
+
+// rolesEntryObjectType is the {roles} map-value object shared by databases and
+// vhosts.
+func rolesEntryObjectType() map[string]attr.Type {
+	return map[string]attr.Type{"roles": types.ObjectType{AttrTypes: rolesObjectType()}}
+}
+
+type rolesData struct {
+	Admin    []string `tfsdk:"admin"`
+	Readonly []string `tfsdk:"readonly"`
+}
+
+type rolesEntry struct {
+	Roles rolesData `tfsdk:"roles"`
+}
+
+// expandRolesMap renders a map of {roles{admin,readonly}} entries into a spec
+// submap, omitting empty role lists.
+func expandRolesMap(ctx context.Context, value types.Map) (map[string]any, diag.Diagnostics) {
+	var diags diag.Diagnostics
+
+	out := map[string]any{}
+
+	if value.IsNull() || value.IsUnknown() {
+		return out, diags
+	}
+
+	elements := map[string]rolesEntry{}
+	diags.Append(value.ElementsAs(ctx, &elements, false)...)
+
+	if diags.HasError() {
+		return out, diags
+	}
+
+	for name, entry := range elements {
+		roles := map[string]any{}
+		if len(entry.Roles.Admin) > 0 {
+			roles["admin"] = stringsToAny(entry.Roles.Admin)
+		}
+
+		if len(entry.Roles.Readonly) > 0 {
+			roles["readonly"] = stringsToAny(entry.Roles.Readonly)
+		}
+
+		out[name] = map[string]any{"roles": roles}
+	}
+
+	return out, diags
+}
+
+// flattenRolesMap builds a roles map from a spec submap.
+func flattenRolesMap(raw any) (types.Map, diag.Diagnostics) {
+	return flattenObjectMap(raw, rolesEntryObjectType(), func(entry map[string]any) map[string]attr.Value {
+		roles, _ := entry["roles"].(map[string]any)
+
+		rolesObject := types.ObjectValueMust(rolesObjectType(), map[string]attr.Value{
+			"admin":    stringListOrNull(roles["admin"]),
+			"readonly": stringListOrNull(roles["readonly"]),
+		})
+
+		return map[string]attr.Value{"roles": rolesObject}
+	})
+}
+
+func stringsToAny(items []string) []any {
+	out := make([]any, len(items))
+	for i, item := range items {
+		out[i] = item
+	}
+
+	return out
 }
 
 // passwordUserObjectType is the object type of a {password} user.
