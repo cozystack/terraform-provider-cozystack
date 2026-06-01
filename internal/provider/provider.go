@@ -162,6 +162,7 @@ func (p *CozystackProvider) Resources(_ context.Context) []func() resource.Resou
 		newAppResource[mariadbResourceModel, *mariadbResourceModel](client.MariaDBResource(), "mariadb", mariadbSchema),
 		newAppResource[mongodbResourceModel, *mongodbResourceModel](client.MongoDBResource(), "mongodb", mongodbSchema),
 		newAppResource[clickhouseResourceModel, *clickhouseResourceModel](client.ClickHouseResource(), "clickhouse", clickhouseSchema),
+		newAppResource[natsResourceModel, *natsResourceModel](client.NATSResource(), "nats", natsSchema),
 	}
 }
 
@@ -178,6 +179,7 @@ func (p *CozystackProvider) DataSources(_ context.Context) []func() datasource.D
 		newAppDataSource[mariadbModel, *mariadbModel](client.MariaDBResource(), "mariadb", mariadbDataSourceSchema),
 		newAppDataSource[mongodbModel, *mongodbModel](client.MongoDBResource(), "mongodb", mongodbDataSourceSchema),
 		newAppDataSource[clickhouseModel, *clickhouseModel](client.ClickHouseResource(), "clickhouse", clickhouseDataSourceSchema),
+		newAppDataSource[natsModel, *natsModel](client.NATSResource(), "nats", natsDataSourceSchema),
 	}
 }
 

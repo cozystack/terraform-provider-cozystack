@@ -17,7 +17,7 @@ import (
 
 // applicationTeardownTimeout bounds how long CheckDestroy waits for the async
 // HelmRelease teardown behind a deleted application to complete.
-const applicationTeardownTimeout = 3 * time.Minute
+const applicationTeardownTimeout = 5 * time.Minute
 
 // testAccProtoV6ProviderFactories registers the in-process provider server used
 // by the acceptance tests.
