@@ -5,35 +5,49 @@ on:
     tags:
       - "v*"
 
-permissions:
-  contents: write
+# No workflow-level permissions; the single job requests only what it needs.
+permissions: {}
 
 jobs:
   goreleaser:
     runs-on: ubuntu-latest
+    # Gate the signing secrets behind a protected environment: deployments are
+    # restricted to v* tags and require manual approval before the GPG key is
+    # exposed to the job. A malicious tag push cannot reach the key unattended.
+    environment: release
+    permissions:
+      contents: write # create the GitHub Release
     steps:
+      - name: Harden the runner
+        uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
+        with:
+          egress-policy: audit # monitor outbound traffic; flip to block + allowlist after reviewing
+          disable-sudo: true
+
       - name: Checkout repository
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           fetch-depth: 0
+          persist-credentials: false # do not leave the GITHUB_TOKEN in .git/config
 
       - name: Setup Go
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
         with:
           go-version: "stable"
 
       - name: Import GPG key
-        uses: crazy-max/ghaction-import-gpg@v6
+        uses: crazy-max/ghaction-import-gpg@2dc316deee8e90f13e1a351ab510b4d5bc0c82cd # v7.0.0
         id: import_gpg
         with:
           gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
           passphrase: ${{ secrets.PASSPHRASE }}
+          fingerprint: ${{ secrets.GPG_FINGERPRINT }} # dedicated CI signing subkey
 
       - name: Run GoReleaser
-        uses: goreleaser/goreleaser-action@v6
+        uses: goreleaser/goreleaser-action@5daf1e915a5f0af01ddbcd89a43b8061ff4f1a89 # v7.2.2
         with:
           version: "~> v2"
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GPG_FINGERPRINT: ${{ steps.import_gpg.outputs.fingerprint }}
+          GPG_FINGERPRINT: ${{ secrets.GPG_FINGERPRINT }}

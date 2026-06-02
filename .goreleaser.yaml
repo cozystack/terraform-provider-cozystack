@@ -43,7 +43,10 @@ signs:
     args:
       - "--batch"
       - "--local-user"
-      - "{{ .Env.GPG_FINGERPRINT }}"
+      # Trailing '!' forces this exact subkey. The CI key block carries the
+      # primary as a stub (no secret), so an unforced selection would resolve
+      # to the primary and fail with "No secret key".
+      - "{{ .Env.GPG_FINGERPRINT }}!"
       - "--output"
       - "${signature}"
       - "--detach-sign"
