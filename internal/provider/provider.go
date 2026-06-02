@@ -7,6 +7,7 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
+	"github.com/hashicorp/terraform-plugin-framework/ephemeral"
 	"github.com/hashicorp/terraform-plugin-framework/provider"
 	"github.com/hashicorp/terraform-plugin-framework/provider/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -14,8 +15,11 @@ import (
 	"github.com/lexfrei/terraform-provider-cozystack/internal/client"
 )
 
-// Ensure CozystackProvider satisfies the provider.Provider interface.
-var _ provider.Provider = (*CozystackProvider)(nil)
+// Ensure CozystackProvider satisfies the provider interfaces.
+var (
+	_ provider.Provider                       = (*CozystackProvider)(nil)
+	_ provider.ProviderWithEphemeralResources = (*CozystackProvider)(nil)
+)
 
 // CozystackProvider is the provider implementation.
 type CozystackProvider struct {
@@ -188,6 +192,7 @@ func (p *CozystackProvider) Configure(
 
 	resp.ResourceData = api
 	resp.DataSourceData = api
+	resp.EphemeralResourceData = api
 }
 
 // connectionConfig converts the Terraform model into a client.Config.
@@ -295,6 +300,15 @@ func (p *CozystackProvider) DataSources(_ context.Context) []func() datasource.D
 		newAppDataSource[markerModel, *markerModel](client.TenantNamespaceResource(), "tenant_namespace", tenantNamespaceDataSourceSchema),
 		newAppDataSource[markerNsModel, *markerNsModel](client.TenantModuleResource(), "tenant_module", tenantModuleDataSourceSchema),
 		NewTenantSecretDataSource,
+	}
+}
+
+// EphemeralResources returns the ephemeral resource types: secret fetchers that
+// never persist their values in state.
+func (p *CozystackProvider) EphemeralResources(_ context.Context) []func() ephemeral.EphemeralResource {
+	return []func() ephemeral.EphemeralResource{
+		NewKubeconfigEphemeral,
+		NewTenantSecretEphemeral,
 	}
 }
 

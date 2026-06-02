@@ -84,6 +84,13 @@ The aggregated API is write-oriented: it takes a spec and returns a thin status.
 
 These are populated asynchronously, after the application is ready. Set `wait_for_ready = true` on the resource you consume so they are available on first apply rather than on a later refresh.
 
+### Keeping secrets out of state
+
+To avoid persisting secrets in state, the provider offers modern Terraform secret handling:
+
+- **Ephemeral resources** (`ephemeral "cozystack_kubernetes"`, `ephemeral "cozystack_tenant_secret"`) fetch a cluster kubeconfig or a tenant secret at apply time, usable to configure downstream providers, without ever writing the value to state.
+- **Write-only inputs** — `cozystack_tenant_secret` accepts `data_wo` (write-only, sent on apply but never stored; bump `data_wo_version` to push changes) alongside the state-persisted `data`.
+
 ```hcl
 resource "cozystack_kubernetes" "app" {
   name           = "app"

@@ -29,12 +29,16 @@ resource "cozystack_tenant_secret" "app" {
 
 ### Required
 
-- `data` (Map of String, Sensitive) Secret values keyed by name (plaintext; stored base64-encoded).
 - `name` (String) TenantSecret name. Immutable.
 - `namespace` (String) Tenant namespace. Immutable.
 
 ### Optional
 
+> **NOTE**: [Write-only arguments](https://developer.hashicorp.com/terraform/language/resources/ephemeral#write-only-arguments) are supported in Terraform 1.11 and later.
+
+- `data` (Map of String, Sensitive) Secret values keyed by name (plaintext in config, stored base64). Persisted in state; use `data_wo` to keep secrets out of state.
+- `data_wo` (Map of String, Sensitive, [Write-only](https://developer.hashicorp.com/terraform/language/resources/ephemeral#write-only-arguments)) Write-only secret values: sent on apply but never stored in state. Bump `data_wo_version` to push changes.
+- `data_wo_version` (String) Change this to signal that `data_wo` was updated (write-only values are not diffed).
 - `type` (String) Secret type (defaults to `Opaque`).
 
 ### Read-Only
