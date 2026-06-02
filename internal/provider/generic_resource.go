@@ -15,13 +15,14 @@ import (
 // Cozystack kind. A kind supplies its API descriptor, type-name suffix, schema,
 // and model type; all CRUD/import behaviour is handled by the shared helpers.
 type appResource[M any, PM planModelPtr[M]] struct {
-	res        client.Resource
-	typeSuffix string
-	schemaFunc func() rschema.Schema
-	client     *client.Client
+	res           client.Resource
+	typeSuffix    string
+	schemaFunc    func() rschema.Schema
+	clusterScoped bool
+	client        *client.Client
 }
 
-// newAppResource builds a resource factory for a kind.
+// newAppResource builds a resource factory for a namespaced kind.
 func newAppResource[M any, PM planModelPtr[M]](
 	res client.Resource,
 	typeSuffix string,
@@ -29,6 +30,18 @@ func newAppResource[M any, PM planModelPtr[M]](
 ) func() resource.Resource {
 	return func() resource.Resource {
 		return &appResource[M, PM]{res: res, typeSuffix: typeSuffix, schemaFunc: schemaFunc}
+	}
+}
+
+// newClusterResource builds a resource factory for a cluster-scoped kind. It
+// behaves like newAppResource but imports by name (no namespace).
+func newClusterResource[M any, PM planModelPtr[M]](
+	res client.Resource,
+	typeSuffix string,
+	schemaFunc func() rschema.Schema,
+) func() resource.Resource {
+	return func() resource.Resource {
+		return &appResource[M, PM]{res: res, typeSuffix: typeSuffix, schemaFunc: schemaFunc, clusterScoped: true}
 	}
 }
 
@@ -93,6 +106,12 @@ func (r *appResource[M, PM]) ImportState(
 	req resource.ImportStateRequest,
 	resp *resource.ImportStateResponse,
 ) {
+	if r.clusterScoped {
+		resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root(attrName), req.ID)...)
+
+		return
+	}
+
 	namespace, name, ok := parseImportID(req.ID)
 	if !ok {
 		resp.Diagnostics.AddError(

@@ -10,27 +10,64 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/dynamic"
 )
 
 const (
 	appGroup          = "apps.cozystack.io"
 	appVersion        = "v1alpha1"
-	appAPIVersion     = appGroup + "/" + appVersion
 	updateMaxRetries  = 2
 	readyPollInterval = 5 * time.Second
 )
 
-// Resource identifies one Cozystack application kind served under the
-// apps.cozystack.io aggregated API.
+// Resource identifies one Cozystack kind. By default it is a namespaced kind in
+// the apps.cozystack.io aggregated API; Group/Version/ClusterScoped override that
+// for other groups (e.g. the cluster-scoped cozystack.io platform resources).
 type Resource struct {
 	// Resource is the lowercase plural name (e.g. "tenants", "redises").
 	Resource string
 	// Kind is the CamelCase kind (e.g. "Tenant", "Redis").
 	Kind string
+	// Group overrides the API group. Empty defaults to apps.cozystack.io.
+	Group string
+	// Version overrides the API version. Empty defaults to v1alpha1.
+	Version string
+	// ClusterScoped marks a non-namespaced kind.
+	ClusterScoped bool
+}
+
+func (r Resource) group() string {
+	if r.Group != "" {
+		return r.Group
+	}
+
+	return appGroup
+}
+
+func (r Resource) version() string {
+	if r.Version != "" {
+		return r.Version
+	}
+
+	return appVersion
+}
+
+func (r Resource) apiVersion() string {
+	return r.group() + "/" + r.version()
 }
 
 func (r Resource) gvr() schema.GroupVersionResource {
-	return schema.GroupVersionResource{Group: appGroup, Version: appVersion, Resource: r.Resource}
+	return schema.GroupVersionResource{Group: r.group(), Version: r.version(), Resource: r.Resource}
+}
+
+// resource returns the dynamic client scoped for this kind: namespaced for
+// namespaced kinds, cluster-wide for cluster-scoped ones.
+func (c *Client) resource(res Resource, namespace string) dynamic.ResourceInterface {
+	if res.ClusterScoped {
+		return c.dyn.Resource(res.gvr())
+	}
+
+	return c.dyn.Resource(res.gvr()).Namespace(namespace)
 }
 
 // Application is the provider-facing view of a Cozystack application. Spec is
@@ -56,7 +93,7 @@ type ApplicationStatus struct {
 
 // Create creates an application and returns the server view of it.
 func (c *Client) Create(ctx context.Context, res Resource, app *Application) (Application, error) {
-	created, err := c.dyn.Resource(res.gvr()).Namespace(app.Namespace).
+	created, err := c.resource(res, app.Namespace).
 		Create(ctx, toUnstructured(res, app), metav1.CreateOptions{FieldManager: fieldManager})
 	if err != nil {
 		return Application{}, fmt.Errorf("creating %s %s/%s: %w", res.Kind, app.Namespace, app.Name, err)
@@ -68,7 +105,7 @@ func (c *Client) Create(ctx context.Context, res Resource, app *Application) (Ap
 // Get reads an application. The error is left unwrapped so callers can test it
 // with IsNotFound.
 func (c *Client) Get(ctx context.Context, res Resource, namespace, name string) (Application, error) {
-	got, err := c.dyn.Resource(res.gvr()).Namespace(namespace).Get(ctx, name, metav1.GetOptions{})
+	got, err := c.resource(res, namespace).Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		return Application{}, err //nolint:wrapcheck // unwrapped so callers can use IsNotFound
 	}
@@ -82,7 +119,7 @@ func (c *Client) Update(ctx context.Context, res Resource, app *Application) (Ap
 	var lastErr error
 
 	for range updateMaxRetries {
-		current, err := c.dyn.Resource(res.gvr()).Namespace(app.Namespace).
+		current, err := c.resource(res, app.Namespace).
 			Get(ctx, app.Name, metav1.GetOptions{})
 		if err != nil {
 			return Application{}, fmt.Errorf("reading %s %s/%s before update: %w", res.Kind, app.Namespace, app.Name, err)
@@ -90,7 +127,7 @@ func (c *Client) Update(ctx context.Context, res Resource, app *Application) (Ap
 
 		current.Object["spec"] = app.Spec
 
-		updated, err := c.dyn.Resource(res.gvr()).Namespace(app.Namespace).
+		updated, err := c.resource(res, app.Namespace).
 			Update(ctx, current, metav1.UpdateOptions{FieldManager: fieldManager})
 		if err == nil {
 			return fromUnstructured(updated), nil
@@ -108,7 +145,7 @@ func (c *Client) Update(ctx context.Context, res Resource, app *Application) (Ap
 
 // Delete deletes an application. A missing object is treated as success.
 func (c *Client) Delete(ctx context.Context, res Resource, namespace, name string) error {
-	err := c.dyn.Resource(res.gvr()).Namespace(namespace).Delete(ctx, name, metav1.DeleteOptions{})
+	err := c.resource(res, namespace).Delete(ctx, name, metav1.DeleteOptions{})
 	if err != nil && !apierrors.IsNotFound(err) {
 		return fmt.Errorf("deleting %s %s/%s: %w", res.Kind, namespace, name, err)
 	}
@@ -153,7 +190,7 @@ func toUnstructured(res Resource, app *Application) *unstructured.Unstructured {
 	}
 
 	obj := &unstructured.Unstructured{Object: map[string]any{
-		"apiVersion": appAPIVersion,
+		"apiVersion": res.apiVersion(),
 		"kind":       res.Kind,
 		"metadata":   map[string]any{"name": app.Name},
 		"spec":       spec,

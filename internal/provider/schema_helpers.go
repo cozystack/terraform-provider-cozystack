@@ -64,6 +64,32 @@ func identityResourceAttributes(nameDesc string) map[string]rschema.Attribute {
 	}
 }
 
+// clusterIdentityResourceAttributes returns the id/name attributes for a
+// cluster-scoped resource (no namespace). The id is the object name.
+func clusterIdentityResourceAttributes(nameDesc string) map[string]rschema.Attribute {
+	return map[string]rschema.Attribute{
+		attrID: rschema.StringAttribute{
+			Computed:            true,
+			MarkdownDescription: "Object name (cluster-scoped).",
+			PlanModifiers:       []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+		},
+		attrName: rschema.StringAttribute{
+			Required:            true,
+			MarkdownDescription: nameDesc,
+			PlanModifiers:       []planmodifier.String{stringplanmodifier.RequiresReplace()},
+		},
+	}
+}
+
+// clusterIdentityDataSourceAttributes returns the id/name attributes for a
+// cluster-scoped data source.
+func clusterIdentityDataSourceAttributes(nameDesc string) map[string]dsschema.Attribute {
+	return map[string]dsschema.Attribute{
+		attrID:   dsschema.StringAttribute{Computed: true, MarkdownDescription: "Object name."},
+		attrName: dsschema.StringAttribute{Required: true, MarkdownDescription: nameDesc},
+	}
+}
+
 // statusResourceAttributes returns the computed ready/chart_version attributes.
 func statusResourceAttributes() map[string]rschema.Attribute {
 	return map[string]rschema.Attribute{

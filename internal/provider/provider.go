@@ -174,6 +174,7 @@ func (p *CozystackProvider) Resources(_ context.Context) []func() resource.Resou
 		newAppResource[foundationdbResourceModel, *foundationdbResourceModel](client.FoundationDBResource(), "foundationdb", foundationdbSchema),
 		newAppResource[vminstanceResourceModel, *vminstanceResourceModel](client.VMInstanceResource(), "vminstance", vminstanceSchema),
 		newAppResource[kubernetesResourceModel, *kubernetesResourceModel](client.KubernetesResource(), "kubernetes", kubernetesSchema),
+		newClusterResource[packageResourceModel, *packageResourceModel](client.PackageResource(), "package", packageSchema),
 	}
 }
 
@@ -202,6 +203,7 @@ func (p *CozystackProvider) DataSources(_ context.Context) []func() datasource.D
 		newAppDataSource[foundationdbModel, *foundationdbModel](client.FoundationDBResource(), "foundationdb", foundationdbDataSourceSchema),
 		newAppDataSource[vminstanceModel, *vminstanceModel](client.VMInstanceResource(), "vminstance", vminstanceDataSourceSchema),
 		newAppDataSource[kubernetesModel, *kubernetesModel](client.KubernetesResource(), "kubernetes", kubernetesDataSourceSchema),
+		newAppDataSource[packageModel, *packageModel](client.PackageResource(), "package", packageDataSourceSchema),
 	}
 }
 
