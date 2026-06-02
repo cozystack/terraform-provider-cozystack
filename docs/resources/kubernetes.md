@@ -53,6 +53,7 @@ resource "cozystack_kubernetes" "cluster" {
 
 - `chart_version` (String) Deployed chart version (`status.version`).
 - `id` (String) Synthetic identifier in the form `namespace/name`.
+- `kubeconfig` (String, Sensitive) Admin kubeconfig for the provisioned cluster (from the `<name>-admin-kubeconfig` Secret). Populated once the cluster is ready — set `wait_for_ready = true` to have it available on first apply.
 - `ready` (Boolean) Whether the application's `Ready` condition is true.
 
 <a id="nestedatt--node_groups"></a>

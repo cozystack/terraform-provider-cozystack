@@ -42,6 +42,8 @@ data "cozystack_vminstance" "vm" {
 - `id` (String) Synthetic identifier `namespace/name`.
 - `instance_profile` (String) Preferences profile.
 - `instance_type` (String) Instance type.
+- `ip_address` (String) Primary IP address of the running guest.
+- `ip_addresses` (List of String) All guest IP addresses.
 - `networks` (Attributes List) Attached networks. (see [below for nested schema](#nestedatt--networks))
 - `ready` (Boolean) Whether the application's `Ready` condition is true.
 - `resources` (Attributes) Explicit CPU, memory, and socket configuration. (see [below for nested schema](#nestedatt--resources))

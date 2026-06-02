@@ -32,6 +32,7 @@ data "cozystack_kubernetes" "cluster" {
 - `chart_version` (String) Deployed chart version.
 - `host` (String) External hostname for the cluster.
 - `id` (String) Synthetic identifier `namespace/name`.
+- `kubeconfig` (String, Sensitive) Admin kubeconfig for the cluster.
 - `node_groups` (Attributes Map) Worker node groups keyed by name. (see [below for nested schema](#nestedatt--node_groups))
 - `ready` (Boolean) Whether the application's `Ready` condition is true.
 - `storage_class` (String) StorageClass used to store the data.

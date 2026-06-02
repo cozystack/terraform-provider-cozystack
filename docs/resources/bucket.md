@@ -43,6 +43,7 @@ resource "cozystack_bucket" "assets" {
 ### Read-Only
 
 - `chart_version` (String) Deployed chart version (`status.version`).
+- `credentials` (Attributes Map, Sensitive) S3 credentials per user (from the `<name>-<user>` Secret). Populated once the bucket claim is bound. (see [below for nested schema](#nestedatt--credentials))
 - `id` (String) Synthetic identifier in the form `namespace/name`.
 - `ready` (Boolean) Whether the bucket's `Ready` condition is true.
 
@@ -52,6 +53,18 @@ resource "cozystack_bucket" "assets" {
 Optional:
 
 - `readonly` (Boolean) Whether the user has read-only access.
+
+
+<a id="nestedatt--credentials"></a>
+### Nested Schema for `credentials`
+
+Read-Only:
+
+- `access_key` (String) S3 access key ID.
+- `bucket_name` (String) Backing bucket name.
+- `endpoint` (String) S3 endpoint URL.
+- `region` (String) S3 region.
+- `secret_key` (String) S3 secret access key.
 
 ## Import
 

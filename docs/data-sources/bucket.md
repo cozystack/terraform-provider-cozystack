@@ -34,11 +34,24 @@ output "assets_ready" {
 ### Read-Only
 
 - `chart_version` (String) Deployed chart version.
+- `credentials` (Attributes Map, Sensitive) S3 credentials per user. (see [below for nested schema](#nestedatt--credentials))
 - `id` (String) Synthetic identifier `namespace/name`.
 - `locking` (Boolean) Whether object lock is enabled.
 - `ready` (Boolean) Whether the bucket's `Ready` condition is true.
 - `storage_pool` (String) BucketClass storage pool name.
 - `users` (Attributes Map) Bucket users keyed by user name. (see [below for nested schema](#nestedatt--users))
+
+<a id="nestedatt--credentials"></a>
+### Nested Schema for `credentials`
+
+Read-Only:
+
+- `access_key` (String) S3 access key ID.
+- `bucket_name` (String) Backing bucket name.
+- `endpoint` (String) S3 endpoint URL.
+- `region` (String) S3 region.
+- `secret_key` (String) S3 secret access key.
+
 
 <a id="nestedatt--users"></a>
 ### Nested Schema for `users`

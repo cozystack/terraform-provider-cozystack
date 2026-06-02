@@ -27,6 +27,15 @@ type postgresqlModel struct {
 	Databases       types.Map    `tfsdk:"databases"`
 	Ready           types.Bool   `tfsdk:"ready"`
 	ChartVersion    types.String `tfsdk:"chart_version"`
+	Endpoints       types.Object `tfsdk:"endpoints"`
+}
+
+func pgConnectionObjectType() map[string]attr.Type {
+	return map[string]attr.Type{
+		"host":      types.StringType,
+		"read_host": types.StringType,
+		"port":      types.Int64Type,
+	}
 }
 
 type postgresqlResourceModel struct {
@@ -195,6 +204,50 @@ func (m *postgresqlModel) expand(ctx context.Context) (*client.Application, diag
 		Namespace: m.Namespace.ValueString(),
 		Spec:      spec,
 	}, diags
+}
+
+// readOutputs reads the CNPG connection endpoints, which the operator exposes as
+// the Services `postgres-<name>-rw` (primary) and `postgres-<name>-ro` (replicas).
+// They appear asynchronously, so an absent primary Service leaves endpoints null.
+func (m *postgresqlModel) readOutputs(ctx context.Context, api *client.Client) diag.Diagnostics {
+	var diags diag.Diagnostics
+
+	m.Endpoints = types.ObjectNull(pgConnectionObjectType())
+
+	namespace, name := m.identity()
+	release := "postgres-" + name
+
+	primary, found, err := api.GetServiceEndpoint(ctx, namespace, release+"-rw")
+	if err != nil {
+		diags.AddError("Unable to read PostgreSQL connection endpoint", err.Error())
+
+		return diags
+	}
+
+	if !found {
+		return diags
+	}
+
+	readHost := types.StringNull()
+
+	replica, replicaFound, replicaErr := api.GetServiceEndpoint(ctx, namespace, release+"-ro")
+	if replicaErr != nil {
+		diags.AddError("Unable to read PostgreSQL read endpoint", replicaErr.Error())
+
+		return diags
+	}
+
+	if replicaFound {
+		readHost = types.StringValue(replica.Host)
+	}
+
+	m.Endpoints = types.ObjectValueMust(pgConnectionObjectType(), map[string]attr.Value{
+		"host":      types.StringValue(primary.Host),
+		"read_host": readHost,
+		"port":      types.Int64Value(primary.Port),
+	})
+
+	return diags
 }
 
 func (m *postgresqlModel) flatten(app *client.Application) diag.Diagnostics {

@@ -117,11 +117,28 @@ func vminstanceComputeAttributes() map[string]rschema.Attribute {
 	}
 }
 
+func vminstanceOutputAttributes() map[string]rschema.Attribute {
+	return map[string]rschema.Attribute{
+		"ip_address": rschema.StringAttribute{
+			Computed: true,
+			MarkdownDescription: "Primary IP address of the running guest (from the backing " +
+				"VirtualMachineInstance). Populated once the guest is up — set " +
+				"`wait_for_ready = true` to have it available sooner.",
+		},
+		"ip_addresses": rschema.ListAttribute{
+			Computed:            true,
+			ElementType:         types.StringType,
+			MarkdownDescription: "All IP addresses reported on the guest's primary interface.",
+		},
+	}
+}
+
 func vminstanceSchema() rschema.Schema {
 	attributes := identityResourceAttributes("VMInstance instance name (`metadata.name`). Immutable.")
 
 	maps.Copy(attributes, vminstanceAccessAttributes())
 	maps.Copy(attributes, vminstanceComputeAttributes())
+	maps.Copy(attributes, vminstanceOutputAttributes())
 	maps.Copy(attributes, statusResourceAttributes())
 	maps.Copy(attributes, waitBehaviorAttributes())
 
@@ -180,6 +197,8 @@ func vminstanceDataSourceSchema() dsschema.Schema {
 		"ssh_keys":        dsschema.ListAttribute{Computed: true, ElementType: types.StringType, MarkdownDescription: "SSH public keys."},
 		"cloud_init":      dsschema.StringAttribute{Computed: true, MarkdownDescription: "Cloud-init user data."},
 		"cloud_init_seed": dsschema.StringAttribute{Computed: true, MarkdownDescription: "SMBIOS UUID seed."},
+		"ip_address":      dsschema.StringAttribute{Computed: true, MarkdownDescription: "Primary IP address of the running guest."},
+		"ip_addresses":    dsschema.ListAttribute{Computed: true, ElementType: types.StringType, MarkdownDescription: "All guest IP addresses."},
 	})
 	maps.Copy(attributes, statusDataSourceAttributes())
 

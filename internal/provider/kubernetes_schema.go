@@ -75,6 +75,13 @@ func kubernetesSchema() rschema.Schema {
 				"Defaults to `<cluster-name>.<tenant-host>`.",
 		},
 		"node_groups": k8sNodeGroupsResourceAttribute(),
+		"kubeconfig": rschema.StringAttribute{
+			Computed:  true,
+			Sensitive: true,
+			MarkdownDescription: "Admin kubeconfig for the provisioned cluster (from the " +
+				"`<name>-admin-kubeconfig` Secret). Populated once the cluster is ready — " +
+				"set `wait_for_ready = true` to have it available on first apply.",
+		},
 	})
 	maps.Copy(attributes, statusResourceAttributes())
 	maps.Copy(attributes, waitBehaviorAttributes())
@@ -108,6 +115,11 @@ func kubernetesDataSourceSchema() dsschema.Schema {
 					"resources":     resourcesDataSourceAttribute(),
 				},
 			},
+		},
+		"kubeconfig": dsschema.StringAttribute{
+			Computed:            true,
+			Sensitive:           true,
+			MarkdownDescription: "Admin kubeconfig for the cluster.",
 		},
 	})
 	maps.Copy(attributes, statusDataSourceAttributes())

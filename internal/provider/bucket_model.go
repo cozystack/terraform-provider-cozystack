@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+	"encoding/json"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
@@ -20,6 +21,82 @@ type bucketModel struct {
 	Users        types.Map    `tfsdk:"users"`
 	Ready        types.Bool   `tfsdk:"ready"`
 	ChartVersion types.String `tfsdk:"chart_version"`
+	Credentials  types.Map    `tfsdk:"credentials"`
+}
+
+func bucketCredentialsObjectType() map[string]attr.Type {
+	return map[string]attr.Type{
+		"bucket_name": types.StringType,
+		"endpoint":    types.StringType,
+		"region":      types.StringType,
+		"access_key":  types.StringType,
+		"secret_key":  types.StringType,
+	}
+}
+
+// bucketInfo is the COSI BucketInfo blob stored under the `BucketInfo` key of a
+// bucket user's credentials Secret.
+type bucketInfo struct {
+	Spec struct {
+		BucketName string `json:"bucketName"`
+		SecretS3   struct {
+			Endpoint        string `json:"endpoint"`
+			Region          string `json:"region"`
+			AccessKeyID     string `json:"accessKeyID"` //nolint:tagliatelle // COSI BucketInfo uses accessKeyID verbatim
+			AccessSecretKey string `json:"accessSecretKey"`
+		} `json:"secretS3"`
+	} `json:"spec"`
+}
+
+// readOutputs reads each user's S3 credentials, which the chart materialises as
+// the Secret `bucket-<name>-<user>` (key `BucketInfo`, a COSI blob). Secrets
+// appear asynchronously, so users without one are simply omitted from credentials.
+func (m *bucketModel) readOutputs(ctx context.Context, api *client.Client) diag.Diagnostics {
+	var diags diag.Diagnostics
+
+	credentialsType := types.ObjectType{AttrTypes: bucketCredentialsObjectType()}
+	m.Credentials = types.MapNull(credentialsType)
+
+	if m.Users.IsNull() || m.Users.IsUnknown() {
+		return diags
+	}
+
+	namespace, name := m.identity()
+	entries := map[string]attr.Value{}
+
+	for user := range m.Users.Elements() {
+		data, found, err := api.GetSecretData(ctx, namespace, "bucket-"+name+"-"+user)
+		if err != nil {
+			diags.AddError("Unable to read bucket credentials", err.Error())
+
+			return diags
+		}
+
+		if !found {
+			continue
+		}
+
+		var info bucketInfo
+		if jsonErr := json.Unmarshal(data["BucketInfo"], &info); jsonErr != nil {
+			diags.AddError("Unable to parse bucket credentials", jsonErr.Error())
+
+			return diags
+		}
+
+		entries[user] = types.ObjectValueMust(bucketCredentialsObjectType(), map[string]attr.Value{
+			"bucket_name": types.StringValue(info.Spec.BucketName),
+			"endpoint":    types.StringValue(info.Spec.SecretS3.Endpoint),
+			"region":      types.StringValue(info.Spec.SecretS3.Region),
+			"access_key":  types.StringValue(info.Spec.SecretS3.AccessKeyID),
+			"secret_key":  types.StringValue(info.Spec.SecretS3.AccessSecretKey),
+		})
+	}
+
+	if len(entries) > 0 {
+		m.Credentials = types.MapValueMust(credentialsType, entries)
+	}
+
+	return diags
 }
 
 type bucketUserModel struct {

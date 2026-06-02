@@ -124,6 +124,26 @@ func (r *bucketResource) ImportState(
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root(attrName), name)...)
 }
 
+// bucketCredentialsResourceAttribute is the computed, sensitive per-user S3
+// credentials map surfaced from each user's BucketInfo Secret.
+func bucketCredentialsResourceAttribute() schema.MapNestedAttribute {
+	return schema.MapNestedAttribute{
+		Computed:  true,
+		Sensitive: true,
+		MarkdownDescription: "S3 credentials per user (from the `<name>-<user>` Secret). " +
+			"Populated once the bucket claim is bound.",
+		NestedObject: schema.NestedAttributeObject{
+			Attributes: map[string]schema.Attribute{
+				"bucket_name": schema.StringAttribute{Computed: true, MarkdownDescription: "Backing bucket name."},
+				"endpoint":    schema.StringAttribute{Computed: true, MarkdownDescription: "S3 endpoint URL."},
+				"region":      schema.StringAttribute{Computed: true, MarkdownDescription: "S3 region."},
+				"access_key":  schema.StringAttribute{Computed: true, MarkdownDescription: "S3 access key ID."},
+				"secret_key":  schema.StringAttribute{Computed: true, MarkdownDescription: "S3 secret access key."},
+			},
+		},
+	}
+}
+
 // bucketSchema returns the cozystack_bucket resource schema.
 func bucketSchema() schema.Schema {
 	attributes := map[string]schema.Attribute{
@@ -168,6 +188,7 @@ func bucketSchema() schema.Schema {
 				},
 			},
 		},
+		"credentials": bucketCredentialsResourceAttribute(),
 		attrReady: schema.BoolAttribute{
 			Computed:            true,
 			MarkdownDescription: "Whether the bucket's `Ready` condition is true.",

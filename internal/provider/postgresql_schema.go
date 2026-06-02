@@ -82,6 +82,16 @@ func postgresSchema() rschema.Schema {
 		},
 		"users":     pgUsersResourceAttribute(),
 		"databases": pgDatabasesResourceAttribute(),
+		"endpoints": rschema.SingleNestedAttribute{
+			Computed: true,
+			MarkdownDescription: "Connection endpoints (from the CNPG `<name>-rw`/`<name>-ro` Services). " +
+				"Populated once the instance is ready.",
+			Attributes: map[string]rschema.Attribute{
+				"host":      rschema.StringAttribute{Computed: true, MarkdownDescription: "Primary (read-write) service host."},
+				"read_host": rschema.StringAttribute{Computed: true, MarkdownDescription: "Replica (read-only) service host."},
+				"port":      rschema.Int64Attribute{Computed: true, MarkdownDescription: "PostgreSQL port."},
+			},
+		},
 	})
 	maps.Copy(attributes, statusResourceAttributes())
 	maps.Copy(attributes, waitBehaviorAttributes())
@@ -131,6 +141,15 @@ func postgresDataSourceSchema() dsschema.Schema {
 					"extensions": dsschema.ListAttribute{Computed: true, ElementType: types.StringType, MarkdownDescription: "Enabled extensions."},
 					"roles":      rolesDS,
 				},
+			},
+		},
+		"endpoints": dsschema.SingleNestedAttribute{
+			Computed:            true,
+			MarkdownDescription: "Connection endpoints.",
+			Attributes: map[string]dsschema.Attribute{
+				"host":      dsschema.StringAttribute{Computed: true, MarkdownDescription: "Primary (read-write) service host."},
+				"read_host": dsschema.StringAttribute{Computed: true, MarkdownDescription: "Replica (read-only) service host."},
+				"port":      dsschema.Int64Attribute{Computed: true, MarkdownDescription: "PostgreSQL port."},
 			},
 		},
 	})

@@ -31,6 +31,7 @@ data "cozystack_postgres" "app" {
 
 - `chart_version` (String) Deployed chart version.
 - `databases` (Attributes Map) Databases keyed by name. (see [below for nested schema](#nestedatt--databases))
+- `endpoints` (Attributes) Connection endpoints. (see [below for nested schema](#nestedatt--endpoints))
 - `external` (Boolean) Whether external access is enabled.
 - `id` (String) Synthetic identifier `namespace/name`.
 - `ready` (Boolean) Whether the application's `Ready` condition is true.
@@ -58,6 +59,16 @@ Read-Only:
 - `admin` (List of String) Admin users.
 - `readonly` (List of String) Read-only users.
 
+
+
+<a id="nestedatt--endpoints"></a>
+### Nested Schema for `endpoints`
+
+Read-Only:
+
+- `host` (String) Primary (read-write) service host.
+- `port` (Number) PostgreSQL port.
+- `read_host` (String) Replica (read-only) service host.
 
 
 <a id="nestedatt--resources"></a>

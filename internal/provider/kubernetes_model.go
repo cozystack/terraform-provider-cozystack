@@ -22,6 +22,7 @@ type kubernetesModel struct {
 	NodeGroups   types.Map    `tfsdk:"node_groups"`
 	Ready        types.Bool   `tfsdk:"ready"`
 	ChartVersion types.String `tfsdk:"chart_version"`
+	Kubeconfig   types.String `tfsdk:"kubeconfig"`
 }
 
 type kubernetesResourceModel struct {
@@ -148,6 +149,32 @@ func (m *kubernetesModel) flatten(app *client.Application) diag.Diagnostics {
 
 	m.Ready = types.BoolValue(app.Status.Ready)
 	m.ChartVersion = types.StringValue(app.Status.Version)
+
+	return diags
+}
+
+// readOutputs reads the cluster's admin kubeconfig, which the chart materialises
+// as the Secret `kubernetes-<name>-admin-kubeconfig` (key `super-admin.conf`). It
+// is created asynchronously, so an absent Secret leaves the attribute null.
+func (m *kubernetesModel) readOutputs(ctx context.Context, api *client.Client) diag.Diagnostics {
+	var diags diag.Diagnostics
+
+	m.Kubeconfig = types.StringNull()
+
+	namespace, name := m.identity()
+
+	data, found, err := api.GetSecretData(ctx, namespace, "kubernetes-"+name+"-admin-kubeconfig")
+	if err != nil {
+		diags.AddError("Unable to read Kubernetes admin kubeconfig", err.Error())
+
+		return diags
+	}
+
+	if found {
+		if conf, ok := data["super-admin.conf"]; ok {
+			m.Kubeconfig = types.StringValue(string(conf))
+		}
+	}
 
 	return diags
 }

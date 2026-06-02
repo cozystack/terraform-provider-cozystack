@@ -33,6 +33,35 @@ Every kind is served by the same aggregated API, so the provider is built to gro
 
 Every kind served by the aggregated `apps.cozystack.io` API is now covered.
 
+## Referencing outputs
+
+The aggregated API is write-oriented: it takes a spec and returns a thin status. The connection details you actually want to reference — endpoints, credentials, a child cluster's kubeconfig, a VM's IP — are materialised by the underlying charts as Secrets, Services, and KubeVirt status. The provider reads those and exposes them as computed (sensitive where appropriate) attributes:
+
+- `cozystack_kubernetes.<x>.kubeconfig` — admin kubeconfig of the provisioned cluster, for chaining the `kubernetes`/`helm` providers into it.
+- `cozystack_postgres.<x>.endpoints` — `{ host, read_host, port }` from the CNPG `rw`/`ro` Services.
+- `cozystack_bucket.<x>.credentials["<user>"]` — `{ endpoint, bucket_name, region, access_key, secret_key }` per user.
+- `cozystack_vminstance.<x>.ip_address` / `.ip_addresses` — guest addresses from the backing VirtualMachineInstance.
+
+These are populated asynchronously, after the application is ready. Set `wait_for_ready = true` on the resource you consume so they are available on first apply rather than on a later refresh.
+
+```hcl
+resource "cozystack_kubernetes" "app" {
+  name           = "app"
+  namespace      = "tenant-root"
+  node_groups    = { md0 = { min_replicas = 1, max_replicas = 3 } }
+  wait_for_ready = true
+}
+
+provider "kubernetes" {
+  alias = "app"
+  # chain straight into the cluster this provider just created
+  # (parse cozystack_kubernetes.app.kubeconfig with the helm/kubernetes provider's
+  #  config_path written from it, or your preferred kubeconfig wiring)
+}
+```
+
+The names of these backing Secrets/Services are chart conventions (`postgres-<name>-rw`, `bucket-<name>-<user>`, `kubernetes-<name>-admin-kubeconfig`), pinned to the supported Cozystack version — not part of the stable aggregated-API contract.
+
 ## Requirements
 
 - Terraform >= 1.0 or OpenTofu >= 1.6

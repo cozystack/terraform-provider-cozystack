@@ -61,6 +61,20 @@ func (d *bucketDataSource) Schema(
 					},
 				},
 			},
+			"credentials": schema.MapNestedAttribute{
+				Computed:            true,
+				Sensitive:           true,
+				MarkdownDescription: "S3 credentials per user.",
+				NestedObject: schema.NestedAttributeObject{
+					Attributes: map[string]schema.Attribute{
+						"bucket_name": schema.StringAttribute{Computed: true, MarkdownDescription: "Backing bucket name."},
+						"endpoint":    schema.StringAttribute{Computed: true, MarkdownDescription: "S3 endpoint URL."},
+						"region":      schema.StringAttribute{Computed: true, MarkdownDescription: "S3 region."},
+						"access_key":  schema.StringAttribute{Computed: true, MarkdownDescription: "S3 access key ID."},
+						"secret_key":  schema.StringAttribute{Computed: true, MarkdownDescription: "S3 secret access key."},
+					},
+				},
+			},
 			attrReady:        schema.BoolAttribute{Computed: true, MarkdownDescription: "Whether the bucket's `Ready` condition is true."},
 			attrChartVersion: schema.StringAttribute{Computed: true, MarkdownDescription: "Deployed chart version."},
 		},

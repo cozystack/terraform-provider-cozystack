@@ -31,6 +31,22 @@ type planModel interface {
 	waitConfig() (waitForReady types.Bool, timeout types.String)
 }
 
+// outputsReader is an optional behaviour: a model that has server-generated
+// outputs (connection details, credentials, addresses) materialised outside the
+// aggregated API reads them from the related Secrets/Services/status here. It is
+// invoked after flatten, once identity is populated. A missing artifact is not
+// an error — outputs are asynchronous, so the model leaves the field null.
+type outputsReader interface {
+	readOutputs(ctx context.Context, api *client.Client) diag.Diagnostics
+}
+
+// readModelOutputs invokes the optional outputs hook when the model implements it.
+func readModelOutputs(ctx context.Context, model any, api *client.Client, diags *diag.Diagnostics) {
+	if reader, ok := model.(outputsReader); ok {
+		diags.Append(reader.readOutputs(ctx, api)...)
+	}
+}
+
 // readModelPtr / planModelPtr bind a concrete struct M to its pointer methods so
 // the generic helpers can allocate a model and operate on it.
 type readModelPtr[M any] interface {
@@ -78,6 +94,7 @@ func createOrUpdate[M any, PM planModelPtr[M]](
 	}
 
 	diags.Append(pm.flatten(&result)...)
+	readModelOutputs(ctx, pm, api, diags)
 	diags.Append(state.Set(ctx, &model)...)
 }
 
@@ -116,6 +133,7 @@ func readResource[M any, PM planModelPtr[M]](
 	}
 
 	diags.Append(pm.flatten(&app)...)
+	readModelOutputs(ctx, pm, api, diags)
 	diags.Append(state.Set(ctx, &model)...)
 }
 
@@ -174,6 +192,7 @@ func readDataSource[M any, PM readModelPtr[M]](
 	}
 
 	diags.Append(pm.flatten(&app)...)
+	readModelOutputs(ctx, pm, api, diags)
 	diags.Append(state.Set(ctx, &model)...)
 }
 

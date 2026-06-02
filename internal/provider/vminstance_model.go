@@ -33,6 +33,8 @@ type vminstanceModel struct {
 	CloudInitSeed     types.String `tfsdk:"cloud_init_seed"`
 	Ready             types.Bool   `tfsdk:"ready"`
 	ChartVersion      types.String `tfsdk:"chart_version"`
+	IPAddress         types.String `tfsdk:"ip_address"`
+	IPAddresses       types.List   `tfsdk:"ip_addresses"`
 }
 
 type vminstanceResourceModel struct {
@@ -228,6 +230,34 @@ func (m *vminstanceModel) flatten(app *client.Application) diag.Diagnostics {
 
 	m.Ready = types.BoolValue(app.Status.Ready)
 	m.ChartVersion = types.StringValue(app.Status.Version)
+
+	return diags
+}
+
+// readOutputs reads the running VM's IP addresses from the backing KubeVirt
+// VirtualMachineInstance (`vm-instance-<name>`). Addresses appear only once the
+// guest is up, so an absent VMI or one without an address leaves them null.
+func (m *vminstanceModel) readOutputs(ctx context.Context, api *client.Client) diag.Diagnostics {
+	var diags diag.Diagnostics
+
+	m.IPAddress = types.StringNull()
+	m.IPAddresses = types.ListNull(types.StringType)
+
+	namespace, name := m.identity()
+
+	addresses, found, err := api.GetVMIAddresses(ctx, namespace, "vm-instance-"+name)
+	if err != nil {
+		diags.AddError("Unable to read VMInstance addresses", err.Error())
+
+		return diags
+	}
+
+	if !found || len(addresses) == 0 {
+		return diags
+	}
+
+	m.IPAddress = types.StringValue(addresses[0])
+	m.IPAddresses = stringListOrNull(stringsToAny(addresses))
 
 	return diags
 }
