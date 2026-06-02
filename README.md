@@ -29,8 +29,9 @@ Every kind is served by the same aggregated API, so the provider is built to gro
 | Managed Kafka | [`cozystack_kafka`](docs/resources/kafka.md) | [`cozystack_kafka`](docs/data-sources/kafka.md) |
 | Managed FoundationDB | [`cozystack_foundationdb`](docs/resources/foundationdb.md) | [`cozystack_foundationdb`](docs/data-sources/foundationdb.md) |
 | Virtual machine instance | [`cozystack_vminstance`](docs/resources/vminstance.md) | [`cozystack_vminstance`](docs/data-sources/vminstance.md) |
+| Managed Kubernetes | [`cozystack_kubernetes`](docs/resources/kubernetes.md) | [`cozystack_kubernetes`](docs/data-sources/kubernetes.md) |
 
-More kinds (managed Kubernetes, …) follow the same pattern.
+Every kind served by the aggregated `apps.cozystack.io` API is now covered.
 
 ## Requirements
 

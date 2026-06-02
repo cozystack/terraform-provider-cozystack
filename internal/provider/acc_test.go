@@ -977,3 +977,43 @@ resource "cozystack_vminstance" "test" {
 		},
 	})
 }
+
+func TestAccKubernetesResource(t *testing.T) {
+	config := `
+resource "cozystack_kubernetes" "test" {
+  name      = "tfacck8s"
+  namespace = "tenant-root"
+  version   = "v1.35"
+  node_groups = {
+    md0 = {
+      instance_type = "u1.medium"
+      min_replicas  = 0
+      max_replicas  = 1
+      roles         = ["ingress-nginx"]
+    }
+  }
+}
+`
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             checkApplicationDestroy(client.KubernetesResource(), "cozystack_kubernetes"),
+		Steps: []resource.TestStep{
+			{
+				Config: config,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("cozystack_kubernetes.test", "id", "tenant-root/tfacck8s"),
+					resource.TestCheckResourceAttr("cozystack_kubernetes.test", "node_groups.md0.max_replicas", "1"),
+					resource.TestCheckResourceAttr("cozystack_kubernetes.test", "node_groups.md0.disk_size", "20Gi"),
+				),
+			},
+			{
+				ResourceName:            "cozystack_kubernetes.test",
+				ImportState:             true,
+				ImportStateId:           "tenant-root/tfacck8s",
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"wait_for_ready", "wait_timeout", "ready", "chart_version"},
+			},
+		},
+	})
+}
