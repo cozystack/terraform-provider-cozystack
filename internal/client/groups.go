@@ -28,6 +28,27 @@ func RestoreJobResource() Resource {
 	return Resource{Group: "backups.cozystack.io", Resource: "restorejobs", Kind: "RestoreJob"}
 }
 
+// TenantNamespaceResource identifies the TenantNamespace marker kind
+// (cluster-scoped, no spec).
+func TenantNamespaceResource() Resource {
+	return Resource{
+		Group: "core.cozystack.io", Resource: "tenantnamespaces", Kind: "TenantNamespace",
+		ClusterScoped: true, NoSpec: true,
+	}
+}
+
+// TenantModuleResource identifies the TenantModule marker kind (namespaced, no spec).
+func TenantModuleResource() Resource {
+	return Resource{
+		Group: "core.cozystack.io", Resource: "tenantmodules", Kind: "TenantModule", NoSpec: true,
+	}
+}
+
+// TenantSecretResource identifies the TenantSecret kind (namespaced, Secret-shaped).
+func TenantSecretResource() Resource {
+	return Resource{Group: "core.cozystack.io", Resource: "tenantsecrets", Kind: "TenantSecret"}
+}
+
 // MarketplacePanelResource identifies the MarketplacePanel kind (cluster-scoped).
 func MarketplacePanelResource() Resource {
 	return Resource{Group: "dashboard.cozystack.io", Resource: "marketplacepanels", Kind: "MarketplacePanel", ClusterScoped: true}

@@ -59,7 +59,17 @@ The same JSON-spec passthrough also covers the backup framework and dashboard pa
 | RestoreJob | [`cozystack_restore_job`](docs/resources/restore_job.md) | [`cozystack_restore_job`](docs/data-sources/restore_job.md) |
 | MarketplacePanel | [`cozystack_marketplace_panel`](docs/resources/marketplace_panel.md) | [`cozystack_marketplace_panel`](docs/data-sources/marketplace_panel.md) |
 
-Deliberately not exposed: the `core.cozystack.io` kinds (`TenantSecret` is Secret-shaped — `data`/`stringData`, not `spec`; `TenantModule`/`TenantNamespace` are spec-less markers), the `strategy.backups.cozystack.io` per-engine backup strategies, and the remaining `dashboard.cozystack.io` UI-customization CRDs — all platform internals shipped and reconciled by Cozystack itself, with no Infrastructure-as-Code use case.
+### Tenant core resources (`core.cozystack.io`)
+
+These do not follow the spec pattern, so they have purpose-built models:
+
+| Kind | Resource | Shape |
+| --- | --- | --- |
+| TenantSecret | [`cozystack_tenant_secret`](docs/resources/tenant_secret.md) | Secret-shaped: `type` + `data` (plaintext in, stored base64) |
+| TenantModule | [`cozystack_tenant_module`](docs/resources/tenant_module.md) | namespaced marker (existence enables the module) |
+| TenantNamespace | [`cozystack_tenant_namespace`](docs/resources/tenant_namespace.md) | cluster-scoped marker |
+
+Deliberately not exposed: the `strategy.backups.cozystack.io` per-engine backup strategies and the `dashboard.cozystack.io` UI-customization CRDs (Sidebar, Navigation, Factory, …) — platform internals shipped and reconciled by Cozystack itself, with no Infrastructure-as-Code use case.
 
 Authentication mirrors the official kubernetes provider: `config_path`/`config_context`, `host`/`token`, `cluster_ca_certificate`, `client_certificate`/`client_key`, an `in_cluster` toggle, and an `exec {}` credential-plugin block for OIDC login helpers (`kubectl oidc-login`). OIDC via a kubeconfig already works through `config_path` with no extra configuration.
 

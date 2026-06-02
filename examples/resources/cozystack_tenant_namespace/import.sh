@@ -1,0 +1,1 @@
+terraform import cozystack_tenant_namespace.example name

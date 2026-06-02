@@ -251,6 +251,9 @@ func (p *CozystackProvider) Resources(_ context.Context) []func() resource.Resou
 		newAppResource[rawSpecNsResourceModel, *rawSpecNsResourceModel](client.PlanResource(), "backup_plan", backupPlanSchema),
 		newAppResource[rawSpecNsResourceModel, *rawSpecNsResourceModel](client.RestoreJobResource(), "restore_job", restoreJobSchema),
 		newClusterResource[rawSpecResourceModel, *rawSpecResourceModel](client.MarketplacePanelResource(), "marketplace_panel", marketplacePanelSchema),
+		newClusterResource[markerResourceModel, *markerResourceModel](client.TenantNamespaceResource(), "tenant_namespace", tenantNamespaceSchema),
+		newAppResource[markerNsResourceModel, *markerNsResourceModel](client.TenantModuleResource(), "tenant_module", tenantModuleSchema),
+		NewTenantSecretResource,
 	}
 }
 
@@ -289,6 +292,9 @@ func (p *CozystackProvider) DataSources(_ context.Context) []func() datasource.D
 		newAppDataSource[rawSpecNsModel, *rawSpecNsModel](client.PlanResource(), "backup_plan", backupPlanDataSourceSchema),
 		newAppDataSource[rawSpecNsModel, *rawSpecNsModel](client.RestoreJobResource(), "restore_job", restoreJobDataSourceSchema),
 		newAppDataSource[rawSpecModel, *rawSpecModel](client.MarketplacePanelResource(), "marketplace_panel", marketplacePanelDataSourceSchema),
+		newAppDataSource[markerModel, *markerModel](client.TenantNamespaceResource(), "tenant_namespace", tenantNamespaceDataSourceSchema),
+		newAppDataSource[markerNsModel, *markerNsModel](client.TenantModuleResource(), "tenant_module", tenantModuleDataSourceSchema),
+		NewTenantSecretDataSource,
 	}
 }
 

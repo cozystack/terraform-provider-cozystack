@@ -34,6 +34,9 @@ type Resource struct {
 	Version string
 	// ClusterScoped marks a non-namespaced kind.
 	ClusterScoped bool
+	// NoSpec marks a kind that has no spec (a marker resource); the spec field
+	// is omitted on create/update.
+	NoSpec bool
 }
 
 func (r Resource) group() string {
@@ -125,7 +128,9 @@ func (c *Client) Update(ctx context.Context, res Resource, app *Application) (Ap
 			return Application{}, fmt.Errorf("reading %s %s/%s before update: %w", res.Kind, app.Namespace, app.Name, err)
 		}
 
-		current.Object["spec"] = app.Spec
+		if !res.NoSpec {
+			current.Object["spec"] = app.Spec
+		}
 
 		updated, err := c.resource(res, app.Namespace).
 			Update(ctx, current, metav1.UpdateOptions{FieldManager: fieldManager})
@@ -184,17 +189,22 @@ func (c *Client) WaitForReady(
 
 // toUnstructured renders an Application as an unstructured Cozystack object.
 func toUnstructured(res Resource, app *Application) *unstructured.Unstructured {
-	spec := app.Spec
-	if spec == nil {
-		spec = map[string]any{}
-	}
-
-	obj := &unstructured.Unstructured{Object: map[string]any{
+	object := map[string]any{
 		"apiVersion": res.apiVersion(),
 		"kind":       res.Kind,
 		"metadata":   map[string]any{"name": app.Name},
-		"spec":       spec,
-	}}
+	}
+
+	if !res.NoSpec {
+		spec := app.Spec
+		if spec == nil {
+			spec = map[string]any{}
+		}
+
+		object["spec"] = spec
+	}
+
+	obj := &unstructured.Unstructured{Object: object}
 
 	if app.Namespace != "" {
 		obj.SetNamespace(app.Namespace)
