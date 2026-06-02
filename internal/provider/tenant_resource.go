@@ -173,7 +173,12 @@ func tenantSpecAttributes() map[string]schema.Attribute {
 		attrEtcd:       boolToggle("Deploy a dedicated etcd cluster for the tenant."),
 		attrMonitoring: boolToggle("Deploy a dedicated monitoring stack for the tenant."),
 		attrIngress:    boolToggle("Deploy a dedicated ingress controller for the tenant."),
-		attrSeaweedfs:  boolToggle("Deploy a dedicated SeaweedFS instance for the tenant."),
+		"gateway": schema.BoolAttribute{
+			Optional: true,
+			MarkdownDescription: "Deploy a dedicated Gateway API controller (newer Cozystack only). " +
+				"Tri-state: omitted when unset, so it is a no-op on clusters that do not support it.",
+		},
+		attrSeaweedfs: boolToggle("Deploy a dedicated SeaweedFS instance for the tenant."),
 		"scheduling_class": schema.StringAttribute{
 			Optional:            true,
 			Computed:            true,

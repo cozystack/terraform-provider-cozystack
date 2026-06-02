@@ -245,6 +245,12 @@ func (p *CozystackProvider) Resources(_ context.Context) []func() resource.Resou
 		newClusterResource[rawSpecResourceModel, *rawSpecResourceModel](client.PackageSourceResource(), "package_source", packageSourceSchema),
 		newClusterResource[rawSpecResourceModel, *rawSpecResourceModel](client.ApplicationDefinitionResource(), "application_definition", applicationDefinitionSchema),
 		newClusterResource[rawSpecResourceModel, *rawSpecResourceModel](client.SchedulingClassResource(), "scheduling_class", schedulingClassSchema),
+		newClusterResource[rawSpecResourceModel, *rawSpecResourceModel](client.BackupClassResource(), "backup_class", backupClassSchema),
+		newAppResource[rawSpecNsResourceModel, *rawSpecNsResourceModel](client.BackupResource(), "backup", backupSchema),
+		newAppResource[rawSpecNsResourceModel, *rawSpecNsResourceModel](client.BackupJobResource(), "backup_job", backupJobSchema),
+		newAppResource[rawSpecNsResourceModel, *rawSpecNsResourceModel](client.PlanResource(), "backup_plan", backupPlanSchema),
+		newAppResource[rawSpecNsResourceModel, *rawSpecNsResourceModel](client.RestoreJobResource(), "restore_job", restoreJobSchema),
+		newClusterResource[rawSpecResourceModel, *rawSpecResourceModel](client.MarketplacePanelResource(), "marketplace_panel", marketplacePanelSchema),
 	}
 }
 
@@ -277,6 +283,12 @@ func (p *CozystackProvider) DataSources(_ context.Context) []func() datasource.D
 		newAppDataSource[rawSpecModel, *rawSpecModel](client.PackageSourceResource(), "package_source", packageSourceDataSourceSchema),
 		newAppDataSource[rawSpecModel, *rawSpecModel](client.ApplicationDefinitionResource(), "application_definition", applicationDefinitionDataSourceSchema),
 		newAppDataSource[rawSpecModel, *rawSpecModel](client.SchedulingClassResource(), "scheduling_class", schedulingClassDataSourceSchema),
+		newAppDataSource[rawSpecModel, *rawSpecModel](client.BackupClassResource(), "backup_class", backupClassDataSourceSchema),
+		newAppDataSource[rawSpecNsModel, *rawSpecNsModel](client.BackupResource(), "backup", backupDataSourceSchema),
+		newAppDataSource[rawSpecNsModel, *rawSpecNsModel](client.BackupJobResource(), "backup_job", backupJobDataSourceSchema),
+		newAppDataSource[rawSpecNsModel, *rawSpecNsModel](client.PlanResource(), "backup_plan", backupPlanDataSourceSchema),
+		newAppDataSource[rawSpecNsModel, *rawSpecNsModel](client.RestoreJobResource(), "restore_job", restoreJobDataSourceSchema),
+		newAppDataSource[rawSpecModel, *rawSpecModel](client.MarketplacePanelResource(), "marketplace_panel", marketplacePanelDataSourceSchema),
 	}
 }
 

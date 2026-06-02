@@ -43,6 +43,41 @@ func rawSpecDataSourceSchema(schemaDesc, nameDesc string) dsschema.Schema {
 	return dsschema.Schema{MarkdownDescription: schemaDesc, Attributes: attributes}
 }
 
+// rawSpecNsSchema builds a resource schema for a namespaced kind whose spec is
+// surfaced as a single normalized-JSON object.
+func rawSpecNsSchema(schemaDesc, nameDesc, specDesc string) rschema.Schema {
+	attributes := identityResourceAttributes(nameDesc)
+
+	maps.Copy(attributes, map[string]rschema.Attribute{
+		"spec": rschema.StringAttribute{
+			Optional:            true,
+			Computed:            true,
+			CustomType:          jsontypes.NormalizedType{},
+			MarkdownDescription: specDesc,
+		},
+	})
+	maps.Copy(attributes, statusResourceAttributes())
+	maps.Copy(attributes, waitBehaviorAttributes())
+
+	return rschema.Schema{MarkdownDescription: schemaDesc, Attributes: attributes}
+}
+
+// rawSpecNsDataSourceSchema builds the matching namespaced data source schema.
+func rawSpecNsDataSourceSchema(schemaDesc, nameDesc string) dsschema.Schema {
+	attributes := identityDataSourceAttributes(nameDesc)
+
+	maps.Copy(attributes, map[string]dsschema.Attribute{
+		"spec": dsschema.StringAttribute{
+			Computed:            true,
+			CustomType:          jsontypes.NormalizedType{},
+			MarkdownDescription: "Full object spec as JSON.",
+		},
+	})
+	maps.Copy(attributes, statusDataSourceAttributes())
+
+	return dsschema.Schema{MarkdownDescription: schemaDesc, Attributes: attributes}
+}
+
 func packageSourceSchema() rschema.Schema {
 	return rawSpecSchema(
 		"A Cozystack PackageSource (cluster-scoped, `cozystack.io` group): defines where "+
@@ -81,4 +116,62 @@ func schedulingClassSchema() rschema.Schema {
 
 func schedulingClassDataSourceSchema() dsschema.Schema {
 	return rawSpecDataSourceSchema("Read an existing Cozystack SchedulingClass by name.", "SchedulingClass name.")
+}
+
+// backups.cozystack.io group.
+
+func backupClassSchema() rschema.Schema {
+	return rawSpecSchema("A Cozystack BackupClass (cluster-scoped): a named backup configuration.",
+		"BackupClass name. Immutable.", "Full BackupClass spec as JSON.")
+}
+
+func backupClassDataSourceSchema() dsschema.Schema {
+	return rawSpecDataSourceSchema("Read a Cozystack BackupClass by name.", "BackupClass name.")
+}
+
+func backupSchema() rschema.Schema {
+	return rawSpecNsSchema("A Cozystack Backup of a tenant application.",
+		"Backup name. Immutable.", "Full Backup spec as JSON.")
+}
+
+func backupDataSourceSchema() dsschema.Schema {
+	return rawSpecNsDataSourceSchema("Read a Cozystack Backup by name and namespace.", "Backup name.")
+}
+
+func backupJobSchema() rschema.Schema {
+	return rawSpecNsSchema("A Cozystack BackupJob (a single backup execution).",
+		"BackupJob name. Immutable.", "Full BackupJob spec as JSON.")
+}
+
+func backupJobDataSourceSchema() dsschema.Schema {
+	return rawSpecNsDataSourceSchema("Read a Cozystack BackupJob by name and namespace.", "BackupJob name.")
+}
+
+func backupPlanSchema() rschema.Schema {
+	return rawSpecNsSchema("A Cozystack backup Plan (schedule and retention).",
+		"Plan name. Immutable.", "Full Plan spec as JSON.")
+}
+
+func backupPlanDataSourceSchema() dsschema.Schema {
+	return rawSpecNsDataSourceSchema("Read a Cozystack backup Plan by name and namespace.", "Plan name.")
+}
+
+func restoreJobSchema() rschema.Schema {
+	return rawSpecNsSchema("A Cozystack RestoreJob (a single restore execution).",
+		"RestoreJob name. Immutable.", "Full RestoreJob spec as JSON.")
+}
+
+func restoreJobDataSourceSchema() dsschema.Schema {
+	return rawSpecNsDataSourceSchema("Read a Cozystack RestoreJob by name and namespace.", "RestoreJob name.")
+}
+
+// dashboard.cozystack.io group.
+
+func marketplacePanelSchema() rschema.Schema {
+	return rawSpecSchema("A Cozystack MarketplacePanel (cluster-scoped dashboard panel).",
+		"MarketplacePanel name. Immutable.", "Full MarketplacePanel spec as JSON.")
+}
+
+func marketplacePanelDataSourceSchema() dsschema.Schema {
+	return rawSpecDataSourceSchema("Read a Cozystack MarketplacePanel by name.", "MarketplacePanel name.")
 }

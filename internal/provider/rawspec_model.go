@@ -68,3 +68,64 @@ func (m *rawSpecModel) flatten(app *client.Application) diag.Diagnostics {
 
 	return diags
 }
+
+// rawSpecNsModel is the namespaced counterpart of rawSpecModel, for cozystack.io
+// group kinds that live inside a tenant namespace (e.g. Backup, Plan, RestoreJob).
+type rawSpecNsModel struct {
+	ID           types.String         `tfsdk:"id"`
+	Name         types.String         `tfsdk:"name"`
+	Namespace    types.String         `tfsdk:"namespace"`
+	Spec         jsontypes.Normalized `tfsdk:"spec"`
+	Ready        types.Bool           `tfsdk:"ready"`
+	UID          types.String         `tfsdk:"uid"`
+	ChartVersion types.String         `tfsdk:"chart_version"`
+}
+
+type rawSpecNsResourceModel struct {
+	rawSpecNsModel
+
+	WaitForReady types.Bool   `tfsdk:"wait_for_ready"`
+	WaitTimeout  types.String `tfsdk:"wait_timeout"`
+}
+
+func (m *rawSpecNsResourceModel) waitConfig() (types.Bool, types.String) {
+	return m.WaitForReady, m.WaitTimeout
+}
+
+func (m *rawSpecNsModel) identity() (string, string) {
+	return m.Namespace.ValueString(), m.Name.ValueString()
+}
+
+func (m *rawSpecNsModel) expand(_ context.Context) (*client.Application, diag.Diagnostics) {
+	var diags diag.Diagnostics
+
+	spec := map[string]any{}
+
+	if !m.Spec.IsNull() && !m.Spec.IsUnknown() {
+		if err := json.Unmarshal([]byte(m.Spec.ValueString()), &spec); err != nil {
+			diags.AddError("Invalid spec JSON", err.Error())
+
+			return nil, diags
+		}
+	}
+
+	return &client.Application{
+		Name:      m.Name.ValueString(),
+		Namespace: m.Namespace.ValueString(),
+		Spec:      spec,
+	}, diags
+}
+
+func (m *rawSpecNsModel) flatten(app *client.Application) diag.Diagnostics {
+	var diags diag.Diagnostics
+
+	m.ID = types.StringValue(app.Namespace + "/" + app.Name)
+	m.Name = types.StringValue(app.Name)
+	m.Namespace = types.StringValue(app.Namespace)
+	m.Spec = flattenJSONMap(app.Spec)
+	m.Ready = types.BoolValue(app.Status.Ready)
+	m.UID = types.StringValue(app.UID)
+	m.ChartVersion = types.StringValue(app.Status.Version)
+
+	return diags
+}

@@ -31,6 +31,7 @@ type tenantModel struct {
 	Etcd            types.Bool   `tfsdk:"etcd"`
 	Monitoring      types.Bool   `tfsdk:"monitoring"`
 	Ingress         types.Bool   `tfsdk:"ingress"`
+	Gateway         types.Bool   `tfsdk:"gateway"`
 	Seaweedfs       types.Bool   `tfsdk:"seaweedfs"`
 	SchedulingClass types.String `tfsdk:"scheduling_class"`
 	ResourceQuotas  types.Map    `tfsdk:"resource_quotas"`
@@ -66,6 +67,12 @@ func (m *tenantModel) expand(ctx context.Context) (*client.Application, diag.Dia
 		"resourceQuotas":  quotas,
 	}
 
+	// gateway is HEAD-only and tri-state: emit only when set so it never drifts
+	// against older clusters that prune unknown spec keys.
+	if !m.Gateway.IsNull() && !m.Gateway.IsUnknown() {
+		spec["gateway"] = m.Gateway.ValueBool()
+	}
+
 	return &client.Application{
 		Name:      m.Name.ValueString(),
 		Namespace: m.Namespace.ValueString(),
@@ -85,6 +92,13 @@ func (m *tenantModel) flatten(tenant *client.Application) diag.Diagnostics {
 	m.Monitoring = types.BoolValue(specBool(tenant.Spec, attrMonitoring))
 	m.Ingress = types.BoolValue(specBool(tenant.Spec, attrIngress))
 	m.Seaweedfs = types.BoolValue(specBool(tenant.Spec, attrSeaweedfs))
+
+	if _, ok := tenant.Spec["gateway"]; ok {
+		m.Gateway = types.BoolValue(specBool(tenant.Spec, "gateway"))
+	} else {
+		m.Gateway = types.BoolNull()
+	}
+
 	m.SchedulingClass = types.StringValue(specString(tenant.Spec, "schedulingClass"))
 
 	quotas, qDiags := flattenQuotas(tenant.Spec["resourceQuotas"])

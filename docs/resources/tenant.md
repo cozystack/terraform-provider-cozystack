@@ -47,6 +47,7 @@ resource "cozystack_tenant" "team_b" {
 ### Optional
 
 - `etcd` (Boolean) Deploy a dedicated etcd cluster for the tenant.
+- `gateway` (Boolean) Deploy a dedicated Gateway API controller (newer Cozystack only). Tri-state: omitted when unset, so it is a no-op on clusters that do not support it.
 - `host` (String) Hostname used to access tenant services. Defaults to a subdomain of the parent host.
 - `ingress` (Boolean) Deploy a dedicated ingress controller for the tenant.
 - `monitoring` (Boolean) Deploy a dedicated monitoring stack for the tenant.

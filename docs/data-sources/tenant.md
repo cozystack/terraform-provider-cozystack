@@ -34,6 +34,7 @@ output "root_tenant_namespace" {
 ### Read-Only
 
 - `etcd` (Boolean) Whether a dedicated etcd cluster is deployed.
+- `gateway` (Boolean) Whether a dedicated Gateway API controller is deployed.
 - `host` (String) Hostname used to access tenant services.
 - `id` (String) Synthetic identifier `namespace/name`.
 - `ingress` (Boolean) Whether a dedicated ingress controller is deployed.

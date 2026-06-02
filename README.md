@@ -46,6 +46,23 @@ Beyond the namespaced tenant apps, the provider also manages the cluster-scoped 
 
 These are cluster-scoped (imported by name, no namespace). `cozystack_package` is fully typed (`variant`, `ignore_dependencies`, per-component overrides). The other three are platform-definition documents whose deeply-nested, version-coupled specs are surfaced as a single normalized-JSON `spec` attribute (write with `jsonencode`, read back with `jsondecode`) rather than brittle per-field modeling.
 
+### Backups and dashboard
+
+The same JSON-spec passthrough also covers the backup framework and dashboard panels:
+
+| Kind | Resource | Data source |
+| --- | --- | --- |
+| BackupClass | [`cozystack_backup_class`](docs/resources/backup_class.md) | [`cozystack_backup_class`](docs/data-sources/backup_class.md) |
+| Backup | [`cozystack_backup`](docs/resources/backup.md) | [`cozystack_backup`](docs/data-sources/backup.md) |
+| BackupJob | [`cozystack_backup_job`](docs/resources/backup_job.md) | [`cozystack_backup_job`](docs/data-sources/backup_job.md) |
+| Plan | [`cozystack_backup_plan`](docs/resources/backup_plan.md) | [`cozystack_backup_plan`](docs/data-sources/backup_plan.md) |
+| RestoreJob | [`cozystack_restore_job`](docs/resources/restore_job.md) | [`cozystack_restore_job`](docs/data-sources/restore_job.md) |
+| MarketplacePanel | [`cozystack_marketplace_panel`](docs/resources/marketplace_panel.md) | [`cozystack_marketplace_panel`](docs/data-sources/marketplace_panel.md) |
+
+Deliberately not exposed: the `core.cozystack.io` kinds (`TenantSecret` is Secret-shaped — `data`/`stringData`, not `spec`; `TenantModule`/`TenantNamespace` are spec-less markers), the `strategy.backups.cozystack.io` per-engine backup strategies, and the remaining `dashboard.cozystack.io` UI-customization CRDs — all platform internals shipped and reconciled by Cozystack itself, with no Infrastructure-as-Code use case.
+
+Authentication mirrors the official kubernetes provider: `config_path`/`config_context`, `host`/`token`, `cluster_ca_certificate`, `client_certificate`/`client_key`, an `in_cluster` toggle, and an `exec {}` credential-plugin block for OIDC login helpers (`kubectl oidc-login`). OIDC via a kubeconfig already works through `config_path` with no extra configuration.
+
 ## Referencing outputs
 
 The aggregated API is write-oriented: it takes a spec and returns a thin status. The connection details you actually want to reference — endpoints, credentials, a child cluster's kubeconfig, a VM's IP — are materialised by the underlying charts as Secrets, Services, and KubeVirt status. The provider reads those and exposes them as computed (sensitive where appropriate) attributes:
