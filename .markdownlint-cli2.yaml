@@ -10,3 +10,5 @@ globs:
 ignores:
   - "docs/**"
   - "vendor/**"
+  # GoReleaser build output (gitignored); may contain a generated CHANGELOG.md.
+  - "dist/**"

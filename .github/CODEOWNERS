@@ -1,0 +1,4 @@
+# Code owners for terraform-provider-cozystack.
+# These owners are automatically requested for review on every pull request.
+
+* @lexfrei
