@@ -10,7 +10,34 @@ import (
 
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 )
+
+// ExecConfig describes an exec credential plugin (e.g. an OIDC login helper)
+// used to obtain a bearer token dynamically, mirroring the kubernetes provider.
+type ExecConfig struct {
+	APIVersion string
+	Command    string
+	Args       []string
+	Env        map[string]string
+}
+
+// toExecConfig converts the provider-facing ExecConfig into the client-go type.
+// The plugin runs non-interactively, as expected in automation contexts.
+func (e *ExecConfig) toExecConfig() *clientcmdapi.ExecConfig {
+	env := make([]clientcmdapi.ExecEnvVar, 0, len(e.Env))
+	for name, value := range e.Env {
+		env = append(env, clientcmdapi.ExecEnvVar{Name: name, Value: value})
+	}
+
+	return &clientcmdapi.ExecConfig{
+		APIVersion:      e.APIVersion,
+		Command:         e.Command,
+		Args:            e.Args,
+		Env:             env,
+		InteractiveMode: clientcmdapi.NeverExecInteractiveMode,
+	}
+}
 
 // errNoHost is returned when no API server host can be resolved from any source.
 var errNoHost = errors.New(
@@ -23,10 +50,13 @@ type Config struct {
 	Host                 string
 	Token                string
 	ClusterCACertificate string
+	ClientCertificate    string
+	ClientKey            string
 	Insecure             bool
 	ConfigPath           string
 	ConfigContext        string
 	InCluster            bool
+	Exec                 *ExecConfig
 }
 
 // ApplyEnvDefaults fills empty fields from the standard KUBE_* environment
@@ -96,6 +126,20 @@ func (c *Config) applyOverrides(base *rest.Config) {
 	if c.ClusterCACertificate != "" {
 		base.CAData = []byte(c.ClusterCACertificate)
 		base.CAFile = ""
+	}
+
+	if c.ClientCertificate != "" {
+		base.CertData = []byte(c.ClientCertificate)
+		base.CertFile = ""
+	}
+
+	if c.ClientKey != "" {
+		base.KeyData = []byte(c.ClientKey)
+		base.KeyFile = ""
+	}
+
+	if c.Exec != nil {
+		base.ExecProvider = c.Exec.toExecConfig()
 	}
 
 	if c.Insecure {

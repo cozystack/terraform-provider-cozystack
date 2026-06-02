@@ -34,10 +34,26 @@ provider "cozystack" {
 
 ### Optional
 
+- `client_certificate` (String) PEM-encoded client certificate for mTLS authentication.
+- `client_key` (String, Sensitive) PEM-encoded client key for mTLS authentication.
 - `cluster_ca_certificate` (String) PEM-encoded CA bundle used to verify the API server. Falls back to `KUBE_CLUSTER_CA_CERT_DATA`.
 - `config_context` (String) kubeconfig context to use. Falls back to `KUBE_CTX`.
 - `config_path` (String) Path to a kubeconfig file. Falls back to `KUBE_CONFIG_PATH`, then `KUBECONFIG`.
+- `exec` (Attributes) Exec credential plugin used to obtain a bearer token dynamically (e.g. an OIDC login helper such as `kubectl oidc-login`). Mirrors the kubernetes provider. (see [below for nested schema](#nestedatt--exec))
 - `host` (String) Kubernetes API server URL. Falls back to `KUBE_HOST`.
 - `in_cluster` (Boolean) Use the in-cluster service account configuration instead of a kubeconfig.
 - `insecure` (Boolean) Skip TLS verification of the API server certificate. Falls back to `KUBE_INSECURE`.
 - `token` (String, Sensitive) Bearer token for authentication. Falls back to `KUBE_TOKEN`.
+
+<a id="nestedatt--exec"></a>
+### Nested Schema for `exec`
+
+Required:
+
+- `api_version` (String) Exec plugin API version, e.g. `client.authentication.k8s.io/v1`.
+- `command` (String) Command to execute.
+
+Optional:
+
+- `args` (List of String) Arguments passed to the command.
+- `env` (Map of String) Environment variables set for the command.

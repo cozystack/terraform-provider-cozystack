@@ -25,13 +25,24 @@ type CozystackProvider struct {
 
 // providerModel maps the provider configuration block to Go types.
 type providerModel struct {
-	Host                 types.String `tfsdk:"host"`
-	Token                types.String `tfsdk:"token"`
-	ClusterCACertificate types.String `tfsdk:"cluster_ca_certificate"`
-	Insecure             types.Bool   `tfsdk:"insecure"`
-	ConfigPath           types.String `tfsdk:"config_path"`
-	ConfigContext        types.String `tfsdk:"config_context"`
-	InCluster            types.Bool   `tfsdk:"in_cluster"`
+	Host                 types.String  `tfsdk:"host"`
+	Token                types.String  `tfsdk:"token"`
+	ClusterCACertificate types.String  `tfsdk:"cluster_ca_certificate"`
+	ClientCertificate    types.String  `tfsdk:"client_certificate"`
+	ClientKey            types.String  `tfsdk:"client_key"`
+	Exec                 *providerExec `tfsdk:"exec"`
+	Insecure             types.Bool    `tfsdk:"insecure"`
+	ConfigPath           types.String  `tfsdk:"config_path"`
+	ConfigContext        types.String  `tfsdk:"config_context"`
+	InCluster            types.Bool    `tfsdk:"in_cluster"`
+}
+
+// providerExec maps the exec credential plugin block.
+type providerExec struct {
+	APIVersion types.String      `tfsdk:"api_version"`
+	Command    types.String      `tfsdk:"command"`
+	Args       []string          `tfsdk:"args"`
+	Env        map[string]string `tfsdk:"env"`
 }
 
 // New returns a factory for the provider, wired with the build version.
@@ -61,39 +72,82 @@ func (p *CozystackProvider) Schema(
 	resp.Schema = schema.Schema{
 		MarkdownDescription: "Manage Cozystack resources through its aggregated " +
 			"Kubernetes API (`apps.cozystack.io`).",
+		Attributes: providerSchemaAttributes(),
+	}
+}
+
+func providerSchemaAttributes() map[string]schema.Attribute {
+	return map[string]schema.Attribute{
+		"host": schema.StringAttribute{
+			Optional:            true,
+			MarkdownDescription: "Kubernetes API server URL. Falls back to `KUBE_HOST`.",
+		},
+		"token": schema.StringAttribute{
+			Optional:            true,
+			Sensitive:           true,
+			MarkdownDescription: "Bearer token for authentication. Falls back to `KUBE_TOKEN`.",
+		},
+		"cluster_ca_certificate": schema.StringAttribute{
+			Optional: true,
+			MarkdownDescription: "PEM-encoded CA bundle used to verify the API server. " +
+				"Falls back to `KUBE_CLUSTER_CA_CERT_DATA`.",
+		},
+		"client_certificate": schema.StringAttribute{
+			Optional:            true,
+			MarkdownDescription: "PEM-encoded client certificate for mTLS authentication.",
+		},
+		"client_key": schema.StringAttribute{
+			Optional:            true,
+			Sensitive:           true,
+			MarkdownDescription: "PEM-encoded client key for mTLS authentication.",
+		},
+		"exec": execSchemaAttribute(),
+		"insecure": schema.BoolAttribute{
+			Optional: true,
+			MarkdownDescription: "Skip TLS verification of the API server certificate. " +
+				"Falls back to `KUBE_INSECURE`.",
+		},
+		"config_path": schema.StringAttribute{
+			Optional: true,
+			MarkdownDescription: "Path to a kubeconfig file. " +
+				"Falls back to `KUBE_CONFIG_PATH`, then `KUBECONFIG`.",
+		},
+		"config_context": schema.StringAttribute{
+			Optional:            true,
+			MarkdownDescription: "kubeconfig context to use. Falls back to `KUBE_CTX`.",
+		},
+		"in_cluster": schema.BoolAttribute{
+			Optional: true,
+			MarkdownDescription: "Use the in-cluster service account configuration " +
+				"instead of a kubeconfig.",
+		},
+	}
+}
+
+// execSchemaAttribute is the optional exec credential plugin block.
+func execSchemaAttribute() schema.SingleNestedAttribute {
+	return schema.SingleNestedAttribute{
+		Optional: true,
+		MarkdownDescription: "Exec credential plugin used to obtain a bearer token dynamically " +
+			"(e.g. an OIDC login helper such as `kubectl oidc-login`). Mirrors the kubernetes provider.",
 		Attributes: map[string]schema.Attribute{
-			"host": schema.StringAttribute{
+			"api_version": schema.StringAttribute{
+				Required:            true,
+				MarkdownDescription: "Exec plugin API version, e.g. `client.authentication.k8s.io/v1`.",
+			},
+			"command": schema.StringAttribute{
+				Required:            true,
+				MarkdownDescription: "Command to execute.",
+			},
+			"args": schema.ListAttribute{
 				Optional:            true,
-				MarkdownDescription: "Kubernetes API server URL. Falls back to `KUBE_HOST`.",
+				ElementType:         types.StringType,
+				MarkdownDescription: "Arguments passed to the command.",
 			},
-			"token": schema.StringAttribute{
+			"env": schema.MapAttribute{
 				Optional:            true,
-				Sensitive:           true,
-				MarkdownDescription: "Bearer token for authentication. Falls back to `KUBE_TOKEN`.",
-			},
-			"cluster_ca_certificate": schema.StringAttribute{
-				Optional: true,
-				MarkdownDescription: "PEM-encoded CA bundle used to verify the API server. " +
-					"Falls back to `KUBE_CLUSTER_CA_CERT_DATA`.",
-			},
-			"insecure": schema.BoolAttribute{
-				Optional: true,
-				MarkdownDescription: "Skip TLS verification of the API server certificate. " +
-					"Falls back to `KUBE_INSECURE`.",
-			},
-			"config_path": schema.StringAttribute{
-				Optional: true,
-				MarkdownDescription: "Path to a kubeconfig file. " +
-					"Falls back to `KUBE_CONFIG_PATH`, then `KUBECONFIG`.",
-			},
-			"config_context": schema.StringAttribute{
-				Optional:            true,
-				MarkdownDescription: "kubeconfig context to use. Falls back to `KUBE_CTX`.",
-			},
-			"in_cluster": schema.BoolAttribute{
-				Optional: true,
-				MarkdownDescription: "Use the in-cluster service account configuration " +
-					"instead of a kubeconfig.",
+				ElementType:         types.StringType,
+				MarkdownDescription: "Environment variables set for the command.",
 			},
 		},
 	}
@@ -138,15 +192,28 @@ func (p *CozystackProvider) Configure(
 
 // connectionConfig converts the Terraform model into a client.Config.
 func (m *providerModel) connectionConfig() client.Config {
-	return client.Config{
+	config := client.Config{
 		Host:                 m.Host.ValueString(),
 		Token:                m.Token.ValueString(),
 		ClusterCACertificate: m.ClusterCACertificate.ValueString(),
+		ClientCertificate:    m.ClientCertificate.ValueString(),
+		ClientKey:            m.ClientKey.ValueString(),
 		Insecure:             m.Insecure.ValueBool(),
 		ConfigPath:           m.ConfigPath.ValueString(),
 		ConfigContext:        m.ConfigContext.ValueString(),
 		InCluster:            m.InCluster.ValueBool(),
 	}
+
+	if m.Exec != nil {
+		config.Exec = &client.ExecConfig{
+			APIVersion: m.Exec.APIVersion.ValueString(),
+			Command:    m.Exec.Command.ValueString(),
+			Args:       m.Exec.Args,
+			Env:        m.Exec.Env,
+		}
+	}
+
+	return config
 }
 
 // Resources returns the resource types implemented by the provider.
