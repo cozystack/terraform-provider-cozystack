@@ -1017,3 +1017,120 @@ resource "cozystack_kubernetes" "test" {
 		},
 	})
 }
+
+func TestAccNATSResource(t *testing.T) {
+	config := `
+resource "cozystack_nats" "test" {
+  name      = "tfaccnats"
+  namespace = "tenant-root"
+  replicas  = 1
+}
+`
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             checkApplicationDestroy(client.NATSResource(), "cozystack_nats"),
+		Steps: []resource.TestStep{
+			{
+				Config: config,
+				Check:  resource.TestCheckResourceAttr("cozystack_nats.test", "id", "tenant-root/tfaccnats"),
+			},
+			{
+				ResourceName:            "cozystack_nats.test",
+				ImportState:             true,
+				ImportStateId:           "tenant-root/tfaccnats",
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"wait_for_ready", "wait_timeout", "ready", "chart_version"},
+			},
+		},
+	})
+}
+
+func TestAccOpenSearchResource(t *testing.T) {
+	config := `
+resource "cozystack_opensearch" "test" {
+  name      = "tfaccos"
+  namespace = "tenant-root"
+  replicas  = 1
+}
+`
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             checkApplicationDestroy(client.OpenSearchResource(), "cozystack_opensearch"),
+		Steps: []resource.TestStep{
+			{
+				Config: config,
+				Check:  resource.TestCheckResourceAttr("cozystack_opensearch.test", "id", "tenant-root/tfaccos"),
+			},
+			{
+				ResourceName:            "cozystack_opensearch.test",
+				ImportState:             true,
+				ImportStateId:           "tenant-root/tfaccos",
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"wait_for_ready", "wait_timeout", "ready", "chart_version"},
+			},
+		},
+	})
+}
+
+func TestAccTenantSecretResource(t *testing.T) {
+	config := `
+resource "cozystack_tenant_secret" "test" {
+  name      = "tfaccsecret"
+  namespace = "tenant-root"
+  data = {
+    username = "app"
+    password = "hunter2"
+  }
+}
+`
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             checkApplicationDestroy(client.TenantSecretResource(), "cozystack_tenant_secret"),
+		Steps: []resource.TestStep{
+			{
+				Config: config,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("cozystack_tenant_secret.test", "id", "tenant-root/tfaccsecret"),
+					resource.TestCheckResourceAttr("cozystack_tenant_secret.test", "data.username", "app"),
+					resource.TestCheckResourceAttr("cozystack_tenant_secret.test", "type", "Opaque"),
+				),
+			},
+			{
+				ResourceName:      "cozystack_tenant_secret.test",
+				ImportState:       true,
+				ImportStateId:     "tenant-root/tfaccsecret",
+				ImportStateVerify: true,
+			},
+		},
+	})
+}
+
+func TestAccSchedulingClassResource(t *testing.T) {
+	config := `
+resource "cozystack_scheduling_class" "test" {
+  name = "tfaccsched"
+  spec = jsonencode({ nodeSelector = { "kubernetes.io/os" = "linux" } })
+}
+`
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             checkApplicationDestroy(client.SchedulingClassResource(), "cozystack_scheduling_class"),
+		Steps: []resource.TestStep{
+			{
+				Config: config,
+				Check:  resource.TestCheckResourceAttr("cozystack_scheduling_class.test", "id", "tfaccsched"),
+			},
+			{
+				ResourceName:            "cozystack_scheduling_class.test",
+				ImportState:             true,
+				ImportStateId:           "tfaccsched",
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"wait_for_ready", "wait_timeout", "ready", "chart_version"},
+			},
+		},
+	})
+}
