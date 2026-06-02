@@ -33,6 +33,19 @@ Every kind is served by the same aggregated API, so the provider is built to gro
 
 Every kind served by the aggregated `apps.cozystack.io` API is now covered.
 
+## Platform resources (`cozystack.io` group)
+
+Beyond the namespaced tenant apps, the provider also manages the cluster-scoped platform resources in the `cozystack.io` group — useful for platform-as-code:
+
+| Kind | Resource | Data source |
+| --- | --- | --- |
+| Package — install a package variant | [`cozystack_package`](docs/resources/package.md) | [`cozystack_package`](docs/data-sources/package.md) |
+| PackageSource — where packages come from | [`cozystack_package_source`](docs/resources/package_source.md) | [`cozystack_package_source`](docs/data-sources/package_source.md) |
+| ApplicationDefinition — register an app kind | [`cozystack_application_definition`](docs/resources/application_definition.md) | [`cozystack_application_definition`](docs/data-sources/application_definition.md) |
+| SchedulingClass — named placement policy | [`cozystack_scheduling_class`](docs/resources/scheduling_class.md) | [`cozystack_scheduling_class`](docs/data-sources/scheduling_class.md) |
+
+These are cluster-scoped (imported by name, no namespace). `cozystack_package` is fully typed (`variant`, `ignore_dependencies`, per-component overrides). The other three are platform-definition documents whose deeply-nested, version-coupled specs are surfaced as a single normalized-JSON `spec` attribute (write with `jsonencode`, read back with `jsondecode`) rather than brittle per-field modeling.
+
 ## Referencing outputs
 
 The aggregated API is write-oriented: it takes a spec and returns a thin status. The connection details you actually want to reference — endpoints, credentials, a child cluster's kubeconfig, a VM's IP — are materialised by the underlying charts as Secrets, Services, and KubeVirt status. The provider reads those and exposes them as computed (sensitive where appropriate) attributes:

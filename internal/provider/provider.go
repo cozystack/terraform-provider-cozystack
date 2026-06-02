@@ -175,6 +175,9 @@ func (p *CozystackProvider) Resources(_ context.Context) []func() resource.Resou
 		newAppResource[vminstanceResourceModel, *vminstanceResourceModel](client.VMInstanceResource(), "vminstance", vminstanceSchema),
 		newAppResource[kubernetesResourceModel, *kubernetesResourceModel](client.KubernetesResource(), "kubernetes", kubernetesSchema),
 		newClusterResource[packageResourceModel, *packageResourceModel](client.PackageResource(), "package", packageSchema),
+		newClusterResource[rawSpecResourceModel, *rawSpecResourceModel](client.PackageSourceResource(), "package_source", packageSourceSchema),
+		newClusterResource[rawSpecResourceModel, *rawSpecResourceModel](client.ApplicationDefinitionResource(), "application_definition", applicationDefinitionSchema),
+		newClusterResource[rawSpecResourceModel, *rawSpecResourceModel](client.SchedulingClassResource(), "scheduling_class", schedulingClassSchema),
 	}
 }
 
@@ -204,6 +207,9 @@ func (p *CozystackProvider) DataSources(_ context.Context) []func() datasource.D
 		newAppDataSource[vminstanceModel, *vminstanceModel](client.VMInstanceResource(), "vminstance", vminstanceDataSourceSchema),
 		newAppDataSource[kubernetesModel, *kubernetesModel](client.KubernetesResource(), "kubernetes", kubernetesDataSourceSchema),
 		newAppDataSource[packageModel, *packageModel](client.PackageResource(), "package", packageDataSourceSchema),
+		newAppDataSource[rawSpecModel, *rawSpecModel](client.PackageSourceResource(), "package_source", packageSourceDataSourceSchema),
+		newAppDataSource[rawSpecModel, *rawSpecModel](client.ApplicationDefinitionResource(), "application_definition", applicationDefinitionDataSourceSchema),
+		newAppDataSource[rawSpecModel, *rawSpecModel](client.SchedulingClassResource(), "scheduling_class", schedulingClassDataSourceSchema),
 	}
 }
 
