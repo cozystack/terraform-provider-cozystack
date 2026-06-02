@@ -1,8 +1,8 @@
 # Changelog
 
-## v0.1.0
+## v1.4.2
 
-Initial release.
+Initial release. The version tracks the Cozystack API version (`apps.cozystack.io` v1.4.2) the provider is built against.
 
 ### Managed resources and data sources
 
