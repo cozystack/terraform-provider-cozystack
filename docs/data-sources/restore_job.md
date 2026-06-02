@@ -22,8 +22,19 @@ Read a Cozystack RestoreJob by name and namespace.
 
 ### Read-Only
 
+- `backup_name` (String) Backup restored.
 - `chart_version` (String) Deployed chart version.
 - `id` (String) Synthetic identifier `namespace/name`.
+- `options` (String) Driver-specific restore options as JSON.
 - `ready` (Boolean) Whether the application's `Ready` condition is true.
-- `spec` (String) Full object spec as JSON.
+- `target_application_ref` (Attributes) Application restored into. (see [below for nested schema](#nestedatt--target_application_ref))
 - `uid` (String) Server-assigned object UID (`metadata.uid`).
+
+<a id="nestedatt--target_application_ref"></a>
+### Nested Schema for `target_application_ref`
+
+Read-Only:
+
+- `api_group` (String) API group.
+- `kind` (String) Kind.
+- `name` (String) Name.

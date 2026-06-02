@@ -147,23 +147,7 @@ func backupJobDataSourceSchema() dsschema.Schema {
 	return rawSpecNsDataSourceSchema("Read a Cozystack BackupJob by name and namespace.", "BackupJob name.")
 }
 
-func backupPlanSchema() rschema.Schema {
-	return rawSpecNsSchema("A Cozystack backup Plan (schedule and retention).",
-		"Plan name. Immutable.", "Full Plan spec as JSON.")
-}
-
-func backupPlanDataSourceSchema() dsschema.Schema {
-	return rawSpecNsDataSourceSchema("Read a Cozystack backup Plan by name and namespace.", "Plan name.")
-}
-
-func restoreJobSchema() rschema.Schema {
-	return rawSpecNsSchema("A Cozystack RestoreJob (a single restore execution).",
-		"RestoreJob name. Immutable.", "Full RestoreJob spec as JSON.")
-}
-
-func restoreJobDataSourceSchema() dsschema.Schema {
-	return rawSpecNsDataSourceSchema("Read a Cozystack RestoreJob by name and namespace.", "RestoreJob name.")
-}
+// Plan and RestoreJob are typed (see backups_typed.go), not raw-spec.
 
 // dashboard.cozystack.io group.
 

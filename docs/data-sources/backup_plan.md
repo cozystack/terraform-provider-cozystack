@@ -22,8 +22,28 @@ Read a Cozystack backup Plan by name and namespace.
 
 ### Read-Only
 
+- `application_ref` (Attributes) Application backed up. (see [below for nested schema](#nestedatt--application_ref))
+- `backup_class_name` (String) BackupClass providing the strategy.
 - `chart_version` (String) Deployed chart version.
 - `id` (String) Synthetic identifier `namespace/name`.
 - `ready` (Boolean) Whether the application's `Ready` condition is true.
-- `spec` (String) Full object spec as JSON.
+- `schedule` (Attributes) Backup schedule. (see [below for nested schema](#nestedatt--schedule))
 - `uid` (String) Server-assigned object UID (`metadata.uid`).
+
+<a id="nestedatt--application_ref"></a>
+### Nested Schema for `application_ref`
+
+Read-Only:
+
+- `api_group` (String) API group.
+- `kind` (String) Kind.
+- `name` (String) Name.
+
+
+<a id="nestedatt--schedule"></a>
+### Nested Schema for `schedule`
+
+Read-Only:
+
+- `cron` (String) Cron expression.
+- `type` (String) Schedule type.

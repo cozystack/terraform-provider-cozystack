@@ -52,12 +52,14 @@ The same JSON-spec passthrough also covers the backup framework and dashboard pa
 
 | Kind | Resource | Data source |
 | --- | --- | --- |
+| Plan (typed) | [`cozystack_backup_plan`](docs/resources/backup_plan.md) | [`cozystack_backup_plan`](docs/data-sources/backup_plan.md) |
+| RestoreJob (typed) | [`cozystack_restore_job`](docs/resources/restore_job.md) | [`cozystack_restore_job`](docs/data-sources/restore_job.md) |
 | BackupClass | [`cozystack_backup_class`](docs/resources/backup_class.md) | [`cozystack_backup_class`](docs/data-sources/backup_class.md) |
 | Backup | [`cozystack_backup`](docs/resources/backup.md) | [`cozystack_backup`](docs/data-sources/backup.md) |
 | BackupJob | [`cozystack_backup_job`](docs/resources/backup_job.md) | [`cozystack_backup_job`](docs/data-sources/backup_job.md) |
-| Plan | [`cozystack_backup_plan`](docs/resources/backup_plan.md) | [`cozystack_backup_plan`](docs/data-sources/backup_plan.md) |
-| RestoreJob | [`cozystack_restore_job`](docs/resources/restore_job.md) | [`cozystack_restore_job`](docs/data-sources/restore_job.md) |
 | MarketplacePanel | [`cozystack_marketplace_panel`](docs/resources/marketplace_panel.md) | [`cozystack_marketplace_panel`](docs/data-sources/marketplace_panel.md) |
+
+`backup_plan` (schedule a backup) and `restore_job` (restore a backup) are user-authored, so they are fully typed (`application_ref`, `backup_class_name`, `schedule` / `backup_name`, `target_application_ref`, `options`). The remaining backups kinds are records or driver config and stay JSON-spec.
 
 ### Tenant core resources (`core.cozystack.io`)
 
