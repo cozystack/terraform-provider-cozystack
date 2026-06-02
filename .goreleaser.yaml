@@ -43,7 +43,7 @@ signs:
     args:
       - "--batch"
       - "--local-user"
-      - "9C173EB1B531AA1F!"
+      - "{{ .Env.GPG_FINGERPRINT }}"
       - "--output"
       - "${signature}"
       - "--detach-sign"
