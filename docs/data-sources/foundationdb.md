@@ -38,6 +38,7 @@ data "cozystack_foundationdb" "fdb" {
 - `resources` (Attributes) Explicit CPU and memory per replica, when set. (see [below for nested schema](#nestedatt--resources))
 - `resources_preset` (String) Sizing preset.
 - `storage` (Attributes) Persistent storage configuration. (see [below for nested schema](#nestedatt--storage))
+- `uid` (String) Server-assigned object UID (`metadata.uid`).
 
 <a id="nestedatt--resources"></a>
 ### Nested Schema for `resources`

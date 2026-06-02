@@ -35,6 +35,7 @@ data "cozystack_vpc" "net" {
 - `ready` (Boolean) Whether the application's `Ready` condition is true.
 - `routes` (Attributes List) Static routes for the VPC. (see [below for nested schema](#nestedatt--routes))
 - `subnets` (Attributes List) Subnets of the VPC. (see [below for nested schema](#nestedatt--subnets))
+- `uid` (String) Server-assigned object UID (`metadata.uid`).
 
 <a id="nestedatt--peers"></a>
 ### Nested Schema for `peers`

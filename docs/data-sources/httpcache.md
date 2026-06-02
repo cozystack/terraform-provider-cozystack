@@ -36,3 +36,4 @@ data "cozystack_httpcache" "cdn" {
 - `ready` (Boolean) Whether the application's `Ready` condition is true.
 - `size` (String) Persistent volume size.
 - `storage_class` (String) StorageClass used to store the data.
+- `uid` (String) Server-assigned object UID (`metadata.uid`).

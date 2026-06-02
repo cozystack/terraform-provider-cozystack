@@ -20,6 +20,7 @@ type vpcModel struct {
 	Routes       types.List   `tfsdk:"routes"`
 	Ready        types.Bool   `tfsdk:"ready"`
 	ChartVersion types.String `tfsdk:"chart_version"`
+	UID          types.String `tfsdk:"uid"`
 }
 
 type vpcResourceModel struct {
@@ -147,6 +148,7 @@ func (m *vpcModel) flatten(app *client.Application) diag.Diagnostics {
 
 	m.Ready = types.BoolValue(app.Status.Ready)
 	m.ChartVersion = types.StringValue(app.Status.Version)
+	m.UID = types.StringValue(app.UID)
 
 	return diags
 }

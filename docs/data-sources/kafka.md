@@ -35,6 +35,7 @@ data "cozystack_kafka" "events" {
 - `kafka` (Attributes) Kafka broker configuration. (see [below for nested schema](#nestedatt--kafka))
 - `ready` (Boolean) Whether the application's `Ready` condition is true.
 - `topics` (Attributes List) Provisioned topics. (see [below for nested schema](#nestedatt--topics))
+- `uid` (String) Server-assigned object UID (`metadata.uid`).
 - `zookeeper` (Attributes) ZooKeeper configuration. (see [below for nested schema](#nestedatt--zookeeper))
 
 <a id="nestedatt--kafka"></a>

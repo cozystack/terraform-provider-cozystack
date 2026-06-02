@@ -51,6 +51,7 @@ resource "cozystack_vpn" "gateway" {
 - `chart_version` (String) Deployed chart version (`status.version`).
 - `id` (String) Synthetic identifier in the form `namespace/name`.
 - `ready` (Boolean) Whether the application's `Ready` condition is true.
+- `uid` (String) Server-assigned object UID (`metadata.uid`). Stable across updates; changes on recreate.
 
 <a id="nestedatt--resources"></a>
 ### Nested Schema for `resources`

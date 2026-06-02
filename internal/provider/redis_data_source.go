@@ -66,6 +66,7 @@ func (d *redisDataSource) Schema(
 				},
 			},
 			attrReady:        schema.BoolAttribute{Computed: true, MarkdownDescription: "Whether the instance's `Ready` condition is true."},
+			attrUID:          schema.StringAttribute{Computed: true, MarkdownDescription: "Server-assigned object UID (`metadata.uid`)."},
 			attrChartVersion: schema.StringAttribute{Computed: true, MarkdownDescription: "Deployed chart version."},
 		},
 	}

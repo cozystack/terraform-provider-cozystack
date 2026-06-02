@@ -46,6 +46,7 @@ resource "cozystack_bucket" "assets" {
 - `credentials` (Attributes Map, Sensitive) S3 credentials per user (from the `<name>-<user>` Secret). Populated once the bucket claim is bound. (see [below for nested schema](#nestedatt--credentials))
 - `id` (String) Synthetic identifier in the form `namespace/name`.
 - `ready` (Boolean) Whether the bucket's `Ready` condition is true.
+- `uid` (String) Server-assigned object UID (`metadata.uid`).
 
 <a id="nestedatt--users"></a>
 ### Nested Schema for `users`

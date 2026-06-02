@@ -24,6 +24,7 @@ type redisModel struct {
 	Resources       types.Object `tfsdk:"resources"`
 	Ready           types.Bool   `tfsdk:"ready"`
 	ChartVersion    types.String `tfsdk:"chart_version"`
+	UID             types.String `tfsdk:"uid"`
 }
 
 // identity returns the redis instance's namespace and name.
@@ -82,6 +83,7 @@ func (m *redisModel) flatten(app *client.Application) diag.Diagnostics {
 
 	m.Ready = types.BoolValue(app.Status.Ready)
 	m.ChartVersion = types.StringValue(app.Status.Version)
+	m.UID = types.StringValue(app.UID)
 
 	return diags
 }

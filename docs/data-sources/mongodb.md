@@ -40,6 +40,7 @@ data "cozystack_mongodb" "app" {
 - `sharding` (Boolean) Whether sharding is enabled.
 - `size` (String) Persistent volume size.
 - `storage_class` (String) StorageClass used to store the data.
+- `uid` (String) Server-assigned object UID (`metadata.uid`).
 - `users` (Attributes Map) MongoDB users keyed by user name. (see [below for nested schema](#nestedatt--users))
 - `version` (String) MongoDB major version.
 

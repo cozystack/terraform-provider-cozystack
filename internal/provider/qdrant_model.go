@@ -22,6 +22,7 @@ type qdrantModel struct {
 	Resources       types.Object `tfsdk:"resources"`
 	Ready           types.Bool   `tfsdk:"ready"`
 	ChartVersion    types.String `tfsdk:"chart_version"`
+	UID             types.String `tfsdk:"uid"`
 }
 
 // identity returns the qdrant instance's namespace and name.
@@ -76,6 +77,7 @@ func (m *qdrantModel) flatten(app *client.Application) diag.Diagnostics {
 
 	m.Ready = types.BoolValue(app.Status.Ready)
 	m.ChartVersion = types.StringValue(app.Status.Version)
+	m.UID = types.StringValue(app.UID)
 
 	return diags
 }

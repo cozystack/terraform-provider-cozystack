@@ -39,6 +39,7 @@ data "cozystack_opensearch" "search" {
 - `size` (String) Persistent volume size.
 - `storage_class` (String) StorageClass used to store the data.
 - `topology_spread_policy` (String) Pod topology spread policy.
+- `uid` (String) Server-assigned object UID (`metadata.uid`).
 - `users` (Attributes Map) OpenSearch users keyed by user name. (see [below for nested schema](#nestedatt--users))
 - `version` (String) OpenSearch major version.
 

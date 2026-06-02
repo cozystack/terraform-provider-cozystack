@@ -39,6 +39,7 @@ output "assets_ready" {
 - `locking` (Boolean) Whether object lock is enabled.
 - `ready` (Boolean) Whether the bucket's `Ready` condition is true.
 - `storage_pool` (String) BucketClass storage pool name.
+- `uid` (String) Server-assigned object UID (`metadata.uid`).
 - `users` (Attributes Map) Bucket users keyed by user name. (see [below for nested schema](#nestedatt--users))
 
 <a id="nestedatt--credentials"></a>

@@ -32,6 +32,7 @@ const (
 	attrStorageClass    = "storage_class"
 	attrResourcesPreset = "resources_preset"
 	attrChartVersion    = "chart_version"
+	attrUID             = "uid"
 	attrAuthEnabled     = "auth_enabled"
 
 	specStorageClass    = "storageClass"

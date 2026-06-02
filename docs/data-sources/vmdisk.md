@@ -36,6 +36,7 @@ data "cozystack_vmdisk" "ubuntu" {
 - `source` (Attributes) Source image used to create the disk. (see [below for nested schema](#nestedatt--source))
 - `storage` (String) Disk size.
 - `storage_class` (String) StorageClass used to store the data.
+- `uid` (String) Server-assigned object UID (`metadata.uid`).
 
 <a id="nestedatt--source"></a>
 ### Nested Schema for `source`

@@ -38,6 +38,7 @@ data "cozystack_vpn" "gateway" {
 - `replicas` (Number) Number of replicas.
 - `resources` (Attributes) Explicit CPU and memory per replica, when set. (see [below for nested schema](#nestedatt--resources))
 - `resources_preset` (String) Sizing preset.
+- `uid` (String) Server-assigned object UID (`metadata.uid`).
 - `users` (Attributes Map) VPN users keyed by user name. (see [below for nested schema](#nestedatt--users))
 
 <a id="nestedatt--resources"></a>

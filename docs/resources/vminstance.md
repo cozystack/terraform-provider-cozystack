@@ -79,6 +79,7 @@ resource "cozystack_vminstance" "vm" {
 - `ip_address` (String) Primary IP address of the running guest (from the backing VirtualMachineInstance). Populated once the guest is up — set `wait_for_ready = true` to have it available sooner.
 - `ip_addresses` (List of String) All IP addresses reported on the guest's primary interface.
 - `ready` (Boolean) Whether the application's `Ready` condition is true.
+- `uid` (String) Server-assigned object UID (`metadata.uid`). Stable across updates; changes on recreate.
 
 <a id="nestedatt--disks"></a>
 ### Nested Schema for `disks`

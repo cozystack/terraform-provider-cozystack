@@ -219,6 +219,10 @@ func tenantStatusAttributes() map[string]schema.Attribute {
 			Computed:            true,
 			MarkdownDescription: "Whether the tenant's `Ready` condition is true.",
 		},
+		attrUID: schema.StringAttribute{
+			Computed:            true,
+			MarkdownDescription: "Server-assigned object UID (`metadata.uid`).",
+		},
 		"version": schema.StringAttribute{
 			Computed:            true,
 			MarkdownDescription: "Deployed chart version (`status.version`).",

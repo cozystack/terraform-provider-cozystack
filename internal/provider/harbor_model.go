@@ -19,6 +19,7 @@ type harborModel struct {
 	StorageClass types.String `tfsdk:"storage_class"`
 	Ready        types.Bool   `tfsdk:"ready"`
 	ChartVersion types.String `tfsdk:"chart_version"`
+	UID          types.String `tfsdk:"uid"`
 }
 
 type harborResourceModel struct {
@@ -66,6 +67,7 @@ func (m *harborModel) flatten(app *client.Application) diag.Diagnostics {
 	m.StorageClass = types.StringValue(specString(app.Spec, specStorageClass))
 	m.Ready = types.BoolValue(app.Status.Ready)
 	m.ChartVersion = types.StringValue(app.Status.Version)
+	m.UID = types.StringValue(app.UID)
 
 	return diags
 }

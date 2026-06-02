@@ -39,6 +39,7 @@ data "cozystack_openbao" "vault" {
 - `size` (String) Persistent volume size.
 - `storage_class` (String) StorageClass used to store the data.
 - `ui` (Boolean) Whether the web UI is enabled.
+- `uid` (String) Server-assigned object UID (`metadata.uid`).
 
 <a id="nestedatt--resources"></a>
 ### Nested Schema for `resources`

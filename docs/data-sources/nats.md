@@ -37,6 +37,7 @@ data "cozystack_nats" "bus" {
 - `resources` (Attributes) Explicit CPU and memory per replica, when set. (see [below for nested schema](#nestedatt--resources))
 - `resources_preset` (String) Sizing preset.
 - `storage_class` (String) StorageClass used to store the data.
+- `uid` (String) Server-assigned object UID (`metadata.uid`).
 - `users` (Attributes Map) NATS users keyed by user name. (see [below for nested schema](#nestedatt--users))
 
 <a id="nestedatt--resources"></a>

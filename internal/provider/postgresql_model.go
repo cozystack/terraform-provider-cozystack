@@ -27,6 +27,7 @@ type postgresqlModel struct {
 	Databases       types.Map    `tfsdk:"databases"`
 	Ready           types.Bool   `tfsdk:"ready"`
 	ChartVersion    types.String `tfsdk:"chart_version"`
+	UID             types.String `tfsdk:"uid"`
 	Endpoints       types.Object `tfsdk:"endpoints"`
 }
 
@@ -280,6 +281,7 @@ func (m *postgresqlModel) flatten(app *client.Application) diag.Diagnostics {
 
 	m.Ready = types.BoolValue(app.Status.Ready)
 	m.ChartVersion = types.StringValue(app.Status.Version)
+	m.UID = types.StringValue(app.UID)
 
 	return diags
 }

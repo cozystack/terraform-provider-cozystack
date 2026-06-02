@@ -38,6 +38,7 @@ data "cozystack_rabbitmq" "broker" {
 - `resources_preset` (String) Sizing preset.
 - `size` (String) Persistent volume size.
 - `storage_class` (String) StorageClass used to store the data.
+- `uid` (String) Server-assigned object UID (`metadata.uid`).
 - `users` (Attributes Map) RabbitMQ users keyed by user name. (see [below for nested schema](#nestedatt--users))
 - `version` (String) RabbitMQ major version.
 - `vhosts` (Attributes Map) Virtual hosts keyed by name. (see [below for nested schema](#nestedatt--vhosts))

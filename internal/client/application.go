@@ -38,6 +38,7 @@ func (r Resource) gvr() schema.GroupVersionResource {
 type Application struct {
 	Name            string
 	Namespace       string
+	UID             string
 	ResourceVersion string
 	// Deleting is true when the object has a deletion timestamp (terminating).
 	Deleting bool
@@ -174,6 +175,7 @@ func fromUnstructured(obj *unstructured.Unstructured) Application {
 	app := Application{
 		Name:            obj.GetName(),
 		Namespace:       obj.GetNamespace(),
+		UID:             string(obj.GetUID()),
 		ResourceVersion: obj.GetResourceVersion(),
 		Deleting:        obj.GetDeletionTimestamp() != nil,
 		Status:          extractStatus(obj),

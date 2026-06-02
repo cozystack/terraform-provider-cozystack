@@ -49,6 +49,7 @@ data "cozystack_vminstance" "vm" {
 - `resources` (Attributes) Explicit CPU, memory, and socket configuration. (see [below for nested schema](#nestedatt--resources))
 - `run_strategy` (String) Requested running state.
 - `ssh_keys` (List of String) SSH public keys.
+- `uid` (String) Server-assigned object UID (`metadata.uid`).
 
 <a id="nestedatt--disks"></a>
 ### Nested Schema for `disks`

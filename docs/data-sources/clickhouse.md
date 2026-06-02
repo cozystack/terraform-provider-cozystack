@@ -40,6 +40,7 @@ data "cozystack_clickhouse" "analytics" {
 - `shards` (Number) Number of shards.
 - `size` (String) Persistent volume size for data.
 - `storage_class` (String) StorageClass used to store the data.
+- `uid` (String) Server-assigned object UID (`metadata.uid`).
 - `users` (Attributes Map) ClickHouse users keyed by user name. (see [below for nested schema](#nestedatt--users))
 
 <a id="nestedatt--resources"></a>

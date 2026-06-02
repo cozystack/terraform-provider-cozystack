@@ -22,6 +22,7 @@ type kubernetesModel struct {
 	NodeGroups   types.Map    `tfsdk:"node_groups"`
 	Ready        types.Bool   `tfsdk:"ready"`
 	ChartVersion types.String `tfsdk:"chart_version"`
+	UID          types.String `tfsdk:"uid"`
 	Kubeconfig   types.String `tfsdk:"kubeconfig"`
 }
 
@@ -149,6 +150,7 @@ func (m *kubernetesModel) flatten(app *client.Application) diag.Diagnostics {
 
 	m.Ready = types.BoolValue(app.Status.Ready)
 	m.ChartVersion = types.StringValue(app.Status.Version)
+	m.UID = types.StringValue(app.UID)
 
 	return diags
 }

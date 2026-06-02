@@ -61,6 +61,7 @@ resource "cozystack_tenant" "team_b" {
 - `id` (String) Synthetic identifier in the form `namespace/name`.
 - `ready` (Boolean) Whether the tenant's `Ready` condition is true.
 - `status_namespace` (String) Namespace created for the tenant (`status.namespace`).
+- `uid` (String) Server-assigned object UID (`metadata.uid`).
 - `version` (String) Deployed chart version (`status.version`).
 
 ## Import

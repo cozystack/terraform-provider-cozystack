@@ -37,6 +37,7 @@ type tenantModel struct {
 	StatusNamespace types.String `tfsdk:"status_namespace"`
 	Ready           types.Bool   `tfsdk:"ready"`
 	Version         types.String `tfsdk:"version"`
+	UID             types.String `tfsdk:"uid"`
 }
 
 // identity returns the tenant's namespace and name.
@@ -94,6 +95,7 @@ func (m *tenantModel) flatten(tenant *client.Application) diag.Diagnostics {
 	m.StatusNamespace = types.StringValue(rawStatusString(tenant.Status.Raw, "namespace"))
 	m.Ready = types.BoolValue(tenant.Status.Ready)
 	m.Version = types.StringValue(tenant.Status.Version)
+	m.UID = types.StringValue(tenant.UID)
 
 	return diags
 }

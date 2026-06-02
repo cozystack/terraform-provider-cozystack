@@ -36,6 +36,7 @@ data "cozystack_tcpbalancer" "lb" {
 - `replicas` (Number) Number of HAProxy replicas.
 - `resources` (Attributes) Explicit CPU and memory per replica, when set. (see [below for nested schema](#nestedatt--resources))
 - `resources_preset` (String) Sizing preset.
+- `uid` (String) Server-assigned object UID (`metadata.uid`).
 - `whitelist` (List of String) Allowed client networks.
 - `whitelist_http` (Boolean) Whether HTTP whitelisting is enabled.
 

@@ -43,4 +43,5 @@ output "root_tenant_namespace" {
 - `scheduling_class` (String) Name of the applied SchedulingClass CR.
 - `seaweedfs` (Boolean) Whether a dedicated SeaweedFS instance is deployed.
 - `status_namespace` (String) Namespace created for the tenant.
+- `uid` (String) Server-assigned object UID (`metadata.uid`).
 - `version` (String) Deployed chart version.

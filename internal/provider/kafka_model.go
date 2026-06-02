@@ -22,6 +22,7 @@ type kafkaModel struct {
 	Zookeeper    types.Object `tfsdk:"zookeeper"`
 	Ready        types.Bool   `tfsdk:"ready"`
 	ChartVersion types.String `tfsdk:"chart_version"`
+	UID          types.String `tfsdk:"uid"`
 }
 
 type kafkaResourceModel struct {
@@ -169,6 +170,7 @@ func (m *kafkaModel) flatten(app *client.Application) diag.Diagnostics {
 
 	m.Ready = types.BoolValue(app.Status.Ready)
 	m.ChartVersion = types.StringValue(app.Status.Version)
+	m.UID = types.StringValue(app.UID)
 
 	return diags
 }

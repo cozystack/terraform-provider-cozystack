@@ -21,6 +21,7 @@ type bucketModel struct {
 	Users        types.Map    `tfsdk:"users"`
 	Ready        types.Bool   `tfsdk:"ready"`
 	ChartVersion types.String `tfsdk:"chart_version"`
+	UID          types.String `tfsdk:"uid"`
 	Credentials  types.Map    `tfsdk:"credentials"`
 }
 
@@ -153,6 +154,7 @@ func (m *bucketModel) flatten(app *client.Application) diag.Diagnostics {
 
 	m.Ready = types.BoolValue(app.Status.Ready)
 	m.ChartVersion = types.StringValue(app.Status.Version)
+	m.UID = types.StringValue(app.UID)
 
 	return diags
 }

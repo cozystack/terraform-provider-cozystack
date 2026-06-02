@@ -193,6 +193,7 @@ func bucketSchema() schema.Schema {
 			Computed:            true,
 			MarkdownDescription: "Whether the bucket's `Ready` condition is true.",
 		},
+		attrUID: schema.StringAttribute{Computed: true, MarkdownDescription: "Server-assigned object UID (`metadata.uid`)."},
 		attrChartVersion: schema.StringAttribute{
 			Computed:            true,
 			MarkdownDescription: "Deployed chart version (`status.version`).",

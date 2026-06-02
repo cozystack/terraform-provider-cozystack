@@ -55,6 +55,7 @@ resource "cozystack_kubernetes" "cluster" {
 - `id` (String) Synthetic identifier in the form `namespace/name`.
 - `kubeconfig` (String, Sensitive) Admin kubeconfig for the provisioned cluster (from the `<name>-admin-kubeconfig` Secret). Populated once the cluster is ready — set `wait_for_ready = true` to have it available on first apply.
 - `ready` (Boolean) Whether the application's `Ready` condition is true.
+- `uid` (String) Server-assigned object UID (`metadata.uid`). Stable across updates; changes on recreate.
 
 <a id="nestedatt--node_groups"></a>
 ### Nested Schema for `node_groups`

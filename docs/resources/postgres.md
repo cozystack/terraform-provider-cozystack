@@ -61,6 +61,7 @@ resource "cozystack_postgres" "app" {
 - `endpoints` (Attributes) Connection endpoints (from the CNPG `<name>-rw`/`<name>-ro` Services). Populated once the instance is ready. (see [below for nested schema](#nestedatt--endpoints))
 - `id` (String) Synthetic identifier in the form `namespace/name`.
 - `ready` (Boolean) Whether the application's `Ready` condition is true.
+- `uid` (String) Server-assigned object UID (`metadata.uid`). Stable across updates; changes on recreate.
 
 <a id="nestedatt--databases"></a>
 ### Nested Schema for `databases`

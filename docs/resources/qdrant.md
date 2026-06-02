@@ -46,6 +46,7 @@ resource "cozystack_qdrant" "vectors" {
 - `chart_version` (String) Deployed chart version (`status.version`).
 - `id` (String) Synthetic identifier in the form `namespace/name`.
 - `ready` (Boolean) Whether the instance's `Ready` condition is true.
+- `uid` (String) Server-assigned object UID (`metadata.uid`).
 
 <a id="nestedatt--resources"></a>
 ### Nested Schema for `resources`

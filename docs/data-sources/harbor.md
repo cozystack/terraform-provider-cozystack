@@ -34,3 +34,4 @@ data "cozystack_harbor" "registry" {
 - `id` (String) Synthetic identifier `namespace/name`.
 - `ready` (Boolean) Whether the application's `Ready` condition is true.
 - `storage_class` (String) StorageClass used to store the data.
+- `uid` (String) Server-assigned object UID (`metadata.uid`).

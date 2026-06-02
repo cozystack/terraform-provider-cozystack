@@ -39,6 +39,7 @@ data "cozystack_mariadb" "app" {
 - `resources_preset` (String) Sizing preset.
 - `size` (String) Persistent volume size.
 - `storage_class` (String) StorageClass used to store the data.
+- `uid` (String) Server-assigned object UID (`metadata.uid`).
 - `users` (Attributes Map) MariaDB users keyed by user name. (see [below for nested schema](#nestedatt--users))
 - `version` (String) MariaDB version.
 

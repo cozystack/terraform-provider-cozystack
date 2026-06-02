@@ -71,6 +71,10 @@ func statusResourceAttributes() map[string]rschema.Attribute {
 			Computed:            true,
 			MarkdownDescription: "Whether the application's `Ready` condition is true.",
 		},
+		attrUID: rschema.StringAttribute{
+			Computed:            true,
+			MarkdownDescription: "Server-assigned object UID (`metadata.uid`). Stable across updates; changes on recreate.",
+		},
 		attrChartVersion: rschema.StringAttribute{
 			Computed:            true,
 			MarkdownDescription: "Deployed chart version (`status.version`).",
@@ -110,6 +114,7 @@ func identityDataSourceAttributes(nameDesc string) map[string]dsschema.Attribute
 func statusDataSourceAttributes() map[string]dsschema.Attribute {
 	return map[string]dsschema.Attribute{
 		attrReady:        dsschema.BoolAttribute{Computed: true, MarkdownDescription: "Whether the application's `Ready` condition is true."},
+		attrUID:          dsschema.StringAttribute{Computed: true, MarkdownDescription: "Server-assigned object UID (`metadata.uid`)."},
 		attrChartVersion: dsschema.StringAttribute{Computed: true, MarkdownDescription: "Deployed chart version."},
 	}
 }

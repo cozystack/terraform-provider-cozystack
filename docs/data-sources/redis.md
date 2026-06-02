@@ -43,6 +43,7 @@ output "cache_ready" {
 - `resources_preset` (String) Sizing preset.
 - `size` (String) Persistent volume size.
 - `storage_class` (String) StorageClass used to store the data.
+- `uid` (String) Server-assigned object UID (`metadata.uid`).
 - `version` (String) Redis major version.
 
 <a id="nestedatt--resources"></a>

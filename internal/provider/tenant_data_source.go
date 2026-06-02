@@ -64,6 +64,7 @@ func (d *tenantDataSource) Schema(
 			},
 			"status_namespace": schema.StringAttribute{Computed: true, MarkdownDescription: "Namespace created for the tenant."},
 			attrReady:          schema.BoolAttribute{Computed: true, MarkdownDescription: "Whether the tenant's `Ready` condition is true."},
+			attrUID:            schema.StringAttribute{Computed: true, MarkdownDescription: "Server-assigned object UID (`metadata.uid`)."},
 			"version":          schema.StringAttribute{Computed: true, MarkdownDescription: "Deployed chart version."},
 		},
 	}

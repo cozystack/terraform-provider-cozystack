@@ -33,6 +33,7 @@ type vminstanceModel struct {
 	CloudInitSeed     types.String `tfsdk:"cloud_init_seed"`
 	Ready             types.Bool   `tfsdk:"ready"`
 	ChartVersion      types.String `tfsdk:"chart_version"`
+	UID               types.String `tfsdk:"uid"`
 	IPAddress         types.String `tfsdk:"ip_address"`
 	IPAddresses       types.List   `tfsdk:"ip_addresses"`
 }
@@ -230,6 +231,7 @@ func (m *vminstanceModel) flatten(app *client.Application) diag.Diagnostics {
 
 	m.Ready = types.BoolValue(app.Status.Ready)
 	m.ChartVersion = types.StringValue(app.Status.Version)
+	m.UID = types.StringValue(app.UID)
 
 	return diags
 }

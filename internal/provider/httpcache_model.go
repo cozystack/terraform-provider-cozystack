@@ -20,6 +20,7 @@ type httpcacheModel struct {
 	Endpoints    types.List   `tfsdk:"endpoints"`
 	Ready        types.Bool   `tfsdk:"ready"`
 	ChartVersion types.String `tfsdk:"chart_version"`
+	UID          types.String `tfsdk:"uid"`
 }
 
 type httpcacheResourceModel struct {
@@ -78,6 +79,7 @@ func (m *httpcacheModel) flatten(app *client.Application) diag.Diagnostics {
 
 	m.Ready = types.BoolValue(app.Status.Ready)
 	m.ChartVersion = types.StringValue(app.Status.Version)
+	m.UID = types.StringValue(app.UID)
 
 	return diags
 }

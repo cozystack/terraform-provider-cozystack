@@ -36,6 +36,7 @@ data "cozystack_kubernetes" "cluster" {
 - `node_groups` (Attributes Map) Worker node groups keyed by name. (see [below for nested schema](#nestedatt--node_groups))
 - `ready` (Boolean) Whether the application's `Ready` condition is true.
 - `storage_class` (String) StorageClass used to store the data.
+- `uid` (String) Server-assigned object UID (`metadata.uid`).
 - `version` (String) Kubernetes version.
 
 <a id="nestedatt--node_groups"></a>

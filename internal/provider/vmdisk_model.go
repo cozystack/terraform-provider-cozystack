@@ -23,6 +23,7 @@ type vmdiskModel struct {
 	StorageClass types.String `tfsdk:"storage_class"`
 	Ready        types.Bool   `tfsdk:"ready"`
 	ChartVersion types.String `tfsdk:"chart_version"`
+	UID          types.String `tfsdk:"uid"`
 }
 
 type vmdiskResourceModel struct {
@@ -139,6 +140,7 @@ func (m *vmdiskModel) flatten(app *client.Application) diag.Diagnostics {
 
 	m.Ready = types.BoolValue(app.Status.Ready)
 	m.ChartVersion = types.StringValue(app.Status.Version)
+	m.UID = types.StringValue(app.UID)
 
 	return diags
 }
