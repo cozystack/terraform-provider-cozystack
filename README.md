@@ -190,6 +190,8 @@ KUBECONFIG=/path/to/kubeconfig KUBE_CTX=my-context make testacc
 
 The acceptance harness drives the Terraform CLI; the `testacc` target points `TF_ACC_TERRAFORM_PATH` at `tofu` automatically so it runs against OpenTofu when Terraform is not installed.
 
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the full workflow and [SECURITY.md](SECURITY.md) for vulnerability reporting and credential-handling guidance.
+
 ## License
 
 [BSD-3-Clause](LICENSE)
