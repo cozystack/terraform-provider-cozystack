@@ -43,10 +43,9 @@ signs:
     args:
       - "--batch"
       - "--local-user"
-      # Trailing '!' forces this exact subkey. The CI key block carries the
-      # primary as a stub (no secret), so an unforced selection would resolve
-      # to the primary and fail with "No secret key".
-      - "{{ .Env.GPG_FINGERPRINT }}!"
+      # Releases are signed locally with the maintainer key; the trailing '!'
+      # forces this exact key rather than letting gpg pick another in the ring.
+      - "9C173EB1B531AA1F!"
       - "--output"
       - "${signature}"
       - "--detach-sign"
