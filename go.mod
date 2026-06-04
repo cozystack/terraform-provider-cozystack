@@ -1,6 +1,6 @@
 module github.com/lexfrei/terraform-provider-cozystack
 
-go 1.26.3
+go 1.26.4
 
 require (
 	github.com/cozystack/cozystack/api/apps/v1alpha1 v1.4.2
