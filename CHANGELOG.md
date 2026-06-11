@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.4.3
+
+The provider moved to the cozystack GitHub organization and now publishes under the `cozystack/cozystack` registry namespace. The tracked Cozystack API version (`apps.cozystack.io` v1.4.3) carries no schema changes relevant to the provider over v1.4.2.
+
+### Breaking changes
+
+- Registry source changed from `lexfrei/cozystack` to `cozystack/cozystack`. Update the `source` in your `required_providers` block (and any `dev_overrides`) accordingly.
+
 ## v1.4.2
 
 Initial release. The version tracks the Cozystack API version (`apps.cozystack.io` v1.4.2) the provider is built against.
