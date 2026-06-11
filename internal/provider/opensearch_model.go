@@ -3,10 +3,10 @@ package provider
 import (
 	"context"
 
+	"github.com/cozystack/terraform-provider-cozystack/internal/client"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	"github.com/lexfrei/terraform-provider-cozystack/internal/client"
 )
 
 // opensearchModel maps the cozystack_opensearch schema to Go types. The images,

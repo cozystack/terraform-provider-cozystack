@@ -1,4 +1,4 @@
-module github.com/lexfrei/terraform-provider-cozystack
+module github.com/cozystack/terraform-provider-cozystack
 
 go 1.26.4
 

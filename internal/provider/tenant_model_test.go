@@ -7,9 +7,9 @@ import (
 	"testing"
 
 	"github.com/cozystack/cozystack/api/apps/v1alpha1/tenant"
+	"github.com/cozystack/terraform-provider-cozystack/internal/client"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	"github.com/lexfrei/terraform-provider-cozystack/internal/client"
 )
 
 func fullModel() tenantModel {

@@ -3,7 +3,7 @@ package client_test
 import (
 	"testing"
 
-	"github.com/lexfrei/terraform-provider-cozystack/internal/client"
+	"github.com/cozystack/terraform-provider-cozystack/internal/client"
 )
 
 func TestRestConfig_ExecAndClientCert(t *testing.T) {

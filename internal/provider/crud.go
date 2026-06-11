@@ -6,10 +6,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cozystack/terraform-provider-cozystack/internal/client"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	"github.com/lexfrei/terraform-provider-cozystack/internal/client"
 )
 
 // defaultWaitTimeout bounds how long Create/Update block on readiness.

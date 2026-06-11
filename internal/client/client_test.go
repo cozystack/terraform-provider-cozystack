@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/lexfrei/terraform-provider-cozystack/internal/client"
+	"github.com/cozystack/terraform-provider-cozystack/internal/client"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"

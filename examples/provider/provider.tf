@@ -1,7 +1,7 @@
 terraform {
   required_providers {
     cozystack = {
-      source = "lexfrei/cozystack"
+      source = "cozystack/cozystack"
     }
   }
 }

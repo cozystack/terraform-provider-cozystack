@@ -4,7 +4,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/lexfrei/terraform-provider-cozystack/internal/client"
+	"github.com/cozystack/terraform-provider-cozystack/internal/client"
 )
 
 func TestResolveEnv_FillsEmptyFieldsFromEnv(t *testing.T) {

@@ -4,12 +4,12 @@ import (
 	"context"
 	"encoding/json"
 
+	"github.com/cozystack/terraform-provider-cozystack/internal/client"
 	"github.com/hashicorp/terraform-plugin-framework-jsontypes/jsontypes"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
-	"github.com/lexfrei/terraform-provider-cozystack/internal/client"
 )
 
 // appRefObjectType is the {apiGroup,kind,name} reference shared by the backups

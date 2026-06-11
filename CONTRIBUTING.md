@@ -25,7 +25,7 @@ Be respectful and constructive in all interactions. Contributors of all experien
 ## Development Setup
 
 ```bash
-git clone https://github.com/lexfrei/terraform-provider-cozystack.git
+git clone https://github.com/cozystack/terraform-provider-cozystack.git
 cd terraform-provider-cozystack
 make build   # build the provider binary
 make test    # run unit tests with the race detector
@@ -43,7 +43,7 @@ To exercise the provider with a real `tofu`/`terraform` configuration before it 
 make install
 ```
 
-Then add a `dev_overrides` block to `~/.terraformrc` (or a `TF_CLI_CONFIG_FILE`) mapping `registry.opentofu.org/lexfrei/cozystack` to your `GOBIN`. With an override in place, run `tofu plan` directly — no `tofu init` is needed.
+Then add a `dev_overrides` block to `~/.terraformrc` (or a `TF_CLI_CONFIG_FILE`) mapping `registry.opentofu.org/cozystack/cozystack` to your `GOBIN`. With an override in place, run `tofu plan` directly — no `tofu init` is needed.
 
 ### Acceptance Tests
 

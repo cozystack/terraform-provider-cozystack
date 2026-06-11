@@ -122,7 +122,7 @@ The names of these backing Secrets/Services are chart conventions (`postgres-<na
 terraform {
   required_providers {
     cozystack = {
-      source = "lexfrei/cozystack"
+      source = "cozystack/cozystack"
     }
   }
 }
@@ -167,7 +167,7 @@ make install   # go install into $GOBIN
 # ~/.terraformrc  (or a file referenced by TF_CLI_CONFIG_FILE)
 provider_installation {
   dev_overrides {
-    "registry.terraform.io/lexfrei/cozystack" = "/path/to/your/gobin"
+    "registry.terraform.io/cozystack/cozystack" = "/path/to/your/gobin"
   }
   direct {}
 }

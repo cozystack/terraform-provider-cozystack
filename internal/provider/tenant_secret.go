@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 
+	"github.com/cozystack/terraform-provider-cozystack/internal/client"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	dsschema "github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
@@ -13,7 +14,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	"github.com/lexfrei/terraform-provider-cozystack/internal/client"
 )
 
 // tenantSecretModel maps the cozystack_tenant_secret schema. Unlike the other

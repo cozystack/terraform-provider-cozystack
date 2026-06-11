@@ -3,12 +3,12 @@ package provider
 import (
 	"context"
 
+	"github.com/cozystack/terraform-provider-cozystack/internal/client"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	dsschema "github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	rschema "github.com/hashicorp/terraform-plugin-framework/resource/schema"
-	"github.com/lexfrei/terraform-provider-cozystack/internal/client"
 )
 
 // appResource is the generic managed-resource implementation shared by every

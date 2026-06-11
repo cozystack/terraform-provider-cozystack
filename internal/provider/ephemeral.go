@@ -3,10 +3,10 @@ package provider
 import (
 	"context"
 
+	"github.com/cozystack/terraform-provider-cozystack/internal/client"
 	"github.com/hashicorp/terraform-plugin-framework/ephemeral"
 	ephschema "github.com/hashicorp/terraform-plugin-framework/ephemeral/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	"github.com/lexfrei/terraform-provider-cozystack/internal/client"
 )
 
 // Ephemeral resources fetch secrets at apply time without persisting them in

@@ -27,7 +27,7 @@ trap 'rm -rf "${work}"' EXIT
 
 cat > "${work}/dev.tfrc" <<EOF
 provider_installation {
-  dev_overrides { "registry.opentofu.org/lexfrei/cozystack" = "${ROOT}" }
+  dev_overrides { "registry.opentofu.org/cozystack/cozystack" = "${ROOT}" }
   direct {}
 }
 EOF
@@ -35,7 +35,7 @@ EOF
 cat > "${work}/main.tf" <<'EOF'
 terraform {
   required_providers {
-    cozystack = { source = "registry.opentofu.org/lexfrei/cozystack" }
+    cozystack = { source = "registry.opentofu.org/cozystack/cozystack" }
   }
 }
 provider "cozystack" {}

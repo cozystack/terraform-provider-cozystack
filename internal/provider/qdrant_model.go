@@ -3,9 +3,9 @@ package provider
 import (
 	"context"
 
+	"github.com/cozystack/terraform-provider-cozystack/internal/client"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	"github.com/lexfrei/terraform-provider-cozystack/internal/client"
 )
 
 // qdrantModel maps the cozystack_qdrant schema to Go types. The spec attributes

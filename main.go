@@ -6,8 +6,8 @@ import (
 	"flag"
 	"log"
 
+	"github.com/cozystack/terraform-provider-cozystack/internal/provider"
 	"github.com/hashicorp/terraform-plugin-framework/providerserver"
-	"github.com/lexfrei/terraform-provider-cozystack/internal/provider"
 )
 
 // These are set at build time via -ldflags.
@@ -25,7 +25,7 @@ func main() {
 	flag.Parse()
 
 	opts := providerserver.ServeOpts{
-		Address: "registry.terraform.io/lexfrei/cozystack",
+		Address: "registry.terraform.io/cozystack/cozystack",
 		Debug:   debug,
 	}
 
