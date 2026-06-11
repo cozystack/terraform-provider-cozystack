@@ -25,7 +25,7 @@ Be respectful and constructive in all interactions. Contributors of all experien
 ## Development Setup
 
 ```bash
-git clone https://github.com/lexfrei/terraform-provider-cozystack.git
+git clone https://github.com/cozystack/terraform-provider-cozystack.git
 cd terraform-provider-cozystack
 make build   # build the provider binary
 make test    # run unit tests with the race detector
