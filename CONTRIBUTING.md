@@ -43,7 +43,7 @@ To exercise the provider with a real `tofu`/`terraform` configuration before it 
 make install
 ```
 
-Then add a `dev_overrides` block to `~/.terraformrc` (or a `TF_CLI_CONFIG_FILE`) mapping `registry.opentofu.org/lexfrei/cozystack` to your `GOBIN`. With an override in place, run `tofu plan` directly — no `tofu init` is needed.
+Then add a `dev_overrides` block to `~/.terraformrc` (or a `TF_CLI_CONFIG_FILE`) mapping `registry.opentofu.org/cozystack/cozystack` to your `GOBIN`. With an override in place, run `tofu plan` directly — no `tofu init` is needed.
 
 ### Acceptance Tests
 

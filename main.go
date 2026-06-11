@@ -25,7 +25,7 @@ func main() {
 	flag.Parse()
 
 	opts := providerserver.ServeOpts{
-		Address: "registry.terraform.io/lexfrei/cozystack",
+		Address: "registry.terraform.io/cozystack/cozystack",
 		Debug:   debug,
 	}
 

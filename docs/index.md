@@ -15,7 +15,7 @@ Manage Cozystack resources through its aggregated Kubernetes API (`apps.cozystac
 terraform {
   required_providers {
     cozystack = {
-      source = "lexfrei/cozystack"
+      source = "cozystack/cozystack"
     }
   }
 }
