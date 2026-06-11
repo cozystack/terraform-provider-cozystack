@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/lexfrei/terraform-provider-cozystack/internal/client"
+	"github.com/cozystack/terraform-provider-cozystack/internal/client"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	dynamicfake "k8s.io/client-go/dynamic/fake"

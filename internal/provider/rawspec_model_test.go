@@ -4,9 +4,9 @@ import (
 	"context"
 	"testing"
 
+	"github.com/cozystack/terraform-provider-cozystack/internal/client"
 	"github.com/hashicorp/terraform-plugin-framework-jsontypes/jsontypes"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	"github.com/lexfrei/terraform-provider-cozystack/internal/client"
 )
 
 func TestRawSpecExpand_ParsesJSON(t *testing.T) {

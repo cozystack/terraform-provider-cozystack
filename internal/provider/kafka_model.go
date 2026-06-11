@@ -3,11 +3,11 @@ package provider
 import (
 	"context"
 
+	"github.com/cozystack/terraform-provider-cozystack/internal/client"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
-	"github.com/lexfrei/terraform-provider-cozystack/internal/client"
 )
 
 // kafkaModel maps the cozystack_kafka schema to Go types. Per-topic opaque

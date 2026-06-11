@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/lexfrei/terraform-provider-cozystack/internal/client"
+	"github.com/cozystack/terraform-provider-cozystack/internal/client"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 

@@ -6,8 +6,8 @@ import (
 	"flag"
 	"log"
 
+	"github.com/cozystack/terraform-provider-cozystack/internal/provider"
 	"github.com/hashicorp/terraform-plugin-framework/providerserver"
-	"github.com/lexfrei/terraform-provider-cozystack/internal/provider"
 )
 
 // These are set at build time via -ldflags.

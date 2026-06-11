@@ -7,12 +7,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cozystack/terraform-provider-cozystack/internal/client"
+	"github.com/cozystack/terraform-provider-cozystack/internal/provider"
 	"github.com/hashicorp/terraform-plugin-framework/providerserver"
 	"github.com/hashicorp/terraform-plugin-go/tfprotov6"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
-	"github.com/lexfrei/terraform-provider-cozystack/internal/client"
-	"github.com/lexfrei/terraform-provider-cozystack/internal/provider"
 )
 
 // applicationTeardownTimeout bounds how long CheckDestroy waits for the async

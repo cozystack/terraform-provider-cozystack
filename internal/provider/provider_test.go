@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
+	"github.com/cozystack/terraform-provider-cozystack/internal/provider"
 	fwprovider "github.com/hashicorp/terraform-plugin-framework/provider"
-	"github.com/lexfrei/terraform-provider-cozystack/internal/provider"
 )
 
 func TestProviderMetadata(t *testing.T) {
