@@ -38,7 +38,9 @@ resource "cozystack_tenant" "team_b" {
 # Leave gateway out and the tenant gets no Gateway of its own: it inherits the
 # nearest ancestor's, or falls back to Ingress when no ancestor owns one. A
 # tenant with a custom apex has to ask explicitly, because the ancestor's
-# certificate does not cover that apex.
+# certificate does not cover that apex. Writing `gateway = false` is not the
+# same as leaving it out — upstream reads it as opting out of Gateway
+# publishing altogether.
 resource "cozystack_tenant" "team_c" {
   name      = "team-c"
   namespace = "tenant-root"
@@ -59,7 +61,7 @@ resource "cozystack_tenant" "team_c" {
 ### Optional
 
 - `etcd` (Boolean) Deploy a dedicated etcd cluster for the tenant.
-- `gateway` (Boolean) Deploy a Gateway API Gateway of the tenant's own, backed by the Cilium Gateway API controller. Unset means the tenant gets no Gateway of its own and inherits the nearest ancestor's, falling back to Ingress when no ancestor owns one — so a tenant with a custom apex (`host` set to something the parent apex does not cover) has to ask for `true` explicitly, since the ancestor's certificate does not cover that apex. The attribute is omitted from the spec entirely when unset: the platform reads the key's absence, and today absent and `false` deploy the same thing, but only the explicit `false` survives a change of mind upstream.
+- `gateway` (Boolean) Deploy a Gateway API Gateway of the tenant's own, backed by the Cilium Gateway API controller. Unset means the tenant gets no Gateway of its own and inherits the nearest ancestor's, falling back to Ingress when no ancestor owns one — so a tenant with a custom apex (`host` set to something the parent apex does not cover) has to ask for `true` explicitly, since the ancestor's certificate does not cover that apex. The attribute is omitted from the spec entirely when unset — the platform reads the key's absence, not a null. Prefer leaving it unset to writing `false`: upstream documents the two as different states, `false` being an opt-out of Gateway publishing altogether, and the templates in the pinned release do not yet act on the difference.
 - `host` (String) Hostname used to access tenant services. Defaults to a subdomain of the parent host.
 - `ingress` (Boolean) Deploy a dedicated ingress controller for the tenant.
 - `monitoring` (Boolean) Deploy a dedicated monitoring stack for the tenant.

@@ -180,9 +180,10 @@ func tenantSpecAttributes() map[string]schema.Attribute {
 				"nearest ancestor's, falling back to Ingress when no ancestor owns one — so a tenant with a " +
 				"custom apex (`host` set to something the parent apex does not cover) has to ask for `true` " +
 				"explicitly, since the ancestor's certificate does not cover that apex. The attribute is " +
-				"omitted from the spec entirely when unset: the platform reads the key's absence, and today " +
-				"absent and `false` deploy the same thing, but only the explicit `false` survives a change of " +
-				"mind upstream.",
+				"omitted from the spec entirely when unset — the platform reads the key's absence, not a " +
+				"null. Prefer leaving it unset to writing `false`: upstream documents the two as different " +
+				"states, `false` being an opt-out of Gateway publishing altogether, and the templates in the " +
+				"pinned release do not yet act on the difference.",
 		},
 		attrSeaweedfs: boolToggle("Deploy a dedicated SeaweedFS instance for the tenant."),
 		"scheduling_class": schema.StringAttribute{

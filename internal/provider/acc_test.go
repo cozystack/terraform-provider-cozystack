@@ -1064,10 +1064,10 @@ func TestAccKubernetesResource(t *testing.T) {
 				),
 			},
 			{
-				// An explicitly empty roles list: a configuration the platform
-				// supports and the provider claims to distinguish from "unset".
-				// The unit tests echo the provider's own request back, so only a
-				// real server says whether an empty list survives the round trip.
+				// Explicitly empty lists, at both levels the provider claims to
+				// distinguish from "unset". The unit tests echo the provider's
+				// own request back, so only a real server says whether an empty
+				// list survives the round trip.
 				Config: `
 resource "cozystack_kubernetes" "test" {
   name      = "tfacck8s"
@@ -1081,10 +1081,14 @@ resource "cozystack_kubernetes" "test" {
       roles         = []
     }
   }
+  oidc = {
+    users = []
+  }
 }
 `,
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("cozystack_kubernetes.test", "node_groups.md0.roles.#", "0"),
+					resource.TestCheckResourceAttr("cozystack_kubernetes.test", "oidc.users.#", "0"),
 				),
 			},
 			{

@@ -16,12 +16,14 @@ In the `talos`, `node_health_check`, `oidc`, `control_plane`, and `images` block
 ## Example Usage
 
 ```terraform
+# storage_class is deliberately absent: the platform supplies its own, and a
+# configured value makes any later change a cluster replacement, since a
+# PersistentVolumeClaim cannot move to another class.
 resource "cozystack_kubernetes" "cluster" {
   name      = "cluster"
   namespace = "tenant-root"
 
-  version       = "v1.35"
-  storage_class = "replicated"
+  version = "v1.35"
 
   node_groups = {
     md0 = {
@@ -205,7 +207,7 @@ Optional:
 
 - `extra_args` (List of String) Extra command-line flags appended to the tenant kube-apiserver, for feature gates and header configuration. Use `oidc` for identity.
 - `extra_volume_mounts` (List of String) Extra volume mounts on the kube-apiserver container, each a core/v1 VolumeMount as JSON. Every `name` must reference a volume declared in `extra_volumes`; the chart-managed Talos secret volumes cannot be mounted.
-- `extra_volumes` (List of String) Extra volumes on the control-plane Deployment, each a core/v1 Volume as JSON (`jsonencode({ name = "…", configMap = { name = "…" } })`). The control-plane pod runs on the management cluster, so only `configMap` and `secret` sources are accepted, each volume needs a unique name and exactly one source, and the names `talos-ca` and `talos-tls-cert` are reserved by the chart.
+- `extra_volumes` (List of String) Extra volumes on the control-plane Deployment, each a core/v1 Volume as JSON (`jsonencode({ name = "…", configMap = { name = "…" } })`). The control-plane pod runs on the management cluster, so only `configMap` and `secret` sources are accepted, each volume needs a unique name and exactly one source, and the names `talos-ca` and `talos-tls-cert` are reserved by the chart — as is `authentication-config` whenever `oidc.mode` is not `None`.
 
 
 

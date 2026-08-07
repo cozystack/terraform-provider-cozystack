@@ -1,9 +1,11 @@
+# storage_class is deliberately absent: the platform supplies its own, and a
+# configured value makes any later change a cluster replacement, since a
+# PersistentVolumeClaim cannot move to another class.
 resource "cozystack_kubernetes" "cluster" {
   name      = "cluster"
   namespace = "tenant-root"
 
-  version       = "v1.35"
-  storage_class = "replicated"
+  version = "v1.35"
 
   node_groups = {
     md0 = {

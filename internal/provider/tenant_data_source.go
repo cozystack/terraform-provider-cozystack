@@ -55,7 +55,7 @@ func (d *tenantDataSource) Schema(
 			attrEtcd:           schema.BoolAttribute{Computed: true, MarkdownDescription: "Whether a dedicated etcd cluster is deployed."},
 			attrMonitoring:     schema.BoolAttribute{Computed: true, MarkdownDescription: "Whether a dedicated monitoring stack is deployed."},
 			attrIngress:        schema.BoolAttribute{Computed: true, MarkdownDescription: "Whether a dedicated ingress controller is deployed."},
-			"gateway":          schema.BoolAttribute{Computed: true, MarkdownDescription: "Whether a dedicated Gateway API controller is deployed."},
+			"gateway":          schema.BoolAttribute{Computed: true, MarkdownDescription: "Whether the tenant has a Gateway of its own; null when it never asked."},
 			attrSeaweedfs:      schema.BoolAttribute{Computed: true, MarkdownDescription: "Whether a dedicated SeaweedFS instance is deployed."},
 			"scheduling_class": schema.StringAttribute{Computed: true, MarkdownDescription: "Name of the applied SchedulingClass CR."},
 			"resource_quotas": schema.MapAttribute{

@@ -335,7 +335,8 @@ func k8sAPIServerResourceAttribute() rschema.SingleNestedAttribute {
 					"JSON (`jsonencode({ name = \"…\", configMap = { name = \"…\" } })`). The control-plane pod " +
 					"runs on the management cluster, so only `configMap` and `secret` sources are accepted, each " +
 					"volume needs a unique name and exactly one source, and the names `talos-ca` and " +
-					"`talos-tls-cert` are reserved by the chart.",
+					"`talos-tls-cert` are reserved by the chart — as is `authentication-config` whenever " +
+					"`oidc.mode` is not `None`.",
 			},
 			"extra_volume_mounts": rschema.ListAttribute{
 				Optional:    true,
