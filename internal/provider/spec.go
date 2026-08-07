@@ -457,3 +457,142 @@ func flattenObjectList(
 
 	return value, diags
 }
+
+// Presence-preserving spec fields.
+//
+// Most optional spec keys treat "absent" and "empty" alike, so the helpers above
+// deliberately collapse the two: a null attribute expands to an empty value and
+// an empty value flattens back to null. A few upstream keys instead give the
+// empty form its own meaning — the chart substitutes its own value when the key
+// is absent, and an explicitly empty value opts out of that substitution. For
+// those, collapsing the states silently reinstates the substitution the operator
+// opted out of, and flattening a stored empty value back to null makes every
+// apply report drift. The helpers below carry the distinction through both
+// directions: they write a key only when the attribute is set, and they read a
+// key back as null only when it is absent.
+
+// setOptionalString writes a string into spec under key. A null or unknown
+// attribute leaves the key out; an explicit empty string is written.
+func setOptionalString(spec map[string]any, key string, value types.String) {
+	if value.IsNull() || value.IsUnknown() {
+		return
+	}
+
+	spec[key] = value.ValueString()
+}
+
+// specStringOrNull reads a string from spec, flattening an absent key to null
+// and a present empty string to an empty string value.
+func specStringOrNull(spec map[string]any, key string) types.String {
+	text, ok := spec[key].(string)
+	if !ok {
+		return types.StringNull()
+	}
+
+	return types.StringValue(text)
+}
+
+// setOptionalStringList writes a string list into spec under key. A null or
+// unknown attribute leaves the key out; an empty list writes an empty list.
+func setOptionalStringList(
+	ctx context.Context,
+	spec map[string]any,
+	key string,
+	value types.List,
+) diag.Diagnostics {
+	var diags diag.Diagnostics
+
+	if value.IsNull() || value.IsUnknown() {
+		return diags
+	}
+
+	items, itemDiags := expandStringList(ctx, value)
+	diags.Append(itemDiags...)
+
+	if diags.HasError() {
+		return diags
+	}
+
+	spec[key] = items
+
+	return diags
+}
+
+// specStringListOrNull builds a string list from a spec value, flattening an
+// absent key to null and a present empty list to an empty list.
+func specStringListOrNull(raw any) types.List {
+	items, ok := raw.([]any)
+	if !ok {
+		return types.ListNull(types.StringType)
+	}
+
+	elements := make([]attr.Value, 0, len(items))
+	for _, item := range items {
+		text, _ := item.(string)
+		elements = append(elements, types.StringValue(text))
+	}
+
+	return types.ListValueMust(types.StringType, elements)
+}
+
+// setOptionalObjectList writes a nested-object list into spec under key,
+// delegating per-element conversion to build. A null or unknown attribute leaves
+// the key out; an empty list writes an empty list.
+func setOptionalObjectList[T any](
+	ctx context.Context,
+	spec map[string]any,
+	key string,
+	value types.List,
+	build func(T) map[string]any,
+) diag.Diagnostics {
+	var diags diag.Diagnostics
+
+	if value.IsNull() || value.IsUnknown() {
+		return diags
+	}
+
+	items, itemDiags := expandObjectList(ctx, value, build)
+	diags.Append(itemDiags...)
+
+	if diags.HasError() {
+		return diags
+	}
+
+	spec[key] = items
+
+	return diags
+}
+
+// specObjectListOrNull builds a nested-object list from a spec value,
+// delegating per-element conversion to build. An absent key flattens to null; a
+// present empty list flattens to an empty list.
+func specObjectListOrNull(
+	raw any,
+	objectType map[string]attr.Type,
+	build func(map[string]any) map[string]attr.Value,
+) (types.List, diag.Diagnostics) {
+	var diags diag.Diagnostics
+
+	elementType := types.ObjectType{AttrTypes: objectType}
+
+	items, ok := raw.([]any)
+	if !ok {
+		return types.ListNull(elementType), diags
+	}
+
+	elements := make([]attr.Value, 0, len(items))
+
+	for _, item := range items {
+		entry, _ := item.(map[string]any)
+
+		object, objectDiags := types.ObjectValue(objectType, build(entry))
+		diags.Append(objectDiags...)
+
+		elements = append(elements, object)
+	}
+
+	value, listDiags := types.ListValue(elementType, elements)
+	diags.Append(listDiags...)
+
+	return value, diags
+}
