@@ -64,7 +64,7 @@ Optional:
 Optional:
 
 - `size` (String) Size of persistent volumes for each instance.
-- `storage_class` (String) StorageClass used to store the data.
+- `storage_class` (String) StorageClass used to store the data. Changing a value set here replaces the object, because an existing volume is never migrated to another class. Removing the attribute from the configuration does not: the object keeps its volumes and the recorded class reverts to the default.
 
 ## Import
 

@@ -19,7 +19,7 @@ func natsSchema() rschema.Schema {
 		},
 		attrResources:       resourcesResourceAttribute(),
 		attrResourcesPreset: presetAttribute("t1.nano"),
-		attrStorageClass:    storageClassAttribute(),
+		attrStorageClass:    storageClassAttribute(""),
 		attrExternal:        externalAttribute(),
 		specTLS:             tlsResourceAttribute("TLS configuration. Omit the block to follow `external`."),
 		"users":             passwordUsersResourceAttribute("NATS users keyed by user name."),

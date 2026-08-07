@@ -51,7 +51,7 @@ func clickhouseSchema() rschema.Schema {
 			Default:             stringdefault.StaticString("10Gi"),
 			MarkdownDescription: "Persistent volume size for data (quantity, e.g. `10Gi`).",
 		},
-		attrStorageClass: storageClassAttribute(),
+		attrStorageClass: storageClassAttribute(""),
 		"log_storage_size": rschema.StringAttribute{
 			Optional: true, Computed: true,
 			Default:             stringdefault.StaticString("2Gi"),

@@ -37,7 +37,7 @@ resource "cozystack_nats" "bus" {
 - `replicas` (Number) Number of NATS replicas.
 - `resources` (Attributes) Explicit CPU and memory per replica; overrides `resources_preset` for any field set. (see [below for nested schema](#nestedatt--resources))
 - `resources_preset` (String) Sizing preset applied when `resources` is omitted.
-- `storage_class` (String) StorageClass used to store the data.
+- `storage_class` (String) StorageClass used to store the data. Changing a value set here replaces the object, because an existing volume is never migrated to another class. Removing the attribute from the configuration does not: the object keeps its volumes and the recorded class reverts to the default.
 - `tls` (Attributes) TLS configuration. Omit the block to follow `external`. (see [below for nested schema](#nestedatt--tls))
 - `users` (Attributes Map) NATS users keyed by user name. (see [below for nested schema](#nestedatt--users))
 - `wait_for_ready` (Boolean) Block on create/update until the tenant's `Ready` condition is true.

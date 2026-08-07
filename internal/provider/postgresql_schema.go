@@ -72,7 +72,7 @@ func postgresSchema() rschema.Schema {
 			Default:             stringdefault.StaticString("10Gi"),
 			MarkdownDescription: "Persistent volume size (quantity, e.g. `10Gi`).",
 		},
-		attrStorageClass: storageClassAttribute(),
+		attrStorageClass: storageClassAttribute(""),
 		attrExternal:     externalAttribute(),
 		specTLS: tlsResourceAttribute(
 			"TLS configuration. This only controls whether the external hostname is added to the " +

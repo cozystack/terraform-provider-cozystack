@@ -22,13 +22,32 @@ func presetAttribute(def string) rschema.StringAttribute {
 	}
 }
 
-// storageClassAttribute returns the optional/computed storage_class attribute.
-func storageClassAttribute() rschema.StringAttribute {
+// storageClassAttribute returns the optional/computed storage_class attribute,
+// defaulting to def.
+//
+// Changing a configured value replaces the object. Kubernetes fixes a volume's
+// storage class when the volume is created and never migrates it afterwards,
+// and the aggregated apiserver does not evaluate the immutability rule the
+// upstream schema carries — it accepts the write, the stored spec changes, and
+// the data stays on the original class. Planning a replacement is what keeps
+// state and reality from parting ways silently.
+//
+// The modifier is the configured-only variant on purpose. Attribute defaults
+// are applied to the planned value whenever the configuration is null, and that
+// happens before plan modifiers run, so an instance imported without the
+// attribute — or one whose attribute was just deleted from the configuration —
+// would otherwise plan the default against the stored class and destroy a
+// database nobody asked to move.
+func storageClassAttribute(def string) rschema.StringAttribute {
 	return rschema.StringAttribute{
-		Optional:            true,
-		Computed:            true,
-		Default:             stringdefault.StaticString(""),
-		MarkdownDescription: "StorageClass used to store the data.",
+		Optional:      true,
+		Computed:      true,
+		Default:       stringdefault.StaticString(def),
+		PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplaceIfConfigured()},
+		MarkdownDescription: "StorageClass used to store the data. Changing a value set here replaces " +
+			"the object, because an existing volume is never migrated to another class. Removing the " +
+			"attribute from the configuration does not: the object keeps its volumes and the recorded " +
+			"class reverts to the default.",
 	}
 }
 

@@ -64,7 +64,7 @@ Optional:
 - `resources` (Attributes) Explicit CPU and memory configuration. When omitted, the preset is applied. (see [below for nested schema](#nestedatt--kafka--resources))
 - `resources_preset` (String) Default sizing preset used when `resources` is omitted.
 - `size` (String) Persistent volume size (quantity, e.g. `10Gi`).
-- `storage_class` (String) StorageClass used to store the data.
+- `storage_class` (String) StorageClass used to store the data. Changing a value set here replaces the object, because an existing volume is never migrated to another class. Removing the attribute from the configuration does not: the object keeps its volumes and the recorded class reverts to the default.
 
 <a id="nestedatt--kafka--resources"></a>
 ### Nested Schema for `kafka.resources`
@@ -103,7 +103,7 @@ Optional:
 - `resources` (Attributes) Explicit CPU and memory configuration. When omitted, the preset is applied. (see [below for nested schema](#nestedatt--zookeeper--resources))
 - `resources_preset` (String) Default sizing preset used when `resources` is omitted.
 - `size` (String) Persistent volume size (quantity, e.g. `10Gi`).
-- `storage_class` (String) StorageClass used to store the data.
+- `storage_class` (String) StorageClass used to store the data. Changing a value set here replaces the object, because an existing volume is never migrated to another class. Removing the attribute from the configuration does not: the object keeps its volumes and the recorded class reverts to the default.
 
 <a id="nestedatt--zookeeper--resources"></a>
 ### Nested Schema for `zookeeper.resources`

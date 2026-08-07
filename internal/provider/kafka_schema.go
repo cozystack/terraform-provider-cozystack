@@ -53,11 +53,7 @@ func kafkaBrokerResourceAttribute(desc, sizeDefault string) rschema.SingleNested
 				Default:             stringdefault.StaticString(sizeDefault),
 				MarkdownDescription: "Persistent volume size (quantity, e.g. `10Gi`).",
 			},
-			"storage_class": rschema.StringAttribute{
-				Optional: true, Computed: true,
-				Default:             stringdefault.StaticString(""),
-				MarkdownDescription: "StorageClass used to store the data.",
-			},
+			attrStorageClass: storageClassAttribute(""),
 		},
 	}
 }
