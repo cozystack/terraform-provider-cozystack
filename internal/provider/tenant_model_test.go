@@ -20,6 +20,7 @@ func fullModel() tenantModel {
 		Etcd:            types.BoolValue(true),
 		Monitoring:      types.BoolValue(true),
 		Ingress:         types.BoolValue(false),
+		Gateway:         types.BoolValue(true),
 		Seaweedfs:       types.BoolValue(false),
 		SchedulingClass: types.StringValue("default"),
 		ResourceQuotas: types.MapValueMust(types.StringType, map[string]attr.Value{
@@ -92,6 +93,73 @@ func TestExpand_NullQuotasYieldEmptyMap(t *testing.T) {
 	}
 	if len(quotas) != 0 {
 		t.Errorf("resourceQuotas = %v, want empty", quotas)
+	}
+}
+
+// gateway is three-state by key presence, not by value. Upstream auto-decides
+// when the key is absent — on for a tenant whose apex derives from its parent,
+// off for a custom apex — and the chart reads the key's absence, not a null
+// value. Writing `gateway: false` for an unset attribute would silently take
+// every derived-apex tenant off the auto path; writing `gateway: null` would
+// fail the generated JSON schema.
+func TestExpand_GatewayThreeState(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		value   types.Bool
+		present bool
+		want    bool
+	}{
+		{name: "null omits the key", value: types.BoolNull()},
+		{name: "unknown omits the key", value: types.BoolUnknown()},
+		{name: "true is written", value: types.BoolValue(true), present: true, want: true},
+		{name: "false is written", value: types.BoolValue(false), present: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			model := fullModel()
+			model.Gateway = tt.value
+
+			got, diags := model.expand(context.Background())
+			if diags.HasError() {
+				t.Fatalf("expand diagnostics: %v", diags)
+			}
+
+			raw, ok := got.Spec["gateway"]
+			if ok != tt.present {
+				t.Fatalf("gateway present = %v, want %v", ok, tt.present)
+			}
+
+			if tt.present && raw != tt.want {
+				t.Errorf("gateway = %v, want %v", raw, tt.want)
+			}
+		})
+	}
+}
+
+func TestFlatten_GatewayAbsentStaysNull(t *testing.T) {
+	t.Parallel()
+
+	var model tenantModel
+
+	if diags := model.flatten(&client.Application{Spec: map[string]any{}}); diags.HasError() {
+		t.Fatalf("flatten diagnostics: %v", diags)
+	}
+
+	if !model.Gateway.IsNull() {
+		t.Errorf("gateway = %v for an absent key, want null so the tenant stays on the auto path", model.Gateway)
+	}
+
+	if diags := model.flatten(&client.Application{Spec: map[string]any{"gateway": false}}); diags.HasError() {
+		t.Fatalf("flatten diagnostics: %v", diags)
+	}
+
+	if model.Gateway.IsNull() || model.Gateway.ValueBool() {
+		t.Errorf("gateway = %v for an explicit false, want a false value", model.Gateway)
 	}
 }
 

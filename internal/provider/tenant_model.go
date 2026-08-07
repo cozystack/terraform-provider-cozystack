@@ -67,8 +67,12 @@ func (m *tenantModel) expand(ctx context.Context) (*client.Application, diag.Dia
 		"resourceQuotas":  quotas,
 	}
 
-	// gateway is HEAD-only and tri-state: emit only when set so it never drifts
-	// against older clusters that prune unknown spec keys.
+	// gateway is three-state by key presence: absent means the chart decides
+	// (on for a derived apex, off for a custom one), and only an explicit true
+	// or false overrides that. Upstream reads the key's absence rather than a
+	// null value, so an unset attribute must leave the key out entirely —
+	// writing `gateway: null` fails the generated schema, and writing false
+	// takes every derived-apex tenant off the auto path.
 	if !m.Gateway.IsNull() && !m.Gateway.IsUnknown() {
 		spec["gateway"] = m.Gateway.ValueBool()
 	}
