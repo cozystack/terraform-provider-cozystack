@@ -159,3 +159,20 @@ func marketplacePanelSchema() rschema.Schema {
 func marketplacePanelDataSourceSchema() dsschema.Schema {
 	return rawSpecDataSourceSchema("Read a Cozystack MarketplacePanel by name.", "MarketplacePanel name.")
 }
+
+// gateway.cozystack.io group.
+
+func tenantGatewaySchema() rschema.Schema {
+	return rawSpecNsSchema(
+		"A Cozystack TenantGateway (`gateway.cozystack.io` group): declares a tenant's "+
+			"per-namespace Gateway API / Cilium Gateway. The cozystack-controller reconciles the "+
+			"actual Gateway and per-listener Certificate resources from this CR.",
+		"TenantGateway name. Immutable.",
+		"Full TenantGateway spec as JSON (`apex`, `certMode`, `issuerName`, `dns01`, "+
+			"`wildcardSecretRef`, `attachedNamespaces`, `tlsPassthroughServices`, `gatewayClassName`).",
+	)
+}
+
+func tenantGatewayDataSourceSchema() dsschema.Schema {
+	return rawSpecNsDataSourceSchema("Read a Cozystack TenantGateway by name and namespace.", "TenantGateway name.")
+}

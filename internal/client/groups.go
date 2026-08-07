@@ -53,3 +53,9 @@ func TenantSecretResource() Resource {
 func MarketplacePanelResource() Resource {
 	return Resource{Group: "dashboard.cozystack.io", Resource: "marketplacepanels", Kind: "MarketplacePanel", ClusterScoped: true}
 }
+
+// TenantGatewayResource identifies the TenantGateway kind (namespaced): the
+// per-tenant Gateway API / Cilium Gateway declaration.
+func TenantGatewayResource() Resource {
+	return Resource{Group: "gateway.cozystack.io", Resource: "tenantgateways", Kind: "TenantGateway"}
+}
