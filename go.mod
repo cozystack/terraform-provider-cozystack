@@ -3,7 +3,7 @@ module github.com/cozystack/terraform-provider-cozystack
 go 1.26.4
 
 require (
-	github.com/cozystack/cozystack/api/apps/v1alpha1 v1.4.3
+	github.com/cozystack/cozystack/api/apps/v1alpha1 v1.6.1
 	github.com/hashicorp/terraform-plugin-framework v1.19.0
 	github.com/hashicorp/terraform-plugin-framework-jsontypes v0.2.0
 	github.com/hashicorp/terraform-plugin-framework-validators v0.19.0
