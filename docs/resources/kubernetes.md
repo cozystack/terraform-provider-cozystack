@@ -248,7 +248,7 @@ Optional:
 <a id="nestedatt--oidc--custom_config--secret_ref"></a>
 ### Nested Schema for `oidc.custom_config.secret_ref`
 
-Optional:
+Required:
 
 - `name` (String) Name of a Secret in the release namespace whose `config.yaml` key holds the AuthenticationConfiguration.
 

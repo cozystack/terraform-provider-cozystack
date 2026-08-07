@@ -121,16 +121,15 @@ func keepConfiguredAttributes(configured, server types.Object) types.Object {
 		return types.ObjectNull(server.AttributeTypes(context.Background()))
 	}
 
-	if server.IsNull() || server.IsUnknown() {
-		return configured
-	}
-
 	kept := make(map[string]attr.Value, len(configured.Attributes()))
 
 	for name, value := range configured.Attributes() {
+		// A server that does not report the key at all — an older cluster, or a
+		// block it does not default — leaves the attribute null rather than
+		// carrying a configured value that may still be unknown.
 		fromServer, ok := server.Attributes()[name]
 		if !ok {
-			kept[name] = value
+			kept[name] = nullOf(value)
 
 			continue
 		}
@@ -161,6 +160,20 @@ func keepConfiguredAttributes(configured, server types.Object) types.Object {
 	}
 
 	return types.ObjectValueMust(configured.AttributeTypes(context.Background()), kept)
+}
+
+// nullOf returns the null of value's own type, for an attribute the server did
+// not report back.
+func nullOf(value attr.Value) attr.Value {
+	if object, ok := value.(types.Object); ok {
+		return types.ObjectNull(object.AttributeTypes(context.Background()))
+	}
+
+	if list, ok := value.(types.List); ok {
+		return types.ListNull(list.ElementType(context.Background()))
+	}
+
+	return types.StringNull()
 }
 
 func (m *kubernetesModel) identity() (string, string) {
@@ -208,11 +221,13 @@ func (m *kubernetesModel) expand(ctx context.Context) (*client.Application, diag
 		specNodeGroups: nodeGroups,
 	}
 
-	// storageClass carries no provider-side default, so an unset attribute
-	// leaves the key out and the platform supplies "replicated" itself. A
-	// materialised default would pull the plan back to it for any cluster
-	// created on another class, silently rewriting a field whose PVCs can
-	// never follow.
+	// storageClass carries no provider-side default, so a create that does not
+	// name it leaves the key out and the platform supplies "replicated" itself.
+	// On later applies the plan holds the value the last read reported, so the
+	// key is written back — a no-op by construction, and the point is what does
+	// not happen: a materialised default would instead pull the plan back to
+	// "replicated" for a cluster created on another class, silently rewriting a
+	// field whose PersistentVolumeClaims can never follow.
 	setOptionalString(spec, specStorageClass, m.StorageClass)
 
 	// host is server-defaulted to a tenant subdomain; only send it when set so

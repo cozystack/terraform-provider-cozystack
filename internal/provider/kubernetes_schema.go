@@ -254,7 +254,7 @@ func k8sOIDCCustomConfigResourceAttribute() rschema.SingleNestedAttribute {
 					"AuthenticationConfiguration. Conflicts with `config`.",
 				Attributes: map[string]rschema.Attribute{
 					attrName: rschema.StringAttribute{
-						Optional: true,
+						Required: true,
 						MarkdownDescription: "Name of a Secret in the release namespace whose `config.yaml` " +
 							"key holds the AuthenticationConfiguration.",
 					},

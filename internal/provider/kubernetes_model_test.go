@@ -52,10 +52,10 @@ func fullControlPlaneObject() types.Object {
 			types.StringValue("--requestheader-uid-headers=X-Remote-Uid"),
 		}),
 		"extra_volumes": types.ListValueMust(jsontypes.NormalizedType{}, []attr.Value{
-			jsontypes.NewNormalizedValue(`{"name":"auth-config","configMap":{"name":"auth-config"}}`),
+			jsontypes.NewNormalizedValue(`{"configMap":{"name":"auth-config"},"name":"auth-config"}`),
 		}),
 		"extra_volume_mounts": types.ListValueMust(jsontypes.NormalizedType{}, []attr.Value{
-			jsontypes.NewNormalizedValue(`{"name":"auth-config","mountPath":"/etc/kubernetes/auth"}`),
+			jsontypes.NewNormalizedValue(`{"mountPath":"/etc/kubernetes/auth","name":"auth-config"}`),
 		}),
 	})
 
@@ -1073,5 +1073,46 @@ func TestKubernetesFlatten_NodeGroupRolesKeepEmptyList(t *testing.T) {
 	roles, _ := md0.Attributes()["roles"].(types.List)
 	if roles.IsNull() {
 		t.Errorf("roles = null for a stored empty list, want an empty list")
+	}
+}
+
+// expand is guarded against the upstream json tags, but flatten's keys are
+// hand-written on both sides — in the code and in the tests — so a matched typo
+// would pass every other test in this file. Sending the full model through both
+// directions makes the agreement transitive instead of eyeballed.
+func TestKubernetesExpandFlatten_RoundTripsEveryBlock(t *testing.T) {
+	t.Parallel()
+
+	want := fullKubernetesModel()
+
+	app, diags := want.expand(context.Background())
+	if diags.HasError() {
+		t.Fatalf("expand diagnostics: %v", diags)
+	}
+
+	var got kubernetesModel
+
+	if diags := got.flatten(app); diags.HasError() {
+		t.Fatalf("flatten diagnostics: %v", diags)
+	}
+
+	blocks := map[string][2]attr.Value{
+		"talos":             {want.Talos, got.Talos},
+		"node_health_check": {want.NodeHealthCheck, got.NodeHealthCheck},
+		"oidc":              {want.OIDC, got.OIDC},
+		"control_plane":     {want.ControlPlane, got.ControlPlane},
+		"images":            {want.Images, got.Images},
+		"node_groups":       {want.NodeGroups, got.NodeGroups},
+	}
+
+	for name, pair := range blocks {
+		if !pair[0].Equal(pair[1]) {
+			t.Errorf("%s did not survive expand→flatten:\n sent %v\n back %v", name, pair[0], pair[1])
+		}
+	}
+
+	if got.StorageClass != want.StorageClass || got.Version != want.Version || got.Host != want.Host {
+		t.Errorf("scalars did not survive: storage_class=%v version=%v host=%v",
+			got.StorageClass, got.Version, got.Host)
 	}
 }
