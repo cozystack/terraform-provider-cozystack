@@ -6,6 +6,7 @@ import (
 	"github.com/cozystack/terraform-provider-cozystack/internal/client"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	dsschema "github.com/hashicorp/terraform-plugin-framework/datasource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	rschema "github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -67,6 +68,33 @@ func (r *appResource[M, PM]) Configure(
 	resp *resource.ConfigureResponse,
 ) {
 	r.client = providerClient(req.ProviderData, &resp.Diagnostics)
+}
+
+// configValidator is an optional behaviour: a kind whose attributes constrain
+// each other in a way no per-attribute validator can express implements it. The
+// check runs while the plan is built, which is the only place it is useful for a
+// kind with immutable attributes — by the time Create runs, the replacement's
+// destroy has already happened.
+type configValidator interface {
+	validateConfig() diag.Diagnostics
+}
+
+func (r *appResource[M, PM]) ValidateConfig(
+	ctx context.Context,
+	req resource.ValidateConfigRequest,
+	resp *resource.ValidateConfigResponse,
+) {
+	var model M
+
+	resp.Diagnostics.Append(req.Config.Get(ctx, &model)...)
+
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	if validator, ok := any(PM(&model)).(configValidator); ok {
+		resp.Diagnostics.Append(validator.validateConfig()...)
+	}
 }
 
 func (r *appResource[M, PM]) Create(
