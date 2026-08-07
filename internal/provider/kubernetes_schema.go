@@ -451,8 +451,9 @@ func kubernetesSchema() rschema.Schema {
 
 	return rschema.Schema{
 		MarkdownDescription: "A Cozystack managed Kubernetes cluster, deployed inside a tenant namespace. " +
-			"The addons, control-plane, image-override blocks, and per-node-group GPU and kubelet " +
-			"tuning use server defaults.",
+			"The addons block, the control-plane component sizing, and per-node-group GPU and kubelet " +
+			"tuning use server defaults. Blocks left unset are omitted from the request, so the platform's " +
+			"own defaults apply and keep moving with it rather than being pinned at apply time.",
 		Attributes: attributes,
 	}
 }
