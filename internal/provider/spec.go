@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 
 	"github.com/hashicorp/terraform-plugin-framework-jsontypes/jsontypes"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
@@ -624,11 +625,14 @@ func setOptionalJSONList(
 
 	out := make([]any, 0, len(items))
 
-	for _, item := range items {
+	for index, item := range items {
 		var document any
 
 		if err := json.Unmarshal([]byte(item.ValueString()), &document); err != nil {
-			diags.AddError("Invalid JSON document in "+key, err.Error())
+			diags.AddError(
+				"Invalid JSON document in "+key,
+				fmt.Sprintf("Element %d is not a JSON document: %s", index, err),
+			)
 
 			return diags
 		}
