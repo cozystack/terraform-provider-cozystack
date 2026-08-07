@@ -12,19 +12,25 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 )
 
-// Spec keys of the cozystack_kubernetes blocks that carry no shared constant.
+// Blocks whose Terraform attribute name and spec key are the same word, so one
+// constant serves the schema, expand, and flatten alike.
+const (
+	attrTalos  = "talos"
+	attrOIDC   = "oidc"
+	attrImages = "images"
+)
+
+// Spec keys of the cozystack_kubernetes blocks whose camelCase form differs
+// from the snake_case attribute name.
 const (
 	specNodeGroups         = "nodeGroups"
-	specTalos              = "talos"
 	specNodeHealthCheck    = "nodeHealthCheck"
 	specMaxUnhealthy       = "maxUnhealthy"
 	specNodeStartupTimeout = "nodeStartupTimeout"
-	specOIDC               = "oidc"
 	specCustomConfig       = "customConfig"
 	specSecretRef          = "secretRef"
 	specControlPlane       = "controlPlane"
 	specAPIServer          = "apiServer"
-	specImages             = "images"
 )
 
 // kubernetesModel maps the cozystack_kubernetes schema to Go types. The addons
@@ -192,10 +198,10 @@ func (m *kubernetesModel) flatten(app *client.Application) diag.Diagnostics {
 	diags.Append(ngDiags...)
 
 	m.NodeGroups = nodeGroups
-	m.Talos = flattenTalos(app.Spec[specTalos])
+	m.Talos = flattenTalos(app.Spec[attrTalos])
 	m.NodeHealthCheck = flattenNodeHealthCheck(app.Spec[specNodeHealthCheck])
 
-	oidc, oidcDiags := flattenOIDC(app.Spec[specOIDC])
+	oidc, oidcDiags := flattenOIDC(app.Spec[attrOIDC])
 	diags.Append(oidcDiags...)
 
 	m.OIDC = oidc
@@ -204,7 +210,7 @@ func (m *kubernetesModel) flatten(app *client.Application) diag.Diagnostics {
 	diags.Append(cpDiags...)
 
 	m.ControlPlane = controlPlane
-	m.Images = flattenImages(app.Spec[specImages])
+	m.Images = flattenImages(app.Spec[attrImages])
 
 	m.Ready = types.BoolValue(app.Status.Ready)
 	m.ChartVersion = types.StringValue(app.Status.Version)
@@ -250,11 +256,11 @@ func (m *kubernetesModel) expandBlocks(ctx context.Context, spec map[string]any)
 		value  types.Object
 		expand func(context.Context, types.Object) (map[string]any, diag.Diagnostics)
 	}{
-		{key: specTalos, value: m.Talos, expand: expandTalos},
+		{key: attrTalos, value: m.Talos, expand: expandTalos},
 		{key: specNodeHealthCheck, value: m.NodeHealthCheck, expand: expandNodeHealthCheck},
-		{key: specOIDC, value: m.OIDC, expand: expandOIDC},
+		{key: attrOIDC, value: m.OIDC, expand: expandOIDC},
 		{key: specControlPlane, value: m.ControlPlane, expand: expandControlPlane},
-		{key: specImages, value: m.Images, expand: expandImages},
+		{key: attrImages, value: m.Images, expand: expandImages},
 	}
 
 	for _, block := range blocks {
