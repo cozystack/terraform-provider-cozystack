@@ -242,13 +242,35 @@ func TestKubernetesStorageClassRequiresReplace(t *testing.T) {
 	after.StorageClass = types.StringValue("local")
 
 	tests := []struct {
-		name  string
-		plan  kubernetesModel
-		value types.String
-		want  bool
+		name        string
+		plan        kubernetesModel
+		value       types.String
+		configValue types.String
+		want        bool
 	}{
-		{name: "unchanged class plans in place", plan: before, value: before.StorageClass},
-		{name: "changed class requires replacement", plan: after, value: after.StorageClass, want: true},
+		{
+			name:        "unchanged class plans in place",
+			plan:        before,
+			value:       before.StorageClass,
+			configValue: before.StorageClass,
+		},
+		{
+			name:        "changed class requires replacement",
+			plan:        after,
+			value:       after.StorageClass,
+			configValue: after.StorageClass,
+			want:        true,
+		},
+		{
+			// An imported cluster on a non-default class, with a configuration
+			// that never mentions storage_class: the schema default would pull the
+			// plan back to "replicated", and an unconditional modifier would turn
+			// that into a destroy nobody asked for.
+			name:        "unconfigured change is not a replacement",
+			plan:        after,
+			value:       after.StorageClass,
+			configValue: types.StringNull(),
+		},
 	}
 
 	for _, tt := range tests {
@@ -263,7 +285,7 @@ func TestKubernetesStorageClassRequiresReplace(t *testing.T) {
 				Plan:           tfsdk.Plan{Schema: schema, Raw: kubernetesRaw(ctx, t, tt.plan)},
 				PlanValue:      tt.value,
 				Config:         kubernetesConfig(ctx, t, tt.plan),
-				ConfigValue:    tt.value,
+				ConfigValue:    tt.configValue,
 			}
 
 			response := &planmodifier.StringResponse{PlanValue: request.PlanValue}

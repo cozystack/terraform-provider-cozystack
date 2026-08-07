@@ -415,11 +415,15 @@ func kubernetesSchema() rschema.Schema {
 	maps.Copy(attributes, map[string]rschema.Attribute{
 		attrStorageClass: rschema.StringAttribute{
 			Optional: true, Computed: true,
-			Default:       stringdefault.StaticString("replicated"),
-			PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
-			MarkdownDescription: "StorageClass used to store the data. Changing it replaces the cluster: " +
-				"a PersistentVolumeClaim's class is fixed when it is created, so an in-place change would " +
-				"be recorded in state while every existing volume stayed on the old class.",
+			Default: stringdefault.StaticString("replicated"),
+			// Only a configured change replaces. An imported cluster whose class
+			// differs from the default would otherwise be planned back to
+			// "replicated" — and with an unconditional modifier that plan is a
+			// destroy, from a configuration that never mentions the attribute.
+			PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplaceIfConfigured()},
+			MarkdownDescription: "StorageClass used to store the data. Changing a configured value replaces " +
+				"the cluster: a PersistentVolumeClaim's class is fixed when it is created, so an in-place " +
+				"change would be recorded in state while every existing volume stayed on the old class.",
 		},
 		attrVersion: rschema.StringAttribute{
 			Optional: true, Computed: true,
@@ -452,8 +456,14 @@ func kubernetesSchema() rschema.Schema {
 	return rschema.Schema{
 		MarkdownDescription: "A Cozystack managed Kubernetes cluster, deployed inside a tenant namespace. " +
 			"The addons block, the control-plane component sizing, and per-node-group GPU and kubelet " +
-			"tuning use server defaults. Blocks left unset are omitted from the request, so the platform's " +
-			"own defaults apply and keep moving with it rather than being pinned at apply time.",
+			"tuning use server defaults.\n\n" +
+			"The `talos`, `node_health_check`, `oidc`, `control_plane`, and `images` blocks are driven by " +
+			"the configuration, not by prior state: a block the configuration does not set is left out of " +
+			"every request, so the platform's own defaults apply and keep moving with it rather than being " +
+			"pinned at apply time. The effective values are still reported back into state, so " +
+			"`terraform show` displays what the platform chose. The flip side is the usual Terraform " +
+			"contract — after an import, a value set out of band inside one of those blocks is dropped on " +
+			"the next update unless the configuration names it.",
 		Attributes: attributes,
 	}
 }
