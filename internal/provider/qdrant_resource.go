@@ -185,6 +185,7 @@ func qdrantSpecAttributes() map[string]schema.Attribute {
 			Default:             booldefault.StaticBool(false),
 			MarkdownDescription: "Enable external access from outside the cluster.",
 		},
+		specTLS: tlsResourceAttribute("TLS configuration. Omit the block to follow `external`."),
 		attrResourcesPreset: schema.StringAttribute{
 			Optional:            true,
 			Computed:            true,

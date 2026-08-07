@@ -21,6 +21,7 @@ func fullNatsModel() natsModel {
 		ResourcesPreset: types.StringValue("t1.nano"),
 		StorageClass:    types.StringValue(""),
 		External:        types.BoolValue(false),
+		TLS:             tlsBlock(true),
 		Users: types.MapValueMust(usersType, map[string]attr.Value{
 			"app": types.ObjectValueMust(passwordUserObjectType(), map[string]attr.Value{"password": types.StringValue("pw")}),
 		}),

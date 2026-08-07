@@ -18,6 +18,7 @@ func fullQdrantModel() qdrantModel {
 		Size:            types.StringValue("20Gi"),
 		StorageClass:    types.StringValue("replicated"),
 		External:        types.BoolValue(false),
+		TLS:             tlsBlock(true),
 		ResourcesPreset: types.StringValue("t1.medium"),
 		Resources: types.ObjectValueMust(resourcesObjectType(), map[string]attr.Value{
 			"cpu":    types.StringValue("1"),

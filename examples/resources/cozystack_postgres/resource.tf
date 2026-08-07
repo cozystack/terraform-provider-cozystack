@@ -5,6 +5,7 @@ resource "cozystack_postgres" "app" {
   replicas = 2
   version  = "v18"
   size     = "20Gi"
+  tls      = { enabled = true }
 
   users = {
     app = { password = "change-me" }

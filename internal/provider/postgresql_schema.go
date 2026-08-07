@@ -74,6 +74,11 @@ func postgresSchema() rschema.Schema {
 		},
 		attrStorageClass: storageClassAttribute(),
 		attrExternal:     externalAttribute(),
+		specTLS: tlsResourceAttribute(
+			"TLS configuration. This only controls whether the external hostname is added to the " +
+				"operator-managed server certificate; CNPG keeps TLS on the wire either way, and turning " +
+				"PostgreSQL TLS off entirely is a server-parameter matter. Omit the block to follow `external`.",
+		),
 		attrVersion: rschema.StringAttribute{
 			Optional: true, Computed: true,
 			Default:             stringdefault.StaticString("v18"),
@@ -122,6 +127,7 @@ func postgresDataSourceSchema() dsschema.Schema {
 		attrSize:            dsschema.StringAttribute{Computed: true, MarkdownDescription: "Persistent volume size."},
 		attrStorageClass:    dsschema.StringAttribute{Computed: true, MarkdownDescription: "StorageClass used to store the data."},
 		attrExternal:        dsschema.BoolAttribute{Computed: true, MarkdownDescription: "Whether external access is enabled."},
+		specTLS:             tlsDataSourceAttribute("TLS configuration."),
 		attrVersion:         dsschema.StringAttribute{Computed: true, MarkdownDescription: "PostgreSQL major version."},
 		"users": dsschema.MapNestedAttribute{
 			Computed:            true,

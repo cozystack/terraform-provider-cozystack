@@ -17,6 +17,9 @@ resource "cozystack_kafka" "events" {
   name      = "events"
   namespace = "tenant-root"
 
+  external = true
+  tls      = { enabled = true }
+
   kafka     = { replicas = 3, size = "10Gi" }
   zookeeper = { replicas = 3, size = "5Gi" }
 
@@ -39,6 +42,7 @@ resource "cozystack_kafka" "events" {
 
 - `external` (Boolean) Enable external access from outside the cluster.
 - `kafka` (Attributes) Kafka broker configuration. (see [below for nested schema](#nestedatt--kafka))
+- `tls` (Attributes) TLS configuration for the external listener on port 9094. The internal listener on 9093 is always TLS, and Strimzi manages the cluster PKI itself. Omit the block to follow `external`; disabling TLS while `external` is true publishes Kafka in plaintext on a public address. (see [below for nested schema](#nestedatt--tls))
 - `topics` (Attributes List) Topics to provision. (see [below for nested schema](#nestedatt--topics))
 - `wait_for_ready` (Boolean) Block on create/update until the tenant's `Ready` condition is true.
 - `wait_timeout` (String) Maximum time to wait when `wait_for_ready` is set (Go duration, e.g. `10m`).
@@ -70,6 +74,14 @@ Optional:
 - `cpu` (String) CPU available to each replica.
 - `memory` (String) Memory available to each replica.
 
+
+
+<a id="nestedatt--tls"></a>
+### Nested Schema for `tls`
+
+Required:
+
+- `enabled` (Boolean) Whether TLS is enabled. Leave the whole block out to inherit `external`; set it to pin TLS on or off regardless of external access.
 
 
 <a id="nestedatt--topics"></a>

@@ -32,6 +32,39 @@ func storageClassAttribute() rschema.StringAttribute {
 	}
 }
 
+// tlsResourceAttribute returns the optional tls block. It is deliberately not
+// computed and carries no default: leaving it out keeps the spec key absent,
+// which is what makes the chart fall back to inheriting `external`. The flag
+// inside it is required, so a block written without one is rejected at plan
+// time rather than expanding to a spec key that is not there.
+func tlsResourceAttribute(description string) rschema.SingleNestedAttribute {
+	return rschema.SingleNestedAttribute{
+		Optional:            true,
+		MarkdownDescription: description,
+		Attributes: map[string]rschema.Attribute{
+			attrEnabled: rschema.BoolAttribute{
+				Required: true,
+				MarkdownDescription: "Whether TLS is enabled. Leave the whole block out to inherit `external`; " +
+					"set it to pin TLS on or off regardless of external access.",
+			},
+		},
+	}
+}
+
+// tlsDataSourceAttribute returns the computed tls block.
+func tlsDataSourceAttribute(description string) dsschema.SingleNestedAttribute {
+	return dsschema.SingleNestedAttribute{
+		Computed:            true,
+		MarkdownDescription: description,
+		Attributes: map[string]dsschema.Attribute{
+			attrEnabled: dsschema.BoolAttribute{
+				Computed:            true,
+				MarkdownDescription: "Whether TLS is explicitly enabled or disabled. Null when the instance inherits `external`.",
+			},
+		},
+	}
+}
+
 // externalAttribute returns the optional/computed external attribute.
 func externalAttribute() rschema.BoolAttribute {
 	return rschema.BoolAttribute{

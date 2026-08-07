@@ -4,7 +4,9 @@ import (
 	"context"
 	"testing"
 
+	"github.com/cozystack/terraform-provider-cozystack/internal/client"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
@@ -351,5 +353,207 @@ func TestOptionalSpecString_CollapsesEmptyToNull(t *testing.T) {
 
 	if got := optionalSpecString(map[string]any{"schematicID": ""}, "schematicID"); !got.IsNull() {
 		t.Errorf("stored empty string = %v, want null for the collapsing helper", got)
+	}
+}
+
+// specModel is the expand/flatten pair every application model implements. It
+// lets the shared-block tests below drive each kind through the same checks.
+type specModel interface {
+	expand(ctx context.Context) (*client.Application, diag.Diagnostics)
+	flatten(app *client.Application) diag.Diagnostics
+}
+
+func expandSpec(t *testing.T, model specModel) map[string]any {
+	t.Helper()
+
+	app, diags := model.expand(context.Background())
+	if diags.HasError() {
+		t.Fatalf("expand diagnostics: %v", diags)
+	}
+
+	return app.Spec
+}
+
+func flattenSpec(t *testing.T, model specModel, spec map[string]any) {
+	t.Helper()
+
+	app := &client.Application{Name: "instance", Namespace: "tenant-root", Spec: spec}
+	if diags := model.flatten(app); diags.HasError() {
+		t.Fatalf("flatten diagnostics: %v", diags)
+	}
+}
+
+// tlsBlock builds a tls block with an explicit enabled flag.
+func tlsBlock(enabled bool) types.Object {
+	return types.ObjectValueMust(tlsObjectType(), map[string]attr.Value{attrEnabled: types.BoolValue(enabled)})
+}
+
+// blockCase wires one kind's model to a shared nested block: expand it with the
+// block set to value, and flatten a server spec back to the block.
+type blockCase struct {
+	expand  func(t *testing.T, value types.Object) map[string]any
+	flatten func(t *testing.T, spec map[string]any) types.Object
+}
+
+// tlsCases covers every kind carrying the v1.6 tls block.
+func tlsCases() map[string]blockCase {
+	return map[string]blockCase{
+		"kafka": {
+			expand: func(t *testing.T, value types.Object) map[string]any {
+				t.Helper()
+
+				model := fullKafkaModel()
+				model.TLS = value
+
+				return expandSpec(t, &model)
+			},
+			flatten: func(t *testing.T, spec map[string]any) types.Object {
+				t.Helper()
+
+				var model kafkaModel
+
+				flattenSpec(t, &model, spec)
+
+				return model.TLS
+			},
+		},
+		"nats": {
+			expand: func(t *testing.T, value types.Object) map[string]any {
+				t.Helper()
+
+				model := fullNatsModel()
+				model.TLS = value
+
+				return expandSpec(t, &model)
+			},
+			flatten: func(t *testing.T, spec map[string]any) types.Object {
+				t.Helper()
+
+				var model natsModel
+
+				flattenSpec(t, &model, spec)
+
+				return model.TLS
+			},
+		},
+		"qdrant": {
+			expand: func(t *testing.T, value types.Object) map[string]any {
+				t.Helper()
+
+				model := fullQdrantModel()
+				model.TLS = value
+
+				return expandSpec(t, &model)
+			},
+			flatten: func(t *testing.T, spec map[string]any) types.Object {
+				t.Helper()
+
+				var model qdrantModel
+
+				flattenSpec(t, &model, spec)
+
+				return model.TLS
+			},
+		},
+		"postgresql": {
+			expand: func(t *testing.T, value types.Object) map[string]any {
+				t.Helper()
+
+				model := fullPostgresqlModel()
+				model.TLS = value
+
+				return expandSpec(t, &model)
+			},
+			flatten: func(t *testing.T, spec map[string]any) types.Object {
+				t.Helper()
+
+				var model postgresqlModel
+
+				flattenSpec(t, &model, spec)
+
+				return model.TLS
+			},
+		},
+	}
+}
+
+// TestTLSBlock_UnsetOmitsKey pins the tri-state contract: an unset block leaves
+// the spec key out entirely, so the chart keeps inheriting `external`.
+func TestTLSBlock_UnsetOmitsKey(t *testing.T) {
+	t.Parallel()
+
+	for name, kind := range tlsCases() {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			if _, ok := kind.expand(t, types.ObjectNull(tlsObjectType()))[specTLS]; ok {
+				t.Errorf("null tls emits the %q key, want it omitted", specTLS)
+			}
+
+			if _, ok := kind.expand(t, types.ObjectUnknown(tlsObjectType()))[specTLS]; ok {
+				t.Errorf("unknown tls emits the %q key, want it omitted", specTLS)
+			}
+
+			blockWithoutEnabled := types.ObjectValueMust(
+				tlsObjectType(),
+				map[string]attr.Value{attrEnabled: types.BoolNull()},
+			)
+			if _, ok := kind.expand(t, blockWithoutEnabled)[specTLS]; ok {
+				t.Errorf("tls without enabled emits the %q key, want it omitted", specTLS)
+			}
+		})
+	}
+}
+
+// TestTLSBlock_SetEmitsEnabled checks both explicit states reach the spec — an
+// explicit false is the whole point of the override.
+func TestTLSBlock_SetEmitsEnabled(t *testing.T) {
+	t.Parallel()
+
+	for name, kind := range tlsCases() {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			for _, want := range []bool{true, false} {
+				block, ok := kind.expand(t, tlsBlock(want))[specTLS].(map[string]any)
+				if !ok {
+					t.Fatalf("tls enabled=%v did not emit a %q object", want, specTLS)
+				}
+
+				if block[attrEnabled] != want {
+					t.Errorf("tls.enabled = %v, want %v", block[attrEnabled], want)
+				}
+			}
+		})
+	}
+}
+
+// TestTLSBlock_Flatten covers the read direction, including the `tls: {}` form
+// the upstream schema default produces, which must stay null rather than drift.
+func TestTLSBlock_Flatten(t *testing.T) {
+	t.Parallel()
+
+	for name, kind := range tlsCases() {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			if got := kind.flatten(t, map[string]any{}); !got.IsNull() {
+				t.Errorf("absent tls flattens to %v, want null", got)
+			}
+
+			if got := kind.flatten(t, map[string]any{specTLS: map[string]any{}}); !got.IsNull() {
+				t.Errorf("empty tls flattens to %v, want null", got)
+			}
+
+			got := kind.flatten(t, map[string]any{specTLS: map[string]any{attrEnabled: false}})
+			if got.IsNull() {
+				t.Fatalf("tls.enabled=false flattens to null, want an object")
+			}
+
+			enabled, _ := got.Attributes()[attrEnabled].(types.Bool)
+			if enabled.IsNull() || enabled.ValueBool() {
+				t.Errorf("tls.enabled = %v, want false", enabled)
+			}
+		})
 	}
 }

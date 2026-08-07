@@ -40,6 +40,7 @@ data "cozystack_postgres" "app" {
 - `resources_preset` (String) Sizing preset.
 - `size` (String) Persistent volume size.
 - `storage_class` (String) StorageClass used to store the data.
+- `tls` (Attributes) TLS configuration. (see [below for nested schema](#nestedatt--tls))
 - `uid` (String) Server-assigned object UID (`metadata.uid`).
 - `users` (Attributes Map) PostgreSQL users keyed by user name. (see [below for nested schema](#nestedatt--users))
 - `version` (String) PostgreSQL major version.
@@ -79,6 +80,14 @@ Read-Only:
 
 - `cpu` (String) CPU available to each replica.
 - `memory` (String) Memory available to each replica.
+
+
+<a id="nestedatt--tls"></a>
+### Nested Schema for `tls`
+
+Read-Only:
+
+- `enabled` (Boolean) Whether TLS is explicitly enabled or disabled. Null when the instance inherits `external`.
 
 
 <a id="nestedatt--users"></a>

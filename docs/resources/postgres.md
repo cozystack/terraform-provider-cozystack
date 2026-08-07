@@ -20,6 +20,7 @@ resource "cozystack_postgres" "app" {
   replicas = 2
   version  = "v18"
   size     = "20Gi"
+  tls      = { enabled = true }
 
   users = {
     app = { password = "change-me" }
@@ -50,6 +51,7 @@ resource "cozystack_postgres" "app" {
 - `resources_preset` (String) Sizing preset applied when `resources` is omitted.
 - `size` (String) Persistent volume size (quantity, e.g. `10Gi`).
 - `storage_class` (String) StorageClass used to store the data.
+- `tls` (Attributes) TLS configuration. This only controls whether the external hostname is added to the operator-managed server certificate; CNPG keeps TLS on the wire either way, and turning PostgreSQL TLS off entirely is a server-parameter matter. Omit the block to follow `external`. (see [below for nested schema](#nestedatt--tls))
 - `users` (Attributes Map) PostgreSQL users keyed by user name. (see [below for nested schema](#nestedatt--users))
 - `version` (String) PostgreSQL major version (`v18`…`v13`).
 - `wait_for_ready` (Boolean) Block on create/update until the tenant's `Ready` condition is true.
@@ -88,6 +90,14 @@ Optional:
 
 - `cpu` (String) CPU available to each replica (quantity, e.g. `500m`).
 - `memory` (String) Memory available to each replica (quantity, e.g. `512Mi`).
+
+
+<a id="nestedatt--tls"></a>
+### Nested Schema for `tls`
+
+Required:
+
+- `enabled` (Boolean) Whether TLS is enabled. Leave the whole block out to inherit `external`; set it to pin TLS on or off regardless of external access.
 
 
 <a id="nestedatt--users"></a>

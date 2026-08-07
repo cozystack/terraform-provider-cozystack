@@ -21,6 +21,7 @@ func natsSchema() rschema.Schema {
 		attrResourcesPreset: presetAttribute("t1.nano"),
 		attrStorageClass:    storageClassAttribute(),
 		attrExternal:        externalAttribute(),
+		specTLS:             tlsResourceAttribute("TLS configuration. Omit the block to follow `external`."),
 		"users":             passwordUsersResourceAttribute("NATS users keyed by user name."),
 	})
 	maps.Copy(attributes, statusResourceAttributes())
@@ -42,6 +43,7 @@ func natsDataSourceSchema() dsschema.Schema {
 		attrResourcesPreset: dsschema.StringAttribute{Computed: true, MarkdownDescription: "Sizing preset."},
 		attrStorageClass:    dsschema.StringAttribute{Computed: true, MarkdownDescription: "StorageClass used to store the data."},
 		attrExternal:        dsschema.BoolAttribute{Computed: true, MarkdownDescription: "Whether external access is enabled."},
+		specTLS:             tlsDataSourceAttribute("TLS configuration."),
 		"users":             passwordUsersDataSourceAttribute("NATS users keyed by user name."),
 	})
 	maps.Copy(attributes, statusDataSourceAttributes())

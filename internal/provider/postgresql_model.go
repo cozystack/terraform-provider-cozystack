@@ -22,6 +22,7 @@ type postgresqlModel struct {
 	Size            types.String `tfsdk:"size"`
 	StorageClass    types.String `tfsdk:"storage_class"`
 	External        types.Bool   `tfsdk:"external"`
+	TLS             types.Object `tfsdk:"tls"`
 	Version         types.String `tfsdk:"version"`
 	Users           types.Map    `tfsdk:"users"`
 	Databases       types.Map    `tfsdk:"databases"`
@@ -200,6 +201,8 @@ func (m *postgresqlModel) expand(ctx context.Context) (*client.Application, diag
 		"databases":         databases,
 	}
 
+	setOptionalTLS(spec, m.TLS)
+
 	return &client.Application{
 		Name:      m.Name.ValueString(),
 		Namespace: m.Namespace.ValueString(),
@@ -262,6 +265,7 @@ func (m *postgresqlModel) flatten(app *client.Application) diag.Diagnostics {
 	m.Size = types.StringValue(specString(app.Spec, attrSize))
 	m.StorageClass = types.StringValue(specString(app.Spec, specStorageClass))
 	m.External = types.BoolValue(specBool(app.Spec, attrExternal))
+	m.TLS = flattenTLS(app.Spec[specTLS])
 	m.Version = types.StringValue(specString(app.Spec, attrVersion))
 
 	resources, rDiags := flattenResources(app.Spec[attrResources])

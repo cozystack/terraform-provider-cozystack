@@ -22,6 +22,7 @@ func fullPostgresqlModel() postgresqlModel {
 		Size:            types.StringValue("10Gi"),
 		StorageClass:    types.StringValue(""),
 		External:        types.BoolValue(false),
+		TLS:             tlsBlock(true),
 		Version:         types.StringValue("v18"),
 		Users: types.MapValueMust(usersType, map[string]attr.Value{
 			"app": types.ObjectValueMust(pgUserObjectType(), map[string]attr.Value{

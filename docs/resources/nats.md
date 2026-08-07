@@ -18,6 +18,7 @@ resource "cozystack_nats" "bus" {
   namespace = "tenant-root"
 
   replicas = 3
+  tls      = { enabled = true }
   users    = { app = { password = "change-me" } }
 }
 ```
@@ -37,6 +38,7 @@ resource "cozystack_nats" "bus" {
 - `resources` (Attributes) Explicit CPU and memory per replica; overrides `resources_preset` for any field set. (see [below for nested schema](#nestedatt--resources))
 - `resources_preset` (String) Sizing preset applied when `resources` is omitted.
 - `storage_class` (String) StorageClass used to store the data.
+- `tls` (Attributes) TLS configuration. Omit the block to follow `external`. (see [below for nested schema](#nestedatt--tls))
 - `users` (Attributes Map) NATS users keyed by user name. (see [below for nested schema](#nestedatt--users))
 - `wait_for_ready` (Boolean) Block on create/update until the tenant's `Ready` condition is true.
 - `wait_timeout` (String) Maximum time to wait when `wait_for_ready` is set (Go duration, e.g. `10m`).
@@ -55,6 +57,14 @@ Optional:
 
 - `cpu` (String) CPU available to each replica (quantity, e.g. `500m`).
 - `memory` (String) Memory available to each replica (quantity, e.g. `512Mi`).
+
+
+<a id="nestedatt--tls"></a>
+### Nested Schema for `tls`
+
+Required:
+
+- `enabled` (Boolean) Whether TLS is enabled. Leave the whole block out to inherit `external`; set it to pin TLS on or off regardless of external access.
 
 
 <a id="nestedatt--users"></a>

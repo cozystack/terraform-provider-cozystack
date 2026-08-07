@@ -34,6 +34,7 @@ data "cozystack_kafka" "events" {
 - `id` (String) Synthetic identifier `namespace/name`.
 - `kafka` (Attributes) Kafka broker configuration. (see [below for nested schema](#nestedatt--kafka))
 - `ready` (Boolean) Whether the application's `Ready` condition is true.
+- `tls` (Attributes) TLS configuration for the external listener. (see [below for nested schema](#nestedatt--tls))
 - `topics` (Attributes List) Provisioned topics. (see [below for nested schema](#nestedatt--topics))
 - `uid` (String) Server-assigned object UID (`metadata.uid`).
 - `zookeeper` (Attributes) ZooKeeper configuration. (see [below for nested schema](#nestedatt--zookeeper))
@@ -57,6 +58,14 @@ Read-Only:
 - `cpu` (String) CPU available to each replica.
 - `memory` (String) Memory available to each replica.
 
+
+
+<a id="nestedatt--tls"></a>
+### Nested Schema for `tls`
+
+Read-Only:
+
+- `enabled` (Boolean) Whether TLS is explicitly enabled or disabled. Null when the instance inherits `external`.
 
 
 <a id="nestedatt--topics"></a>
