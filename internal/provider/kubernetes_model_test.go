@@ -789,3 +789,105 @@ func TestKubernetesExpandNodeGroupKeysMatchNodeGroupSpec(t *testing.T) {
 
 	assertSpecCoverage(t, emitted, kubernetes.NodeGroup{}, "gpus", "kubelet")
 }
+
+// The gap that made the unset-block contract hold only on the first apply:
+// Terraform copies the prior state into the plan for every Optional+Computed
+// attribute the configuration leaves out, and the state holds whatever the
+// server materialised on the previous read. Expanding the plan alone therefore
+// writes the platform's own defaults back as though they had been asked for,
+// and from then on the release carries them and stops following the platform.
+// applyConfig closes it by taking the configuration as the authority.
+func TestKubernetesApplyConfig_DropsBlocksTheConfigNeverSet(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+
+	// The configuration sets none of the blocks; the plan carries them all,
+	// exactly as it would after a create against a 1.6 server.
+	bare := fullKubernetesModel()
+	bare.Talos = types.ObjectNull(k8sTalosObjectType())
+	bare.NodeHealthCheck = types.ObjectNull(k8sNodeHealthCheckObjectType())
+	bare.OIDC = types.ObjectNull(k8sOIDCObjectType())
+	bare.ControlPlane = types.ObjectNull(k8sControlPlaneObjectType())
+	bare.Images = types.ObjectNull(k8sImagesObjectType())
+
+	planned := fullKubernetesModel()
+
+	if diags := planned.applyConfig(ctx, kubernetesConfig(ctx, t, bare)); diags.HasError() {
+		t.Fatalf("applyConfig diagnostics: %v", diags)
+	}
+
+	got, diags := planned.expand(ctx)
+	if diags.HasError() {
+		t.Fatalf("expand diagnostics: %v", diags)
+	}
+
+	for _, key := range []string{"talos", "nodeHealthCheck", "oidc", "controlPlane", "images"} {
+		if _, ok := got.Spec[key]; ok {
+			t.Errorf("%s present after a plan that only echoed the server's own defaults, want omitted", key)
+		}
+	}
+}
+
+// The same hole one level down: a configuration that pins a single field gets a
+// plan whose siblings are filled in from state, and writing those back pins them
+// too.
+func TestKubernetesApplyConfig_KeepsOnlyConfiguredFields(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+
+	partial := fullKubernetesModel()
+	partial.Talos = types.ObjectValueMust(k8sTalosObjectType(), map[string]attr.Value{
+		"image_factory_url":    types.StringNull(),
+		"installer_repository": types.StringNull(),
+		"schematic_id":         types.StringNull(),
+		"version":              types.StringValue("v1.13.7"),
+	})
+	partial.NodeHealthCheck = types.ObjectNull(k8sNodeHealthCheckObjectType())
+	partial.OIDC = types.ObjectNull(k8sOIDCObjectType())
+	partial.ControlPlane = types.ObjectNull(k8sControlPlaneObjectType())
+	partial.Images = types.ObjectNull(k8sImagesObjectType())
+
+	planned := fullKubernetesModel()
+
+	if diags := planned.applyConfig(ctx, kubernetesConfig(ctx, t, partial)); diags.HasError() {
+		t.Fatalf("applyConfig diagnostics: %v", diags)
+	}
+
+	got, diags := planned.expand(ctx)
+	if diags.HasError() {
+		t.Fatalf("expand diagnostics: %v", diags)
+	}
+
+	talos := nestedSpec(t, got.Spec, "talos")
+	if len(talos) != 1 || talos["version"] != "v1.13.7" {
+		t.Errorf("talos = %v, want only the configured version", talos)
+	}
+}
+
+// Attributes outside applyConfig's remit keep expanding from the plan, where
+// their materialised defaults live.
+func TestKubernetesApplyConfig_LeavesPlannedDefaultsAlone(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+
+	config := fullKubernetesModel()
+	config.StorageClass = types.StringNull()
+
+	planned := fullKubernetesModel()
+
+	if diags := planned.applyConfig(ctx, kubernetesConfig(ctx, t, config)); diags.HasError() {
+		t.Fatalf("applyConfig diagnostics: %v", diags)
+	}
+
+	got, diags := planned.expand(ctx)
+	if diags.HasError() {
+		t.Fatalf("expand diagnostics: %v", diags)
+	}
+
+	if got.Spec[specStorageClass] != "replicated" {
+		t.Errorf("storageClass = %v, want the planned default replicated", got.Spec[specStorageClass])
+	}
+}

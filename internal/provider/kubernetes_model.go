@@ -2,12 +2,13 @@ package provider
 
 import (
 	"context"
-	"encoding/json"
 
 	"github.com/cozystack/terraform-provider-cozystack/internal/client"
 	"github.com/hashicorp/terraform-plugin-framework-jsontypes/jsontypes"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
+	"github.com/hashicorp/terraform-plugin-framework/path"
+	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 )
@@ -18,6 +19,12 @@ const (
 	attrTalos  = "talos"
 	attrOIDC   = "oidc"
 	attrImages = "images"
+)
+
+// Attribute names of the blocks whose spec key is the camelCase form.
+const (
+	attrNodeHealthCheck = "node_health_check"
+	attrControlPlane    = "control_plane"
 )
 
 // Spec keys of the cozystack_kubernetes blocks whose camelCase form differs
@@ -136,6 +143,50 @@ func (m *kubernetesModel) expand(ctx context.Context) (*client.Application, diag
 		Namespace: m.Namespace.ValueString(),
 		Spec:      spec,
 	}, diags
+}
+
+// applyConfig replaces the planned nested blocks with what the configuration
+// actually holds.
+//
+// These blocks are Optional+Computed so that the server's materialised defaults
+// can land in state, which means Terraform copies the prior state into the plan
+// wherever the configuration is silent. Expanding that plan would send the
+// platform's own defaults back as though the practitioner had chosen them,
+// writing them into the release and freezing the cluster on the values that
+// happened to be current — the Talos release, the tested schematic, the image
+// tags — the first time anything else about the cluster changed. Taking the
+// configuration as the authority keeps an unwritten block out of the request for
+// the life of the resource, and leaves the platform in charge of it.
+//
+// Only these blocks are covered: every other attribute is expanded from the
+// plan, where its materialised default belongs.
+func (m *kubernetesModel) applyConfig(ctx context.Context, config tfsdk.Config) diag.Diagnostics {
+	var diags diag.Diagnostics
+
+	blocks := []struct {
+		name  string
+		value *types.Object
+	}{
+		{name: attrTalos, value: &m.Talos},
+		{name: attrNodeHealthCheck, value: &m.NodeHealthCheck},
+		{name: attrOIDC, value: &m.OIDC},
+		{name: attrControlPlane, value: &m.ControlPlane},
+		{name: attrImages, value: &m.Images},
+	}
+
+	for _, block := range blocks {
+		var configured types.Object
+
+		diags.Append(config.GetAttribute(ctx, path.Root(block.name), &configured)...)
+
+		if diags.HasError() {
+			return diags
+		}
+
+		*block.value = configured
+	}
+
+	return diags
 }
 
 func expandNodeGroups(ctx context.Context, value types.Map) (map[string]any, diag.Diagnostics) {
@@ -510,7 +561,10 @@ func expandOIDCCustomConfig(ctx context.Context, obj types.Object) (map[string]a
 
 	secretRef := map[string]any{}
 	setOptionalString(secretRef, attrName, ref.Name)
-	out[specSecretRef] = secretRef
+
+	if len(secretRef) > 0 {
+		out[specSecretRef] = secretRef
+	}
 
 	return out, diags
 }
@@ -674,16 +728,14 @@ func expandControlPlane(ctx context.Context, obj types.Object) (map[string]any, 
 		return nil, diags
 	}
 
-	out := map[string]any{}
-
 	apiServer, apiDiags := expandAPIServer(ctx, data.APIServer)
 	diags.Append(apiDiags...)
 
-	if apiServer != nil {
-		out[specAPIServer] = apiServer
+	if apiServer == nil {
+		return nil, diags
 	}
 
-	return out, diags
+	return map[string]any{specAPIServer: apiServer}, diags
 }
 
 func expandAPIServer(ctx context.Context, obj types.Object) (map[string]any, diag.Diagnostics) {
@@ -708,77 +760,6 @@ func expandAPIServer(ctx context.Context, obj types.Object) (map[string]any, dia
 	diags.Append(setOptionalJSONList(ctx, out, "extraVolumeMounts", data.ExtraVolumeMounts)...)
 
 	return out, diags
-}
-
-// setOptionalJSONList writes a list of JSON documents into spec under key. The
-// upstream fields are free-form core/v1 objects, so they travel as normalized
-// JSON strings rather than a hand-modelled Volume schema.
-func setOptionalJSONList(
-	ctx context.Context,
-	spec map[string]any,
-	key string,
-	value types.List,
-) diag.Diagnostics {
-	var diags diag.Diagnostics
-
-	if value.IsNull() || value.IsUnknown() {
-		return diags
-	}
-
-	var items []jsontypes.Normalized
-
-	diags.Append(value.ElementsAs(ctx, &items, false)...)
-
-	if diags.HasError() {
-		return diags
-	}
-
-	out := make([]any, 0, len(items))
-
-	for _, item := range items {
-		var document any
-
-		if err := json.Unmarshal([]byte(item.ValueString()), &document); err != nil {
-			diags.AddError("Invalid JSON document in "+key, err.Error())
-
-			return diags
-		}
-
-		out = append(out, document)
-	}
-
-	spec[key] = out
-
-	return diags
-}
-
-// specJSONListOrNull builds a list of JSON documents from a spec value. An
-// absent key flattens to null; a present empty list stays an empty list.
-func specJSONListOrNull(raw any) (types.List, diag.Diagnostics) {
-	var diags diag.Diagnostics
-
-	items, ok := raw.([]any)
-	if !ok {
-		return types.ListNull(jsontypes.NormalizedType{}), diags
-	}
-
-	elements := make([]attr.Value, 0, len(items))
-
-	for _, item := range items {
-		encoded, err := json.Marshal(item)
-		if err != nil {
-			diags.AddError("Unable to encode a spec document", err.Error())
-
-			return types.ListNull(jsontypes.NormalizedType{}), diags
-		}
-
-		elements = append(elements, jsontypes.NewNormalizedValue(string(encoded)))
-	}
-
-	value, listDiags := types.ListValue(jsontypes.NormalizedType{}, elements)
-	diags.Append(listDiags...)
-
-	return value, diags
 }
 
 // flattenControlPlane builds the controlPlane block from a spec submap.

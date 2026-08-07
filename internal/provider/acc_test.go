@@ -982,8 +982,33 @@ resource "cozystack_vminstance" "test" {
 	})
 }
 
-func TestAccKubernetesResource(t *testing.T) {
-	config := `
+// checkSpecOmits reads the application straight from the cluster and fails when
+// the spec carries any of the given keys. The provider's own state is not
+// evidence here: the question is what was written to the release.
+func checkSpecOmits(res client.Resource, namespace, name string, keys ...string) resource.TestCheckFunc {
+	return func(_ *terraform.State) error {
+		api, err := newAccClient()
+		if err != nil {
+			return err
+		}
+
+		app, err := api.Get(context.Background(), res, namespace, name)
+		if err != nil {
+			return fmt.Errorf("reading %s %s/%s: %w", res.Kind, namespace, name, err)
+		}
+
+		for _, key := range keys {
+			if _, ok := app.Spec[key]; ok {
+				return fmt.Errorf("%s %s/%s spec carries %q, which the configuration never set", res.Kind, namespace, name, key)
+			}
+		}
+
+		return nil
+	}
+}
+
+func kubernetesAccConfig(maxReplicas int) string {
+	return fmt.Sprintf(`
 resource "cozystack_kubernetes" "test" {
   name      = "tfacck8s"
   namespace = "tenant-root"
@@ -992,12 +1017,16 @@ resource "cozystack_kubernetes" "test" {
     md0 = {
       instance_type = "u1.medium"
       min_replicas  = 0
-      max_replicas  = 1
+      max_replicas  = %[1]d
       roles         = ["ingress-nginx"]
     }
   }
 }
-`
+`, maxReplicas)
+}
+
+func TestAccKubernetesResource(t *testing.T) {
+	config := kubernetesAccConfig(1)
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
@@ -1020,6 +1049,19 @@ resource "cozystack_kubernetes" "test" {
 					// Per-group health overrides are undefaulted upstream: unset
 					// stays unset rather than being echoed back as an empty string.
 					resource.TestCheckNoResourceAttr("cozystack_kubernetes.test", "node_groups.md0.max_unhealthy"),
+				),
+			},
+			{
+				// An update with the blocks still unconfigured. The plan carries
+				// the defaults the previous read put in state, so this is the step
+				// that would write them into the release and pin the cluster to
+				// them; the spec must still come out without those keys.
+				Config: kubernetesAccConfig(2),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("cozystack_kubernetes.test", "node_groups.md0.max_replicas", "2"),
+					checkSpecOmits(client.KubernetesResource(), "tenant-root", "tfacck8s",
+						"talos", "oidc", "nodeHealthCheck", "images", "controlPlane"),
+					resource.TestCheckResourceAttrSet("cozystack_kubernetes.test", "talos.version"),
 				),
 			},
 			{
