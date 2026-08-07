@@ -175,11 +175,14 @@ func tenantSpecAttributes() map[string]schema.Attribute {
 		attrIngress:    boolToggle("Deploy a dedicated ingress controller for the tenant."),
 		"gateway": schema.BoolAttribute{
 			Optional: true,
-			MarkdownDescription: "Deploy a dedicated Gateway API Gateway, backed by the Cilium Gateway API " +
-				"controller. Three-state: while unset the platform decides — on for a tenant whose apex derives " +
-				"from its parent (empty `host`), off for a custom apex — and setting `true` or `false` overrides " +
-				"that. The attribute is omitted from the spec entirely when unset, which is how the platform " +
-				"tells \"unset\" from \"explicitly off\".",
+			MarkdownDescription: "Deploy a Gateway API Gateway of the tenant's own, backed by the Cilium " +
+				"Gateway API controller. Unset means the tenant gets no Gateway of its own and inherits the " +
+				"nearest ancestor's, falling back to Ingress when no ancestor owns one — so a tenant with a " +
+				"custom apex (`host` set to something the parent apex does not cover) has to ask for `true` " +
+				"explicitly, since the ancestor's certificate does not cover that apex. The attribute is " +
+				"omitted from the spec entirely when unset: the platform reads the key's absence, and today " +
+				"absent and `false` deploy the same thing, but only the explicit `false` survives a change of " +
+				"mind upstream.",
 		},
 		attrSeaweedfs: boolToggle("Deploy a dedicated SeaweedFS instance for the tenant."),
 		"scheduling_class": schema.StringAttribute{

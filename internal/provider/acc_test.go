@@ -1064,10 +1064,9 @@ func TestAccKubernetesResource(t *testing.T) {
 				),
 			},
 			{
-				// An explicitly empty roles list, and an explicitly empty node
-				// group map: both are configurations the platform supports and
-				// the provider claims to distinguish from "unset". Neither can be
-				// proved against the unit tests' own echo of the request — only a
+				// An explicitly empty roles list: a configuration the platform
+				// supports and the provider claims to distinguish from "unset".
+				// The unit tests echo the provider's own request back, so only a
 				// real server says whether an empty list survives the round trip.
 				Config: `
 resource "cozystack_kubernetes" "test" {
@@ -1086,6 +1085,23 @@ resource "cozystack_kubernetes" "test" {
 `,
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("cozystack_kubernetes.test", "node_groups.md0.roles.#", "0"),
+				),
+			},
+			{
+				// A cluster that declares no node groups at all — the platform's
+				// own default, and the shape the provider's example uses. Same
+				// reasoning as the step above: an empty map is only a round trip
+				// once a server has echoed it.
+				Config: `
+resource "cozystack_kubernetes" "test" {
+  name        = "tfacck8s"
+  namespace   = "tenant-root"
+  version     = "v1.35"
+  node_groups = {}
+}
+`,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("cozystack_kubernetes.test", "node_groups.%", "0"),
 				),
 			},
 			{

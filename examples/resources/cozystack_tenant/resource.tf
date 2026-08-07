@@ -20,10 +20,10 @@ resource "cozystack_tenant" "team_b" {
   wait_timeout   = "15m"
 }
 
-# gateway is three-state. Leave it out and the platform decides — on for a
-# tenant whose apex derives from its parent, off for a custom apex. Set it to
-# take that decision yourself: here a tenant with its own apex asks for a
-# Gateway anyway.
+# Leave gateway out and the tenant gets no Gateway of its own: it inherits the
+# nearest ancestor's, or falls back to Ingress when no ancestor owns one. A
+# tenant with a custom apex has to ask explicitly, because the ancestor's
+# certificate does not cover that apex.
 resource "cozystack_tenant" "team_c" {
   name      = "team-c"
   namespace = "tenant-root"

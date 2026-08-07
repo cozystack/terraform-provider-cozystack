@@ -147,7 +147,7 @@ resource "cozystack_kubernetes" "byo_identity" {
 
 ### Optional
 
-- `control_plane` (Attributes) Tenant control-plane configuration. Only the API-server passthrough is managed here. Note that configuring this block writes the whole control-plane section, so component sizing, the replica count, konnectivity and the scheduler go back to platform defaults — values set out of band for those are not preserved once this block is in play. (see [below for nested schema](#nestedatt--control_plane))
+- `control_plane` (Attributes) Tenant control-plane configuration. Only the API-server passthrough is managed here; component sizing, the replica count, konnectivity and the scheduler follow the platform. They are not preserved across an apply either way — the provider replaces the whole spec on every update, so anything set out of band under `controlPlane` returns to its platform default whether or not this block is configured. (see [below for nested schema](#nestedatt--control_plane))
 - `host` (String) External hostname for the cluster. Defaults to `<cluster-name>.<tenant-host>`.
 - `images` (Attributes) Image overrides for air-gapped or rate-limited registries. Each unset field follows the tag pinned by the deployed chart. (see [below for nested schema](#nestedatt--images))
 - `node_health_check` (Attributes) MachineHealthCheck tuning applied to every worker node group. Follows the platform defaults while unset. (see [below for nested schema](#nestedatt--node_health_check))

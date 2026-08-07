@@ -305,9 +305,10 @@ func k8sControlPlaneResourceAttribute() rschema.SingleNestedAttribute {
 	return rschema.SingleNestedAttribute{
 		Optional: true,
 		MarkdownDescription: "Tenant control-plane configuration. Only the API-server passthrough is " +
-			"managed here. Note that configuring this block writes the whole control-plane section, so " +
-			"component sizing, the replica count, konnectivity and the scheduler go back to platform " +
-			"defaults — values set out of band for those are not preserved once this block is in play.",
+			"managed here; component sizing, the replica count, konnectivity and the scheduler follow the " +
+			"platform. They are not preserved across an apply either way — the provider replaces the whole " +
+			"spec on every update, so anything set out of band under `controlPlane` returns to its platform " +
+			"default whether or not this block is configured.",
 		Attributes: map[string]rschema.Attribute{
 			"api_server": k8sAPIServerResourceAttribute(),
 		},

@@ -96,12 +96,11 @@ func TestExpand_NullQuotasYieldEmptyMap(t *testing.T) {
 	}
 }
 
-// gateway is three-state by key presence, not by value. Upstream auto-decides
-// when the key is absent — on for a tenant whose apex derives from its parent,
-// off for a custom apex — and the chart reads the key's absence, not a null
-// value. Writing `gateway: false` for an unset attribute would silently take
-// every derived-apex tenant off the auto path; writing `gateway: null` would
-// fail the generated JSON schema.
+// gateway is three-state by key presence, not by value. The chart resolves an
+// absent key to false, so absent and false deploy the same thing today — but it
+// branches on the key being missing, not on a null, and the absence is what
+// records that the practitioner never chose. Writing `gateway: null` fails the
+// generated JSON schema outright.
 func TestExpand_GatewayThreeState(t *testing.T) {
 	t.Parallel()
 
@@ -151,7 +150,7 @@ func TestFlatten_GatewayAbsentStaysNull(t *testing.T) {
 	}
 
 	if !model.Gateway.IsNull() {
-		t.Errorf("gateway = %v for an absent key, want null so the tenant stays on the auto path", model.Gateway)
+		t.Errorf("gateway = %v for an absent key, want null so an unasked tenant stays unasked", model.Gateway)
 	}
 
 	if diags := model.flatten(&client.Application{Spec: map[string]any{"gateway": false}}); diags.HasError() {
