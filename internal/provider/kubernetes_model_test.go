@@ -39,6 +39,10 @@ func fullKubernetesModel() kubernetesModel {
 		Host:         types.StringValue("cluster.example.com"),
 		NodeGroups:   types.MapValueMust(types.ObjectType{AttrTypes: k8sNodeGroupObjectType()}, map[string]attr.Value{"md0": group}),
 		Talos:        fullTalosObject(),
+		NodeHealthCheck: types.ObjectValueMust(k8sNodeHealthCheckObjectType(), map[string]attr.Value{
+			"max_unhealthy":        types.StringValue("50%"),
+			"node_startup_timeout": types.StringValue("10m"),
+		}),
 	}
 }
 
@@ -200,6 +204,67 @@ func TestKubernetesExpandTalosKeysMatchTalosSpec(t *testing.T) {
 	}
 
 	assertSpecCoverage(t, nestedSpecKeys(t, got.Spec, "talos"), kubernetes.Talos{})
+}
+
+// nodeHealthCheck tunes MachineHealthCheck remediation. An unset block must
+// stay out of the spec so the platform's own tuning applies.
+func TestKubernetesExpand_NodeHealthCheck(t *testing.T) {
+	t.Parallel()
+
+	model := fullKubernetesModel()
+	model.NodeHealthCheck = types.ObjectNull(k8sNodeHealthCheckObjectType())
+
+	got, diags := model.expand(context.Background())
+	if diags.HasError() {
+		t.Fatalf("expand diagnostics: %v", diags)
+	}
+
+	if _, ok := got.Spec["nodeHealthCheck"]; ok {
+		t.Fatalf("nodeHealthCheck key present for an unset block, want omitted")
+	}
+
+	model = fullKubernetesModel()
+
+	got, diags = model.expand(context.Background())
+	if diags.HasError() {
+		t.Fatalf("expand diagnostics: %v", diags)
+	}
+
+	check, _ := got.Spec["nodeHealthCheck"].(map[string]any)
+	if check["maxUnhealthy"] != "50%" || check["nodeStartupTimeout"] != "10m" {
+		t.Errorf("nodeHealthCheck = %v, want maxUnhealthy=50%% nodeStartupTimeout=10m", check)
+	}
+}
+
+func TestKubernetesFlatten_NodeHealthCheck(t *testing.T) {
+	t.Parallel()
+
+	if got := flattenNodeHealthCheck(nil); !got.IsNull() {
+		t.Errorf("nodeHealthCheck = %v for an absent key, want null", got)
+	}
+
+	got := flattenNodeHealthCheck(map[string]any{"maxUnhealthy": "0%", "nodeStartupTimeout": "20m"})
+	if got.IsNull() {
+		t.Fatalf("nodeHealthCheck is null for a populated block")
+	}
+
+	timeout, _ := got.Attributes()["node_startup_timeout"].(types.String)
+	if timeout.ValueString() != "20m" {
+		t.Errorf("node_startup_timeout = %q, want 20m", timeout.ValueString())
+	}
+}
+
+func TestKubernetesExpandNodeHealthCheckKeysMatchSpec(t *testing.T) {
+	t.Parallel()
+
+	model := fullKubernetesModel()
+
+	got, diags := model.expand(context.Background())
+	if diags.HasError() {
+		t.Fatalf("expand diagnostics: %v", diags)
+	}
+
+	assertSpecCoverage(t, nestedSpecKeys(t, got.Spec, "nodeHealthCheck"), kubernetes.NodeHealthCheck{})
 }
 
 func TestKubernetesFlatten_RoundTrip(t *testing.T) {

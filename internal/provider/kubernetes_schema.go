@@ -107,6 +107,41 @@ func k8sTalosDataSourceAttribute() dsschema.SingleNestedAttribute {
 	}
 }
 
+// k8sNodeHealthCheckResourceAttribute returns the MachineHealthCheck tuning
+// block. Like every 1.6 block it is left to the platform while unset.
+func k8sNodeHealthCheckResourceAttribute() rschema.SingleNestedAttribute {
+	return rschema.SingleNestedAttribute{
+		Optional: true, Computed: true,
+		MarkdownDescription: "MachineHealthCheck tuning applied to every worker node group. " +
+			"Follows the platform defaults while unset.",
+		Attributes: map[string]rschema.Attribute{
+			"max_unhealthy": rschema.StringAttribute{
+				Optional: true, Computed: true,
+				MarkdownDescription: "Unhealthy nodes tolerated per node group before remediation pauses. " +
+					"The MachineHealthCheck admission webhook takes a bare integer (`\"1\"`) or a percentage " +
+					"(`\"50%\"`); a percentage is the safer form. Follows the platform default (`50%`) while unset.",
+			},
+			"node_startup_timeout": rschema.StringAttribute{
+				Optional: true, Computed: true,
+				MarkdownDescription: "How long a Machine may take to reach Ready before it is remediated " +
+					"(duration, e.g. `20m`). Raise it for slow first boots — a Talos image fetch from the " +
+					"image factory, or a busy StorageClass. Follows the platform default (`10m`) while unset.",
+			},
+		},
+	}
+}
+
+func k8sNodeHealthCheckDataSourceAttribute() dsschema.SingleNestedAttribute {
+	return dsschema.SingleNestedAttribute{
+		Computed:            true,
+		MarkdownDescription: "MachineHealthCheck tuning applied to every worker node group.",
+		Attributes: map[string]dsschema.Attribute{
+			"max_unhealthy":        dsschema.StringAttribute{Computed: true, MarkdownDescription: "Unhealthy nodes tolerated per node group."},
+			"node_startup_timeout": dsschema.StringAttribute{Computed: true, MarkdownDescription: "Machine startup timeout before remediation."},
+		},
+	}
+}
+
 func kubernetesSchema() rschema.Schema {
 	attributes := identityResourceAttributes("Kubernetes cluster name (`metadata.name`). Immutable.")
 
@@ -127,8 +162,9 @@ func kubernetesSchema() rschema.Schema {
 			MarkdownDescription: "External hostname for the cluster. " +
 				"Defaults to `<cluster-name>.<tenant-host>`.",
 		},
-		"node_groups": k8sNodeGroupsResourceAttribute(),
-		specTalos:     k8sTalosResourceAttribute(),
+		"node_groups":       k8sNodeGroupsResourceAttribute(),
+		specTalos:           k8sTalosResourceAttribute(),
+		"node_health_check": k8sNodeHealthCheckResourceAttribute(),
 		"kubeconfig": rschema.StringAttribute{
 			Computed:  true,
 			Sensitive: true,
@@ -170,7 +206,8 @@ func kubernetesDataSourceSchema() dsschema.Schema {
 				},
 			},
 		},
-		specTalos: k8sTalosDataSourceAttribute(),
+		specTalos:           k8sTalosDataSourceAttribute(),
+		"node_health_check": k8sNodeHealthCheckDataSourceAttribute(),
 		"kubeconfig": dsschema.StringAttribute{
 			Computed:            true,
 			Sensitive:           true,

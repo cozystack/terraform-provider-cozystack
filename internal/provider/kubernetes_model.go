@@ -12,8 +12,11 @@ import (
 
 // Spec keys of the cozystack_kubernetes blocks that carry no shared constant.
 const (
-	specNodeGroups = "nodeGroups"
-	specTalos      = "talos"
+	specNodeGroups         = "nodeGroups"
+	specTalos              = "talos"
+	specNodeHealthCheck    = "nodeHealthCheck"
+	specMaxUnhealthy       = "maxUnhealthy"
+	specNodeStartupTimeout = "nodeStartupTimeout"
 )
 
 // kubernetesModel maps the cozystack_kubernetes schema to Go types. The addons
@@ -32,7 +35,10 @@ type kubernetesModel struct {
 	Version      types.String `tfsdk:"version"`
 	Host         types.String `tfsdk:"host"`
 	NodeGroups   types.Map    `tfsdk:"node_groups"`
-	Talos        types.Object `tfsdk:"talos"`
+
+	Talos           types.Object `tfsdk:"talos"`
+	NodeHealthCheck types.Object `tfsdk:"node_health_check"`
+
 	Ready        types.Bool   `tfsdk:"ready"`
 	ChartVersion types.String `tfsdk:"chart_version"`
 	UID          types.String `tfsdk:"uid"`
@@ -167,6 +173,7 @@ func (m *kubernetesModel) flatten(app *client.Application) diag.Diagnostics {
 
 	m.NodeGroups = nodeGroups
 	m.Talos = flattenTalos(app.Spec[specTalos])
+	m.NodeHealthCheck = flattenNodeHealthCheck(app.Spec[specNodeHealthCheck])
 
 	m.Ready = types.BoolValue(app.Status.Ready)
 	m.ChartVersion = types.StringValue(app.Status.Version)
@@ -213,6 +220,7 @@ func (m *kubernetesModel) expandBlocks(ctx context.Context, spec map[string]any)
 		expand func(context.Context, types.Object) (map[string]any, diag.Diagnostics)
 	}{
 		{key: specTalos, value: m.Talos, expand: expandTalos},
+		{key: specNodeHealthCheck, value: m.NodeHealthCheck, expand: expandNodeHealthCheck},
 	}
 
 	for _, block := range blocks {
@@ -287,6 +295,56 @@ func flattenTalos(raw any) types.Object {
 		"installer_repository": specStringOrNull(talos, "installerRepository"),
 		"schematic_id":         specStringOrNull(talos, "schematicID"),
 		attrVersion:            specStringOrNull(talos, attrVersion),
+	})
+}
+
+func k8sNodeHealthCheckObjectType() map[string]attr.Type {
+	return map[string]attr.Type{
+		"max_unhealthy":        types.StringType,
+		"node_startup_timeout": types.StringType,
+	}
+}
+
+type k8sNodeHealthCheckData struct {
+	MaxUnhealthy       types.String `tfsdk:"max_unhealthy"`
+	NodeStartupTimeout types.String `tfsdk:"node_startup_timeout"`
+}
+
+// expandNodeHealthCheck renders the nodeHealthCheck block into a spec submap,
+// or nil when the block is unset.
+func expandNodeHealthCheck(ctx context.Context, obj types.Object) (map[string]any, diag.Diagnostics) {
+	var diags diag.Diagnostics
+
+	if obj.IsNull() || obj.IsUnknown() {
+		return nil, diags
+	}
+
+	var data k8sNodeHealthCheckData
+
+	diags.Append(obj.As(ctx, &data, basetypes.ObjectAsOptions{})...)
+
+	if diags.HasError() {
+		return nil, diags
+	}
+
+	out := map[string]any{}
+
+	setOptionalString(out, specMaxUnhealthy, data.MaxUnhealthy)
+	setOptionalString(out, specNodeStartupTimeout, data.NodeStartupTimeout)
+
+	return out, diags
+}
+
+// flattenNodeHealthCheck builds the nodeHealthCheck block from a spec submap.
+func flattenNodeHealthCheck(raw any) types.Object {
+	check, ok := raw.(map[string]any)
+	if !ok {
+		return types.ObjectNull(k8sNodeHealthCheckObjectType())
+	}
+
+	return types.ObjectValueMust(k8sNodeHealthCheckObjectType(), map[string]attr.Value{
+		"max_unhealthy":        specStringOrNull(check, specMaxUnhealthy),
+		"node_startup_timeout": specStringOrNull(check, specNodeStartupTimeout),
 	})
 }
 
