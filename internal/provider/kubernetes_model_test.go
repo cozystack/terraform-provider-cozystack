@@ -91,6 +91,11 @@ func fullKubernetesModel() kubernetesModel {
 		}),
 		OIDC:         fullOIDCObject(),
 		ControlPlane: fullControlPlaneObject(),
+		Images: types.ObjectValueMust(k8sImagesObjectType(), map[string]attr.Value{
+			"kubectl":             types.StringValue("registry.example.test/kubectl:v1.35.0"),
+			"talos_csr_signer":    types.StringValue("registry.example.test/talos-csr-signer:v0.1.0"),
+			"wait_for_kubeconfig": types.StringValue("registry.example.test/busybox:1.37"),
+		}),
 	}
 }
 
@@ -632,6 +637,75 @@ func TestKubernetesExpandControlPlaneKeysMatchSpec(t *testing.T) {
 		"resources", "resourcesPreset")
 }
 
+// The image overrides exist for air-gapped and rate-limited registries. Empty
+// means "use the chart's pinned tag", so an unset attribute must not be written
+// as an empty string either — the key simply stays out.
+func TestKubernetesExpand_Images(t *testing.T) {
+	t.Parallel()
+
+	model := fullKubernetesModel()
+	model.Images = types.ObjectNull(k8sImagesObjectType())
+
+	got, diags := model.expand(context.Background())
+	if diags.HasError() {
+		t.Fatalf("expand diagnostics: %v", diags)
+	}
+
+	if _, ok := got.Spec["images"]; ok {
+		t.Fatalf("images key present for an unset block, want omitted")
+	}
+
+	model = fullKubernetesModel()
+	model.Images = types.ObjectValueMust(k8sImagesObjectType(), map[string]attr.Value{
+		"kubectl":             types.StringValue("registry.example.test/kubectl:v1.35.0"),
+		"talos_csr_signer":    types.StringNull(),
+		"wait_for_kubeconfig": types.StringNull(),
+	})
+
+	got, diags = model.expand(context.Background())
+	if diags.HasError() {
+		t.Fatalf("expand diagnostics: %v", diags)
+	}
+
+	images := nestedSpec(t, got.Spec, "images")
+	if len(images) != 1 || images["kubectl"] != "registry.example.test/kubectl:v1.35.0" {
+		t.Errorf("images = %v, want only the kubectl override", images)
+	}
+}
+
+func TestKubernetesFlatten_Images(t *testing.T) {
+	t.Parallel()
+
+	if got := flattenImages(nil); !got.IsNull() {
+		t.Errorf("images = %v for an absent key, want null", got)
+	}
+
+	got := flattenImages(map[string]any{"kubectl": "", "talosCsrSigner": "registry.example.test/signer:v1"})
+
+	kubectl, _ := got.Attributes()["kubectl"].(types.String)
+	if kubectl.IsNull() || kubectl.ValueString() != "" {
+		t.Errorf("kubectl = %v, want the server's empty string", kubectl)
+	}
+
+	waitFor, _ := got.Attributes()["wait_for_kubeconfig"].(types.String)
+	if !waitFor.IsNull() {
+		t.Errorf("wait_for_kubeconfig = %v for an absent key, want null", waitFor)
+	}
+}
+
+func TestKubernetesExpandImagesKeysMatchSpec(t *testing.T) {
+	t.Parallel()
+
+	model := fullKubernetesModel()
+
+	got, diags := model.expand(context.Background())
+	if diags.HasError() {
+		t.Fatalf("expand diagnostics: %v", diags)
+	}
+
+	assertSpecCoverage(t, nestedSpecKeys(t, got.Spec, "images"), kubernetes.Images{})
+}
+
 func TestKubernetesFlatten_RoundTrip(t *testing.T) {
 	t.Parallel()
 
@@ -684,7 +758,7 @@ func TestKubernetesExpandKeysMatchConfigSpec(t *testing.T) {
 		emitted[key] = true
 	}
 
-	assertSpecCoverage(t, emitted, kubernetes.ConfigSpec{}, "addons", "images")
+	assertSpecCoverage(t, emitted, kubernetes.ConfigSpec{}, "addons")
 }
 
 // The node-group spec is a second schema surface the top-level ConfigSpec guard

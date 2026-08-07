@@ -370,6 +370,43 @@ func k8sControlPlaneDataSourceAttribute() dsschema.SingleNestedAttribute {
 	}
 }
 
+// k8sImagesResourceAttribute returns the image-override block. Empty means "use
+// the tag the chart ships", which moves with each release, so no field carries a
+// provider-side default.
+func k8sImagesResourceAttribute() rschema.SingleNestedAttribute {
+	return rschema.SingleNestedAttribute{
+		Optional: true, Computed: true,
+		MarkdownDescription: "Image overrides for air-gapped or rate-limited registries. Each unset field " +
+			"follows the tag pinned by the deployed chart.",
+		Attributes: map[string]rschema.Attribute{
+			"kubectl": rschema.StringAttribute{
+				Optional: true, Computed: true,
+				MarkdownDescription: "Image for the bootstrap-token Job that runs inside the tenant.",
+			},
+			"talos_csr_signer": rschema.StringAttribute{
+				Optional: true, Computed: true,
+				MarkdownDescription: "Image for the talos-csr-signer sidecar in the Kamaji control plane.",
+			},
+			"wait_for_kubeconfig": rschema.StringAttribute{
+				Optional: true, Computed: true,
+				MarkdownDescription: "Image for the wait-for-kubeconfig init container.",
+			},
+		},
+	}
+}
+
+func k8sImagesDataSourceAttribute() dsschema.SingleNestedAttribute {
+	return dsschema.SingleNestedAttribute{
+		Computed:            true,
+		MarkdownDescription: "Image overrides for air-gapped or rate-limited registries.",
+		Attributes: map[string]dsschema.Attribute{
+			"kubectl":             dsschema.StringAttribute{Computed: true, MarkdownDescription: "Bootstrap-token Job image."},
+			"talos_csr_signer":    dsschema.StringAttribute{Computed: true, MarkdownDescription: "talos-csr-signer sidecar image."},
+			"wait_for_kubeconfig": dsschema.StringAttribute{Computed: true, MarkdownDescription: "wait-for-kubeconfig init container image."},
+		},
+	}
+}
+
 func kubernetesSchema() rschema.Schema {
 	attributes := identityResourceAttributes("Kubernetes cluster name (`metadata.name`). Immutable.")
 
@@ -395,6 +432,7 @@ func kubernetesSchema() rschema.Schema {
 		"node_health_check": k8sNodeHealthCheckResourceAttribute(),
 		specOIDC:            k8sOIDCResourceAttribute(),
 		"control_plane":     k8sControlPlaneResourceAttribute(),
+		specImages:          k8sImagesResourceAttribute(),
 		"kubeconfig": rschema.StringAttribute{
 			Computed:  true,
 			Sensitive: true,
@@ -442,6 +480,7 @@ func kubernetesDataSourceSchema() dsschema.Schema {
 		"node_health_check": k8sNodeHealthCheckDataSourceAttribute(),
 		specOIDC:            k8sOIDCDataSourceAttribute(),
 		"control_plane":     k8sControlPlaneDataSourceAttribute(),
+		specImages:          k8sImagesDataSourceAttribute(),
 		"kubeconfig": dsschema.StringAttribute{
 			Computed:            true,
 			Sensitive:           true,

@@ -24,6 +24,7 @@ const (
 	specSecretRef          = "secretRef"
 	specControlPlane       = "controlPlane"
 	specAPIServer          = "apiServer"
+	specImages             = "images"
 )
 
 // kubernetesModel maps the cozystack_kubernetes schema to Go types. The addons
@@ -47,6 +48,7 @@ type kubernetesModel struct {
 	NodeHealthCheck types.Object `tfsdk:"node_health_check"`
 	OIDC            types.Object `tfsdk:"oidc"`
 	ControlPlane    types.Object `tfsdk:"control_plane"`
+	Images          types.Object `tfsdk:"images"`
 
 	Ready        types.Bool   `tfsdk:"ready"`
 	ChartVersion types.String `tfsdk:"chart_version"`
@@ -202,6 +204,7 @@ func (m *kubernetesModel) flatten(app *client.Application) diag.Diagnostics {
 	diags.Append(cpDiags...)
 
 	m.ControlPlane = controlPlane
+	m.Images = flattenImages(app.Spec[specImages])
 
 	m.Ready = types.BoolValue(app.Status.Ready)
 	m.ChartVersion = types.StringValue(app.Status.Version)
@@ -251,6 +254,7 @@ func (m *kubernetesModel) expandBlocks(ctx context.Context, spec map[string]any)
 		{key: specNodeHealthCheck, value: m.NodeHealthCheck, expand: expandNodeHealthCheck},
 		{key: specOIDC, value: m.OIDC, expand: expandOIDC},
 		{key: specControlPlane, value: m.ControlPlane, expand: expandControlPlane},
+		{key: specImages, value: m.Images, expand: expandImages},
 	}
 
 	for _, block := range blocks {
@@ -566,6 +570,62 @@ func flattenOIDCCustomConfig(raw any) (types.Object, diag.Diagnostics) {
 	diags.Append(valueDiags...)
 
 	return value, diags
+}
+
+func k8sImagesObjectType() map[string]attr.Type {
+	return map[string]attr.Type{
+		"kubectl":             types.StringType,
+		"talos_csr_signer":    types.StringType,
+		"wait_for_kubeconfig": types.StringType,
+	}
+}
+
+type k8sImagesData struct {
+	Kubectl           types.String `tfsdk:"kubectl"`
+	TalosCsrSigner    types.String `tfsdk:"talos_csr_signer"`
+	WaitForKubeconfig types.String `tfsdk:"wait_for_kubeconfig"`
+}
+
+// expandImages renders the images block into a spec submap, or nil when the
+// block is unset. The overrides carry no provider-side default: upstream ships
+// a pinned tag per release and an empty value selects it, so pinning one here
+// would hold a cluster on an image the chart has already moved past.
+func expandImages(ctx context.Context, obj types.Object) (map[string]any, diag.Diagnostics) {
+	var diags diag.Diagnostics
+
+	if obj.IsNull() || obj.IsUnknown() {
+		return nil, diags
+	}
+
+	var data k8sImagesData
+
+	diags.Append(obj.As(ctx, &data, basetypes.ObjectAsOptions{})...)
+
+	if diags.HasError() {
+		return nil, diags
+	}
+
+	out := map[string]any{}
+
+	setOptionalString(out, "kubectl", data.Kubectl)
+	setOptionalString(out, "talosCsrSigner", data.TalosCsrSigner)
+	setOptionalString(out, "waitForKubeconfig", data.WaitForKubeconfig)
+
+	return out, diags
+}
+
+// flattenImages builds the images block from a spec submap.
+func flattenImages(raw any) types.Object {
+	images, ok := raw.(map[string]any)
+	if !ok {
+		return types.ObjectNull(k8sImagesObjectType())
+	}
+
+	return types.ObjectValueMust(k8sImagesObjectType(), map[string]attr.Value{
+		"kubectl":             specStringOrNull(images, "kubectl"),
+		"talos_csr_signer":    specStringOrNull(images, "talosCsrSigner"),
+		"wait_for_kubeconfig": specStringOrNull(images, "waitForKubeconfig"),
+	})
 }
 
 func k8sControlPlaneObjectType() map[string]attr.Type {
