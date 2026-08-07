@@ -9,7 +9,9 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	rschema "github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64default"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
@@ -413,8 +415,11 @@ func kubernetesSchema() rschema.Schema {
 	maps.Copy(attributes, map[string]rschema.Attribute{
 		attrStorageClass: rschema.StringAttribute{
 			Optional: true, Computed: true,
-			Default:             stringdefault.StaticString("replicated"),
-			MarkdownDescription: "StorageClass used to store the data.",
+			Default:       stringdefault.StaticString("replicated"),
+			PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+			MarkdownDescription: "StorageClass used to store the data. Changing it replaces the cluster: " +
+				"a PersistentVolumeClaim's class is fixed when it is created, so an in-place change would " +
+				"be recorded in state while every existing volume stayed on the old class.",
 		},
 		attrVersion: rschema.StringAttribute{
 			Optional: true, Computed: true,

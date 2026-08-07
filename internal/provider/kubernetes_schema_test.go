@@ -7,18 +7,18 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	rschema "github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-go/tftypes"
 )
 
-// kubernetesConfig renders a model into a tfsdk.Config against the resource
-// schema, so attribute validators can be exercised against a real config value.
-func kubernetesConfig(t *testing.T, model kubernetesModel) tfsdk.Config {
+// kubernetesRaw renders a model into the schema's raw value, the shape the
+// framework hands to validators and plan modifiers.
+func kubernetesRaw(ctx context.Context, t *testing.T, model kubernetesModel) tftypes.Value {
 	t.Helper()
 
-	ctx := context.Background()
 	schema := kubernetesSchema()
 
 	state := tfsdk.State{
@@ -36,7 +36,15 @@ func kubernetesConfig(t *testing.T, model kubernetesModel) tfsdk.Config {
 		t.Fatalf("state.Set: %v", diags)
 	}
 
-	return tfsdk.Config{Schema: schema, Raw: state.Raw}
+	return state.Raw
+}
+
+// kubernetesConfig renders a model into a tfsdk.Config against the resource
+// schema, so attribute validators can be exercised against a real config value.
+func kubernetesConfig(ctx context.Context, t *testing.T, model kubernetesModel) tfsdk.Config {
+	t.Helper()
+
+	return tfsdk.Config{Schema: kubernetesSchema(), Raw: kubernetesRaw(ctx, t, model)}
 }
 
 // nodeGroupWithResources rebuilds the fixture's md0 group with an explicit
@@ -63,10 +71,9 @@ func nodeGroupWithResources(t *testing.T, model kubernetesModel, resources types
 
 // validateNodeGroupCPU runs the validators declared on
 // node_groups[*].resources.cpu against a config, the way the framework does.
-func validateNodeGroupCPU(t *testing.T, config tfsdk.Config, value types.String) bool {
+func validateNodeGroupCPU(ctx context.Context, t *testing.T, config tfsdk.Config, value types.String) bool {
 	t.Helper()
 
-	ctx := context.Background()
 	cpuPath := path.Root("node_groups").AtMapKey("md0").AtName("resources").AtName(attrCPU)
 
 	attribute, diags := config.Schema.AttributeAtPath(ctx, cpuPath)
@@ -111,8 +118,10 @@ func TestKubernetesNodeGroupResourcesRequireBothOrNeither(t *testing.T) {
 		attrMemory: types.StringNull(),
 	})
 
-	config := kubernetesConfig(t, nodeGroupWithResources(t, fullKubernetesModel(), cpuOnly))
-	if !validateNodeGroupCPU(t, config, types.StringValue("4")) {
+	ctx := context.Background()
+
+	config := kubernetesConfig(ctx, t, nodeGroupWithResources(t, fullKubernetesModel(), cpuOnly))
+	if !validateNodeGroupCPU(ctx, t, config, types.StringValue("4")) {
 		t.Errorf("cpu without memory validated cleanly, want an error")
 	}
 
@@ -121,8 +130,8 @@ func TestKubernetesNodeGroupResourcesRequireBothOrNeither(t *testing.T) {
 		attrMemory: types.StringValue("8Gi"),
 	})
 
-	config = kubernetesConfig(t, nodeGroupWithResources(t, fullKubernetesModel(), both))
-	if validateNodeGroupCPU(t, config, types.StringValue("4")) {
+	config = kubernetesConfig(ctx, t, nodeGroupWithResources(t, fullKubernetesModel(), both))
+	if validateNodeGroupCPU(ctx, t, config, types.StringValue("4")) {
 		t.Errorf("cpu with memory produced an error, want it accepted")
 	}
 }
@@ -206,5 +215,66 @@ func TestKubernetesVersionValidatorRejectsRetiredReleases(t *testing.T) {
 		if failed != wantError {
 			t.Errorf("version %q rejected = %v, want %v", value, failed, wantError)
 		}
+	}
+}
+
+// storage_class is marked immutable upstream, but the aggregated apiserver does
+// not evaluate that rule: it accepts the write, the release records the new
+// class, and the PVCs keep the old one forever, because Kubernetes fixes a
+// PVC's storageClassName at creation and editing volumeClaimTemplates never
+// migrates existing data. A silent, permanent divergence between state and
+// reality is worse than a rejection, so the provider makes the intent explicit
+// and plans a replacement.
+func TestKubernetesStorageClassRequiresReplace(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	schema := kubernetesSchema()
+
+	attribute, ok := schema.Attributes[attrStorageClass].(rschema.StringAttribute)
+	if !ok {
+		t.Fatalf("storage_class is not a string attribute")
+	}
+
+	before := fullKubernetesModel()
+
+	after := fullKubernetesModel()
+	after.StorageClass = types.StringValue("local")
+
+	tests := []struct {
+		name  string
+		plan  kubernetesModel
+		value types.String
+		want  bool
+	}{
+		{name: "unchanged class plans in place", plan: before, value: before.StorageClass},
+		{name: "changed class requires replacement", plan: after, value: after.StorageClass, want: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			request := planmodifier.StringRequest{
+				Path:           path.Root(attrStorageClass),
+				PathExpression: path.Root(attrStorageClass).Expression(),
+				State:          tfsdk.State{Schema: schema, Raw: kubernetesRaw(ctx, t, before)},
+				StateValue:     before.StorageClass,
+				Plan:           tfsdk.Plan{Schema: schema, Raw: kubernetesRaw(ctx, t, tt.plan)},
+				PlanValue:      tt.value,
+				Config:         kubernetesConfig(ctx, t, tt.plan),
+				ConfigValue:    tt.value,
+			}
+
+			response := &planmodifier.StringResponse{PlanValue: request.PlanValue}
+
+			for _, modifier := range attribute.PlanModifiers {
+				modifier.PlanModifyString(ctx, request, response)
+			}
+
+			if response.RequiresReplace != tt.want {
+				t.Errorf("RequiresReplace = %v, want %v", response.RequiresReplace, tt.want)
+			}
+		})
 	}
 }
