@@ -9,6 +9,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
+	"github.com/hashicorp/terraform-plugin-go/tftypes"
 )
 
 // Blocks whose Terraform attribute name and spec key are the same word, so one
@@ -99,12 +100,17 @@ func (m *kubernetesResourceModel) waitConfig() (types.Bool, types.String) {
 // stays null, and the platform stays in charge of it. The data source is the
 // place to read the effective values.
 func (m *kubernetesResourceModel) flatten(app *client.Application) diag.Diagnostics {
+	ctx := context.Background()
+
 	configured := []types.Object{m.Talos, m.NodeHealthCheck, m.OIDC, m.ControlPlane, m.Images}
 
 	diags := m.kubernetesModel.flatten(app)
 
 	for i, target := range []*types.Object{&m.Talos, &m.NodeHealthCheck, &m.OIDC, &m.ControlPlane, &m.Images} {
-		*target = keepConfiguredAttributes(configured[i], *target)
+		trimmed, trimDiags := keepConfiguredAttributes(ctx, configured[i], *target)
+		diags.Append(trimDiags...)
+
+		*target = trimmed
 	}
 
 	return diags
@@ -116,9 +122,11 @@ func (m *kubernetesResourceModel) flatten(app *client.Application) diag.Diagnost
 // stays absent. Nested objects are trimmed the same way. Every other configured
 // attribute — a list included — takes the server's value, which is what makes
 // drift against something the configuration does name visible.
-func keepConfiguredAttributes(configured, server types.Object) types.Object {
+func keepConfiguredAttributes(ctx context.Context, configured, server types.Object) (types.Object, diag.Diagnostics) {
+	var diags diag.Diagnostics
+
 	if configured.IsNull() || configured.IsUnknown() {
-		return types.ObjectNull(server.AttributeTypes(context.Background()))
+		return types.ObjectNull(server.AttributeTypes(ctx)), diags
 	}
 
 	kept := make(map[string]attr.Value, len(configured.Attributes()))
@@ -129,7 +137,10 @@ func keepConfiguredAttributes(configured, server types.Object) types.Object {
 		// carrying a configured value that may still be unknown.
 		fromServer, ok := server.Attributes()[name]
 		if !ok {
-			kept[name] = nullOf(value)
+			null, nullDiags := nullOf(ctx, value)
+			diags.Append(nullDiags...)
+
+			kept[name] = null
 
 			continue
 		}
@@ -145,7 +156,10 @@ func keepConfiguredAttributes(configured, server types.Object) types.Object {
 				continue
 			}
 
-			kept[name] = keepConfiguredAttributes(nested, serverNested)
+			trimmed, nestedDiags := keepConfiguredAttributes(ctx, nested, serverNested)
+			diags.Append(nestedDiags...)
+
+			kept[name] = trimmed
 
 			continue
 		}
@@ -159,21 +173,29 @@ func keepConfiguredAttributes(configured, server types.Object) types.Object {
 		kept[name] = fromServer
 	}
 
-	return types.ObjectValueMust(configured.AttributeTypes(context.Background()), kept)
+	value, valueDiags := types.ObjectValue(configured.AttributeTypes(ctx), kept)
+	diags.Append(valueDiags...)
+
+	return value, diags
 }
 
 // nullOf returns the null of value's own type, for an attribute the server did
-// not report back.
-func nullOf(value attr.Value) attr.Value {
-	if object, ok := value.(types.Object); ok {
-		return types.ObjectNull(object.AttributeTypes(context.Background()))
+// not report back. It works off the value's type rather than a switch over the
+// kinds these blocks happen to use today, so adding a bool or a number to one of
+// them cannot quietly produce a value of the wrong type.
+func nullOf(ctx context.Context, value attr.Value) (attr.Value, diag.Diagnostics) {
+	var diags diag.Diagnostics
+
+	valueType := value.Type(ctx)
+
+	null, err := valueType.ValueFromTerraform(ctx, tftypes.NewValue(valueType.TerraformType(ctx), nil))
+	if err != nil {
+		diags.AddError("Unable to build a null value", err.Error())
+
+		return value, diags
 	}
 
-	if list, ok := value.(types.List); ok {
-		return types.ListNull(list.ElementType(context.Background()))
-	}
-
-	return types.StringNull()
+	return null, diags
 }
 
 func (m *kubernetesModel) identity() (string, string) {
@@ -866,7 +888,28 @@ func flattenAPIServer(raw any) (types.Object, diag.Diagnostics) {
 	return value, diags
 }
 
+// flattenNodeGroups builds the node-group map from a spec submap. `{}` is a
+// configuration upstream documents and defaults to — the chart renders a single
+// md0 that provisions nothing until the autoscaler reacts — so an empty map has
+// to come back as an empty map. The shared collapsing helper would return null
+// and fail the apply against a plan holding an empty map.
 func flattenNodeGroups(raw any) (types.Map, diag.Diagnostics) {
+	var diags diag.Diagnostics
+
+	elementType := types.ObjectType{AttrTypes: k8sNodeGroupObjectType()}
+
+	groups, ok := raw.(map[string]any)
+	if !ok {
+		return types.MapNull(elementType), diags
+	}
+
+	if len(groups) == 0 {
+		value, valueDiags := types.MapValue(elementType, map[string]attr.Value{})
+		diags.Append(valueDiags...)
+
+		return value, diags
+	}
+
 	return flattenObjectMap(raw, k8sNodeGroupObjectType(), func(group map[string]any) map[string]attr.Value {
 		resources, _ := flattenResources(group[attrResources])
 

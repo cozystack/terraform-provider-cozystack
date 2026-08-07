@@ -1116,3 +1116,73 @@ func TestKubernetesExpandFlatten_RoundTripsEveryBlock(t *testing.T) {
 			got.StorageClass, got.Version, got.Host)
 	}
 }
+
+// `node_groups = {}` is what upstream defaults to and documents — the chart
+// renders a single md0 that provisions nothing until the autoscaler reacts. The
+// attribute is Required, so the plan holds an empty map and the read has to
+// return one; collapsing it to null fails the apply on a configuration the
+// platform explicitly supports, and the provider's own example uses it.
+func TestKubernetesFlatten_EmptyNodeGroupsStayEmpty(t *testing.T) {
+	t.Parallel()
+
+	groups, diags := flattenNodeGroups(map[string]any{})
+	if diags.HasError() {
+		t.Fatalf("flatten diagnostics: %v", diags)
+	}
+
+	if groups.IsNull() {
+		t.Fatalf("node_groups = null for a cluster that declares none, want an empty map")
+	}
+
+	if len(groups.Elements()) != 0 {
+		t.Errorf("node_groups has %d entries, want 0", len(groups.Elements()))
+	}
+
+	// An absent key is still absent: that is a server that did not report the
+	// field at all, not a cluster with no groups.
+	absent, diags := flattenNodeGroups(nil)
+	if diags.HasError() {
+		t.Fatalf("flatten diagnostics: %v", diags)
+	}
+
+	if !absent.IsNull() {
+		t.Errorf("node_groups = %v for an absent key, want null", absent)
+	}
+}
+
+// keepConfiguredAttributes builds a null for anything the server leaves out, so
+// it has to work off the attribute's own type rather than the string/list/object
+// shapes these blocks happen to use today.
+func TestKeepConfiguredAttributes_NullsMatchTheAttributeType(t *testing.T) {
+	t.Parallel()
+
+	objectType := map[string]attr.Type{
+		"text":   types.StringType,
+		"count":  types.Int64Type,
+		"toggle": types.BoolType,
+	}
+
+	configured := types.ObjectValueMust(objectType, map[string]attr.Value{
+		"text":   types.StringValue("set"),
+		"count":  types.Int64Value(3),
+		"toggle": types.BoolValue(true),
+	})
+
+	// A server that reports none of the keys back.
+	server := types.ObjectValueMust(objectType, map[string]attr.Value{
+		"text":   types.StringNull(),
+		"count":  types.Int64Null(),
+		"toggle": types.BoolNull(),
+	})
+
+	empty := types.ObjectValueMust(map[string]attr.Type{}, map[string]attr.Value{})
+
+	got, diags := keepConfiguredAttributes(context.Background(), configured, empty)
+	if diags.HasError() {
+		t.Fatalf("diagnostics: %v", diags)
+	}
+
+	if !got.Equal(server) {
+		t.Errorf("trimmed object = %v, want every attribute null at its own type", got)
+	}
+}
