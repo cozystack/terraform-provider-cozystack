@@ -3,6 +3,7 @@ package provider
 import (
 	"maps"
 
+	"github.com/hashicorp/terraform-plugin-framework-jsontypes/jsontypes"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	dsschema "github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -295,6 +296,80 @@ func k8sOIDCDataSourceAttribute() dsschema.SingleNestedAttribute {
 	}
 }
 
+// k8sControlPlaneResourceAttribute returns the control-plane block. Only the
+// apiServer passthrough is modelled; component sizing, the replica count, and
+// the konnectivity and scheduler blocks keep their server defaults.
+func k8sControlPlaneResourceAttribute() rschema.SingleNestedAttribute {
+	return rschema.SingleNestedAttribute{
+		Optional: true, Computed: true,
+		MarkdownDescription: "Tenant control-plane configuration. Only the API-server passthrough is " +
+			"managed here; component sizing and the replica count follow the platform.",
+		Attributes: map[string]rschema.Attribute{
+			"api_server": k8sAPIServerResourceAttribute(),
+		},
+	}
+}
+
+func k8sAPIServerResourceAttribute() rschema.SingleNestedAttribute {
+	return rschema.SingleNestedAttribute{
+		Optional: true, Computed: true,
+		MarkdownDescription: "Escape hatch onto the tenant kube-apiserver, passed through to the " +
+			"KamajiControlPlane. Do not hand-roll `--oidc-*` flags here when `oidc.mode` is not `None`: " +
+			"the chart injects `--authentication-config` and the apiserver refuses to start with both.",
+		Attributes: map[string]rschema.Attribute{
+			"extra_args": rschema.ListAttribute{
+				Optional: true, Computed: true,
+				ElementType: types.StringType,
+				MarkdownDescription: "Extra command-line flags appended to the tenant kube-apiserver, for " +
+					"feature gates and header configuration. Use `oidc` for identity.",
+			},
+			"extra_volumes": rschema.ListAttribute{
+				Optional: true, Computed: true,
+				ElementType: jsontypes.NormalizedType{},
+				MarkdownDescription: "Extra volumes on the control-plane Deployment, each a core/v1 Volume as " +
+					"JSON (`jsonencode({ name = \"…\", configMap = { name = \"…\" } })`). The control-plane pod " +
+					"runs on the management cluster, so only `configMap` and `secret` sources are accepted, each " +
+					"volume needs a unique name and exactly one source, and the names `talos-ca` and " +
+					"`talos-tls-cert` are reserved by the chart.",
+			},
+			"extra_volume_mounts": rschema.ListAttribute{
+				Optional: true, Computed: true,
+				ElementType: jsontypes.NormalizedType{},
+				MarkdownDescription: "Extra volume mounts on the kube-apiserver container, each a core/v1 " +
+					"VolumeMount as JSON. Every `name` must reference a volume declared in `extra_volumes`; the " +
+					"chart-managed Talos secret volumes cannot be mounted.",
+			},
+		},
+	}
+}
+
+func k8sControlPlaneDataSourceAttribute() dsschema.SingleNestedAttribute {
+	return dsschema.SingleNestedAttribute{
+		Computed:            true,
+		MarkdownDescription: "Tenant control-plane configuration.",
+		Attributes: map[string]dsschema.Attribute{
+			"api_server": dsschema.SingleNestedAttribute{
+				Computed:            true,
+				MarkdownDescription: "API-server passthrough configuration.",
+				Attributes: map[string]dsschema.Attribute{
+					"extra_args": dsschema.ListAttribute{
+						Computed: true, ElementType: types.StringType,
+						MarkdownDescription: "Extra kube-apiserver command-line flags.",
+					},
+					"extra_volumes": dsschema.ListAttribute{
+						Computed: true, ElementType: jsontypes.NormalizedType{},
+						MarkdownDescription: "Extra control-plane volumes, as JSON documents.",
+					},
+					"extra_volume_mounts": dsschema.ListAttribute{
+						Computed: true, ElementType: jsontypes.NormalizedType{},
+						MarkdownDescription: "Extra kube-apiserver volume mounts, as JSON documents.",
+					},
+				},
+			},
+		},
+	}
+}
+
 func kubernetesSchema() rschema.Schema {
 	attributes := identityResourceAttributes("Kubernetes cluster name (`metadata.name`). Immutable.")
 
@@ -319,6 +394,7 @@ func kubernetesSchema() rschema.Schema {
 		specTalos:           k8sTalosResourceAttribute(),
 		"node_health_check": k8sNodeHealthCheckResourceAttribute(),
 		specOIDC:            k8sOIDCResourceAttribute(),
+		"control_plane":     k8sControlPlaneResourceAttribute(),
 		"kubeconfig": rschema.StringAttribute{
 			Computed:  true,
 			Sensitive: true,
@@ -365,6 +441,7 @@ func kubernetesDataSourceSchema() dsschema.Schema {
 		specTalos:           k8sTalosDataSourceAttribute(),
 		"node_health_check": k8sNodeHealthCheckDataSourceAttribute(),
 		specOIDC:            k8sOIDCDataSourceAttribute(),
+		"control_plane":     k8sControlPlaneDataSourceAttribute(),
 		"kubeconfig": dsschema.StringAttribute{
 			Computed:            true,
 			Sensitive:           true,

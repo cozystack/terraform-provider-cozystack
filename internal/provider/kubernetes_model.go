@@ -2,8 +2,10 @@ package provider
 
 import (
 	"context"
+	"encoding/json"
 
 	"github.com/cozystack/terraform-provider-cozystack/internal/client"
+	"github.com/hashicorp/terraform-plugin-framework-jsontypes/jsontypes"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -20,11 +22,13 @@ const (
 	specOIDC               = "oidc"
 	specCustomConfig       = "customConfig"
 	specSecretRef          = "secretRef"
+	specControlPlane       = "controlPlane"
+	specAPIServer          = "apiServer"
 )
 
 // kubernetesModel maps the cozystack_kubernetes schema to Go types. The addons
-// block and per-node-group GPU and kubelet tuning are not managed (they use
-// server defaults).
+// block, the control-plane component sizing, and per-node-group GPU and kubelet
+// tuning are not managed (they use server defaults).
 //
 // Blocks whose upstream defaults roll with each Cozystack release (talos) are
 // modelled without provider-side defaults: an unset block is left out of the
@@ -42,6 +46,7 @@ type kubernetesModel struct {
 	Talos           types.Object `tfsdk:"talos"`
 	NodeHealthCheck types.Object `tfsdk:"node_health_check"`
 	OIDC            types.Object `tfsdk:"oidc"`
+	ControlPlane    types.Object `tfsdk:"control_plane"`
 
 	Ready        types.Bool   `tfsdk:"ready"`
 	ChartVersion types.String `tfsdk:"chart_version"`
@@ -193,6 +198,11 @@ func (m *kubernetesModel) flatten(app *client.Application) diag.Diagnostics {
 
 	m.OIDC = oidc
 
+	controlPlane, cpDiags := flattenControlPlane(app.Spec[specControlPlane])
+	diags.Append(cpDiags...)
+
+	m.ControlPlane = controlPlane
+
 	m.Ready = types.BoolValue(app.Status.Ready)
 	m.ChartVersion = types.StringValue(app.Status.Version)
 	m.UID = types.StringValue(app.UID)
@@ -240,6 +250,7 @@ func (m *kubernetesModel) expandBlocks(ctx context.Context, spec map[string]any)
 		{key: specTalos, value: m.Talos, expand: expandTalos},
 		{key: specNodeHealthCheck, value: m.NodeHealthCheck, expand: expandNodeHealthCheck},
 		{key: specOIDC, value: m.OIDC, expand: expandOIDC},
+		{key: specControlPlane, value: m.ControlPlane, expand: expandControlPlane},
 	}
 
 	for _, block := range blocks {
@@ -551,6 +562,197 @@ func flattenOIDCCustomConfig(raw any) (types.Object, diag.Diagnostics) {
 	value, valueDiags := types.ObjectValue(k8sOIDCCustomConfigObjectType(), map[string]attr.Value{
 		"config":     specStringOrNull(custom, "config"),
 		"secret_ref": secretRef,
+	})
+	diags.Append(valueDiags...)
+
+	return value, diags
+}
+
+func k8sControlPlaneObjectType() map[string]attr.Type {
+	return map[string]attr.Type{"api_server": types.ObjectType{AttrTypes: k8sAPIServerObjectType()}}
+}
+
+func k8sAPIServerObjectType() map[string]attr.Type {
+	return map[string]attr.Type{
+		"extra_args":          types.ListType{ElemType: types.StringType},
+		"extra_volumes":       types.ListType{ElemType: jsontypes.NormalizedType{}},
+		"extra_volume_mounts": types.ListType{ElemType: jsontypes.NormalizedType{}},
+	}
+}
+
+type k8sControlPlaneData struct {
+	APIServer types.Object `tfsdk:"api_server"`
+}
+
+type k8sAPIServerData struct {
+	ExtraArgs         types.List `tfsdk:"extra_args"`
+	ExtraVolumes      types.List `tfsdk:"extra_volumes"`
+	ExtraVolumeMounts types.List `tfsdk:"extra_volume_mounts"`
+}
+
+// expandControlPlane renders the controlPlane block, or nil when it is unset.
+// Only the apiServer passthrough is modelled; component sizing and the replica
+// count stay with the server.
+func expandControlPlane(ctx context.Context, obj types.Object) (map[string]any, diag.Diagnostics) {
+	var diags diag.Diagnostics
+
+	if obj.IsNull() || obj.IsUnknown() {
+		return nil, diags
+	}
+
+	var data k8sControlPlaneData
+
+	diags.Append(obj.As(ctx, &data, basetypes.ObjectAsOptions{})...)
+
+	if diags.HasError() {
+		return nil, diags
+	}
+
+	out := map[string]any{}
+
+	apiServer, apiDiags := expandAPIServer(ctx, data.APIServer)
+	diags.Append(apiDiags...)
+
+	if apiServer != nil {
+		out[specAPIServer] = apiServer
+	}
+
+	return out, diags
+}
+
+func expandAPIServer(ctx context.Context, obj types.Object) (map[string]any, diag.Diagnostics) {
+	var diags diag.Diagnostics
+
+	if obj.IsNull() || obj.IsUnknown() {
+		return nil, diags
+	}
+
+	var data k8sAPIServerData
+
+	diags.Append(obj.As(ctx, &data, basetypes.ObjectAsOptions{})...)
+
+	if diags.HasError() {
+		return nil, diags
+	}
+
+	out := map[string]any{}
+
+	diags.Append(setOptionalStringList(ctx, out, "extraArgs", data.ExtraArgs)...)
+	diags.Append(setOptionalJSONList(ctx, out, "extraVolumes", data.ExtraVolumes)...)
+	diags.Append(setOptionalJSONList(ctx, out, "extraVolumeMounts", data.ExtraVolumeMounts)...)
+
+	return out, diags
+}
+
+// setOptionalJSONList writes a list of JSON documents into spec under key. The
+// upstream fields are free-form core/v1 objects, so they travel as normalized
+// JSON strings rather than a hand-modelled Volume schema.
+func setOptionalJSONList(
+	ctx context.Context,
+	spec map[string]any,
+	key string,
+	value types.List,
+) diag.Diagnostics {
+	var diags diag.Diagnostics
+
+	if value.IsNull() || value.IsUnknown() {
+		return diags
+	}
+
+	var items []jsontypes.Normalized
+
+	diags.Append(value.ElementsAs(ctx, &items, false)...)
+
+	if diags.HasError() {
+		return diags
+	}
+
+	out := make([]any, 0, len(items))
+
+	for _, item := range items {
+		var document any
+
+		if err := json.Unmarshal([]byte(item.ValueString()), &document); err != nil {
+			diags.AddError("Invalid JSON document in "+key, err.Error())
+
+			return diags
+		}
+
+		out = append(out, document)
+	}
+
+	spec[key] = out
+
+	return diags
+}
+
+// specJSONListOrNull builds a list of JSON documents from a spec value. An
+// absent key flattens to null; a present empty list stays an empty list.
+func specJSONListOrNull(raw any) (types.List, diag.Diagnostics) {
+	var diags diag.Diagnostics
+
+	items, ok := raw.([]any)
+	if !ok {
+		return types.ListNull(jsontypes.NormalizedType{}), diags
+	}
+
+	elements := make([]attr.Value, 0, len(items))
+
+	for _, item := range items {
+		encoded, err := json.Marshal(item)
+		if err != nil {
+			diags.AddError("Unable to encode a spec document", err.Error())
+
+			return types.ListNull(jsontypes.NormalizedType{}), diags
+		}
+
+		elements = append(elements, jsontypes.NewNormalizedValue(string(encoded)))
+	}
+
+	value, listDiags := types.ListValue(jsontypes.NormalizedType{}, elements)
+	diags.Append(listDiags...)
+
+	return value, diags
+}
+
+// flattenControlPlane builds the controlPlane block from a spec submap.
+func flattenControlPlane(raw any) (types.Object, diag.Diagnostics) {
+	var diags diag.Diagnostics
+
+	controlPlane, ok := raw.(map[string]any)
+	if !ok {
+		return types.ObjectNull(k8sControlPlaneObjectType()), diags
+	}
+
+	apiServer, apiDiags := flattenAPIServer(controlPlane[specAPIServer])
+	diags.Append(apiDiags...)
+
+	value, valueDiags := types.ObjectValue(k8sControlPlaneObjectType(), map[string]attr.Value{
+		"api_server": apiServer,
+	})
+	diags.Append(valueDiags...)
+
+	return value, diags
+}
+
+func flattenAPIServer(raw any) (types.Object, diag.Diagnostics) {
+	var diags diag.Diagnostics
+
+	apiServer, ok := raw.(map[string]any)
+	if !ok {
+		return types.ObjectNull(k8sAPIServerObjectType()), diags
+	}
+
+	volumes, volumeDiags := specJSONListOrNull(apiServer["extraVolumes"])
+	diags.Append(volumeDiags...)
+
+	mounts, mountDiags := specJSONListOrNull(apiServer["extraVolumeMounts"])
+	diags.Append(mountDiags...)
+
+	value, valueDiags := types.ObjectValue(k8sAPIServerObjectType(), map[string]attr.Value{
+		"extra_args":          specStringListOrNull(apiServer["extraArgs"]),
+		"extra_volumes":       volumes,
+		"extra_volume_mounts": mounts,
 	})
 	diags.Append(valueDiags...)
 

@@ -7,6 +7,7 @@ import (
 
 	"github.com/cozystack/cozystack/api/apps/v1alpha1/kubernetes"
 	"github.com/cozystack/terraform-provider-cozystack/internal/client"
+	"github.com/hashicorp/terraform-plugin-framework-jsontypes/jsontypes"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
@@ -45,6 +46,24 @@ func fullOIDCObject() types.Object {
 	})
 }
 
+func fullControlPlaneObject() types.Object {
+	apiServer := types.ObjectValueMust(k8sAPIServerObjectType(), map[string]attr.Value{
+		"extra_args": types.ListValueMust(types.StringType, []attr.Value{
+			types.StringValue("--requestheader-uid-headers=X-Remote-Uid"),
+		}),
+		"extra_volumes": types.ListValueMust(jsontypes.NormalizedType{}, []attr.Value{
+			jsontypes.NewNormalizedValue(`{"name":"auth-config","configMap":{"name":"auth-config"}}`),
+		}),
+		"extra_volume_mounts": types.ListValueMust(jsontypes.NormalizedType{}, []attr.Value{
+			jsontypes.NewNormalizedValue(`{"name":"auth-config","mountPath":"/etc/kubernetes/auth"}`),
+		}),
+	})
+
+	return types.ObjectValueMust(k8sControlPlaneObjectType(), map[string]attr.Value{
+		"api_server": apiServer,
+	})
+}
+
 func fullKubernetesModel() kubernetesModel {
 	group := types.ObjectValueMust(k8sNodeGroupObjectType(), map[string]attr.Value{
 		"disk_size":            types.StringValue("20Gi"),
@@ -70,13 +89,13 @@ func fullKubernetesModel() kubernetesModel {
 			"max_unhealthy":        types.StringValue("50%"),
 			"node_startup_timeout": types.StringValue("10m"),
 		}),
-		OIDC: fullOIDCObject(),
+		OIDC:         fullOIDCObject(),
+		ControlPlane: fullControlPlaneObject(),
 	}
 }
 
-// nestedSpecKeys walks into a nested block of the emitted spec and returns its
-// keys, so the coverage guard can be pointed at a struct below the top level.
-func nestedSpecKeys(t *testing.T, spec map[string]any, path ...string) map[string]bool {
+// nestedSpec walks into a nested block of the emitted spec.
+func nestedSpec(t *testing.T, spec map[string]any, path ...string) map[string]any {
 	t.Helper()
 
 	current := spec
@@ -90,8 +109,18 @@ func nestedSpecKeys(t *testing.T, spec map[string]any, path ...string) map[strin
 		current = next
 	}
 
-	keys := make(map[string]bool, len(current))
-	for key := range current {
+	return current
+}
+
+// nestedSpecKeys returns the keys of a nested block, so the coverage guard can
+// be pointed at a struct below the top level.
+func nestedSpecKeys(t *testing.T, spec map[string]any, path ...string) map[string]bool {
+	t.Helper()
+
+	block := nestedSpec(t, spec, path...)
+
+	keys := make(map[string]bool, len(block))
+	for key := range block {
 		keys[key] = true
 	}
 
@@ -503,6 +532,106 @@ func TestKubernetesExpandOIDCKeysMatchOIDCSpec(t *testing.T) {
 	assertSpecCoverage(t, emitted, kubernetes.OIDCUser{})
 }
 
+// controlPlane is a passthrough to the KamajiControlPlane. Everything except
+// apiServer stays server-defaulted, so an unset block must not appear.
+func TestKubernetesExpand_ControlPlane(t *testing.T) {
+	t.Parallel()
+
+	model := fullKubernetesModel()
+	model.ControlPlane = types.ObjectNull(k8sControlPlaneObjectType())
+
+	got, diags := model.expand(context.Background())
+	if diags.HasError() {
+		t.Fatalf("expand diagnostics: %v", diags)
+	}
+
+	if _, ok := got.Spec["controlPlane"]; ok {
+		t.Fatalf("controlPlane key present for an unset block, want omitted")
+	}
+
+	model = fullKubernetesModel()
+
+	got, diags = model.expand(context.Background())
+	if diags.HasError() {
+		t.Fatalf("expand diagnostics: %v", diags)
+	}
+
+	apiServer := nestedSpec(t, got.Spec, "controlPlane", "apiServer")
+
+	args, _ := apiServer["extraArgs"].([]any)
+	if len(args) != 1 || args[0] != "--requestheader-uid-headers=X-Remote-Uid" {
+		t.Errorf("apiServer.extraArgs = %v, want the single passthrough flag", args)
+	}
+
+	volumes, _ := apiServer["extraVolumes"].([]any)
+
+	volume, _ := volumes[0].(map[string]any)
+	if volume["name"] != "auth-config" {
+		t.Errorf("apiServer.extraVolumes[0] = %v, want the auth-config volume", volume)
+	}
+}
+
+func TestKubernetesFlatten_ControlPlane(t *testing.T) {
+	t.Parallel()
+
+	null, diags := flattenControlPlane(nil)
+	if diags.HasError() {
+		t.Fatalf("flatten diagnostics: %v", diags)
+	}
+
+	if !null.IsNull() {
+		t.Errorf("control_plane = %v for an absent key, want null", null)
+	}
+
+	got, diags := flattenControlPlane(map[string]any{
+		"apiServer": map[string]any{
+			"extraArgs":         []any{},
+			"extraVolumes":      []any{map[string]any{"name": "auth-config"}},
+			"extraVolumeMounts": []any{},
+		},
+	})
+	if diags.HasError() {
+		t.Fatalf("flatten diagnostics: %v", diags)
+	}
+
+	apiServer, _ := got.Attributes()["api_server"].(types.Object)
+
+	// The platform defaults these to empty lists, so an empty list read back is
+	// a real value and must not collapse to null.
+	args, _ := apiServer.Attributes()["extra_args"].(types.List)
+	if args.IsNull() {
+		t.Errorf("extra_args = null for a stored empty list, want an empty list")
+	}
+
+	volumes, _ := apiServer.Attributes()["extra_volumes"].(types.List)
+	if len(volumes.Elements()) != 1 {
+		t.Fatalf("extra_volumes has %d elements, want 1", len(volumes.Elements()))
+	}
+
+	encoded, _ := volumes.Elements()[0].(jsontypes.Normalized)
+	if encoded.ValueString() != `{"name":"auth-config"}` {
+		t.Errorf("extra_volumes[0] = %s, want the auth-config volume as JSON", encoded.ValueString())
+	}
+}
+
+func TestKubernetesExpandControlPlaneKeysMatchSpec(t *testing.T) {
+	t.Parallel()
+
+	model := fullKubernetesModel()
+
+	got, diags := model.expand(context.Background())
+	if diags.HasError() {
+		t.Fatalf("expand diagnostics: %v", diags)
+	}
+
+	// The sizing of the control-plane components stays with the server, as it
+	// did before controlPlane was modelled at all.
+	assertSpecCoverage(t, nestedSpecKeys(t, got.Spec, "controlPlane"), kubernetes.ControlPlane{},
+		"controllerManager", "konnectivity", "replicas", "scheduler")
+	assertSpecCoverage(t, nestedSpecKeys(t, got.Spec, "controlPlane", "apiServer"), kubernetes.APIServer{},
+		"resources", "resourcesPreset")
+}
+
 func TestKubernetesFlatten_RoundTrip(t *testing.T) {
 	t.Parallel()
 
@@ -555,7 +684,7 @@ func TestKubernetesExpandKeysMatchConfigSpec(t *testing.T) {
 		emitted[key] = true
 	}
 
-	assertSpecCoverage(t, emitted, kubernetes.ConfigSpec{}, "addons", "controlPlane", "images")
+	assertSpecCoverage(t, emitted, kubernetes.ConfigSpec{}, "addons", "images")
 }
 
 // The node-group spec is a second schema surface the top-level ConfigSpec guard
