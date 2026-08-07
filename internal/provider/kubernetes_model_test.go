@@ -954,3 +954,124 @@ func TestKubernetesResourceFlatten_TrimsNestedObjects(t *testing.T) {
 		t.Errorf("oidc.custom_config.secret_ref.name = %q, want the configured Secret", name.ValueString())
 	}
 }
+
+// storage_class carries no provider-side default, so an unset attribute leaves
+// the key out and the platform supplies its own. Emitting a value the
+// practitioner never chose would rewrite a field whose PersistentVolumeClaims
+// can never follow it.
+func TestKubernetesExpand_StorageClassOmittedWhenUnset(t *testing.T) {
+	t.Parallel()
+
+	model := fullKubernetesModel()
+	model.StorageClass = types.StringNull()
+
+	got, diags := model.expand(context.Background())
+	if diags.HasError() {
+		t.Fatalf("expand diagnostics: %v", diags)
+	}
+
+	if _, ok := got.Spec[specStorageClass]; ok {
+		t.Errorf("storageClass present for an unset attribute, want omitted")
+	}
+
+	model.StorageClass = types.StringValue("local")
+
+	got, diags = model.expand(context.Background())
+	if diags.HasError() {
+		t.Fatalf("expand diagnostics: %v", diags)
+	}
+
+	if got.Spec[specStorageClass] != "local" {
+		t.Errorf("storageClass = %v, want local", got.Spec[specStorageClass])
+	}
+}
+
+// A node group with `roles = []` deliberately carries no role. Collapsing that
+// to an absent key made the server return nothing, the state read back null, and
+// the apply fail with an inconsistent-result error on a valid configuration.
+func TestKubernetesExpand_NodeGroupRolesThreeStates(t *testing.T) {
+	t.Parallel()
+
+	group := func(roles types.List) types.Map {
+		return types.MapValueMust(
+			types.ObjectType{AttrTypes: k8sNodeGroupObjectType()},
+			map[string]attr.Value{"md0": types.ObjectValueMust(k8sNodeGroupObjectType(), map[string]attr.Value{
+				"disk_size":            types.StringValue("20Gi"),
+				"instance_type":        types.StringValue("u1.medium"),
+				"min_replicas":         types.Int64Value(0),
+				"max_replicas":         types.Int64Value(1),
+				"roles":                roles,
+				"storage_class":        types.StringValue(""),
+				"resources":            types.ObjectNull(resourcesObjectType()),
+				"max_unhealthy":        types.StringNull(),
+				"node_startup_timeout": types.StringNull(),
+			})},
+		)
+	}
+
+	tests := []struct {
+		name    string
+		roles   types.List
+		present bool
+		length  int
+	}{
+		{name: "null omits the key", roles: types.ListNull(types.StringType)},
+		{
+			name:    "empty writes an empty list",
+			roles:   types.ListValueMust(types.StringType, []attr.Value{}),
+			present: true,
+		},
+		{
+			name:    "populated writes the roles",
+			roles:   types.ListValueMust(types.StringType, []attr.Value{types.StringValue("ingress-nginx")}),
+			present: true,
+			length:  1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			model := fullKubernetesModel()
+			model.NodeGroups = group(tt.roles)
+
+			got, diags := model.expand(context.Background())
+			if diags.HasError() {
+				t.Fatalf("expand diagnostics: %v", diags)
+			}
+
+			md0 := nestedSpec(t, got.Spec, "nodeGroups", "md0")
+
+			raw, ok := md0["roles"]
+			if ok != tt.present {
+				t.Fatalf("roles present = %v, want %v", ok, tt.present)
+			}
+
+			if !tt.present {
+				return
+			}
+
+			items, _ := raw.([]any)
+			if len(items) != tt.length {
+				t.Errorf("roles has %d entries, want %d", len(items), tt.length)
+			}
+		})
+	}
+}
+
+func TestKubernetesFlatten_NodeGroupRolesKeepEmptyList(t *testing.T) {
+	t.Parallel()
+
+	groups, diags := flattenNodeGroups(map[string]any{"md0": map[string]any{"roles": []any{}}})
+	if diags.HasError() {
+		t.Fatalf("flatten diagnostics: %v", diags)
+	}
+
+	md0, _ := groups.Elements()["md0"].(types.Object)
+
+	roles, _ := md0.Attributes()["roles"].(types.List)
+	if roles.IsNull() {
+		t.Errorf("roles = null for a stored empty list, want an empty list")
+	}
+}

@@ -262,10 +262,11 @@ func TestKubernetesStorageClassRequiresReplace(t *testing.T) {
 			want:        true,
 		},
 		{
-			// An imported cluster on a non-default class, with a configuration
-			// that never mentions storage_class: the schema default would pull the
-			// plan back to "replicated", and an unconditional modifier would turn
-			// that into a destroy nobody asked for.
+			// An imported cluster on a non-default class with a configuration that
+			// never mentions storage_class: nothing may plan a change here at all,
+			// and an unconditional modifier would turn one into a destroy nobody
+			// asked for. The attribute carries no default, so the plan keeps the
+			// prior value and this path stays theoretical.
 			name:        "unconfigured change is not a replacement",
 			plan:        after,
 			value:       after.StorageClass,

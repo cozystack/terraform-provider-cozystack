@@ -147,12 +147,12 @@ resource "cozystack_kubernetes" "byo_identity" {
 
 ### Optional
 
-- `control_plane` (Attributes) Tenant control-plane configuration. Only the API-server passthrough is managed here; component sizing and the replica count follow the platform. (see [below for nested schema](#nestedatt--control_plane))
+- `control_plane` (Attributes) Tenant control-plane configuration. Only the API-server passthrough is managed here. Note that configuring this block writes the whole control-plane section, so component sizing, the replica count, konnectivity and the scheduler go back to platform defaults — values set out of band for those are not preserved once this block is in play. (see [below for nested schema](#nestedatt--control_plane))
 - `host` (String) External hostname for the cluster. Defaults to `<cluster-name>.<tenant-host>`.
 - `images` (Attributes) Image overrides for air-gapped or rate-limited registries. Each unset field follows the tag pinned by the deployed chart. (see [below for nested schema](#nestedatt--images))
 - `node_health_check` (Attributes) MachineHealthCheck tuning applied to every worker node group. Follows the platform defaults while unset. (see [below for nested schema](#nestedatt--node_health_check))
 - `oidc` (Attributes) OIDC authentication and per-user RBAC for the tenant kube-apiserver. Follows the platform default (identity off, static admin kubeconfig only) while unset. (see [below for nested schema](#nestedatt--oidc))
-- `storage_class` (String) StorageClass used to store the data. Changing a configured value replaces the cluster: a PersistentVolumeClaim's class is fixed when it is created, so an in-place change would be recorded in state while every existing volume stayed on the old class.
+- `storage_class` (String) StorageClass used to store the data. Follows the platform default (`replicated`) while unset. Changing a configured value replaces the cluster: a PersistentVolumeClaim's class is fixed when it is created, so an in-place change would be recorded in state while every existing volume stayed on the old class.
 - `talos` (Attributes) Talos worker OS image coordinates. Every field follows the platform default while unset; set one only to pin it. (see [below for nested schema](#nestedatt--talos))
 - `version` (String) Kubernetes major.minor version to deploy.
 - `wait_for_ready` (Boolean) Block on create/update until the tenant's `Ready` condition is true.

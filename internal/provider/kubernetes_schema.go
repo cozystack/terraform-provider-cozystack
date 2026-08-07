@@ -305,7 +305,9 @@ func k8sControlPlaneResourceAttribute() rschema.SingleNestedAttribute {
 	return rschema.SingleNestedAttribute{
 		Optional: true,
 		MarkdownDescription: "Tenant control-plane configuration. Only the API-server passthrough is " +
-			"managed here; component sizing and the replica count follow the platform.",
+			"managed here. Note that configuring this block writes the whole control-plane section, so " +
+			"component sizing, the replica count, konnectivity and the scheduler go back to platform " +
+			"defaults — values set out of band for those are not preserved once this block is in play.",
 		Attributes: map[string]rschema.Attribute{
 			"api_server": k8sAPIServerResourceAttribute(),
 		},
@@ -415,15 +417,18 @@ func kubernetesSchema() rschema.Schema {
 	maps.Copy(attributes, map[string]rschema.Attribute{
 		attrStorageClass: rschema.StringAttribute{
 			Optional: true, Computed: true,
-			Default: stringdefault.StaticString("replicated"),
-			// Only a configured change replaces. An imported cluster whose class
-			// differs from the default would otherwise be planned back to
-			// "replicated" — and with an unconditional modifier that plan is a
-			// destroy, from a configuration that never mentions the attribute.
+			// No provider-side default, and replacement only for a configured
+			// change. A default would pull the plan back to "replicated" for any
+			// cluster running on another class whose configuration is silent —
+			// either silently rewriting a field that PVCs can never follow, or,
+			// with an unconditional modifier, destroying a cluster on behalf of a
+			// configuration that never mentions storage at all. The platform
+			// supplies "replicated" itself when the key is absent.
 			PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplaceIfConfigured()},
-			MarkdownDescription: "StorageClass used to store the data. Changing a configured value replaces " +
-				"the cluster: a PersistentVolumeClaim's class is fixed when it is created, so an in-place " +
-				"change would be recorded in state while every existing volume stayed on the old class.",
+			MarkdownDescription: "StorageClass used to store the data. Follows the platform default " +
+				"(`replicated`) while unset. Changing a configured value replaces the cluster: a " +
+				"PersistentVolumeClaim's class is fixed when it is created, so an in-place change would be " +
+				"recorded in state while every existing volume stayed on the old class.",
 		},
 		attrVersion: rschema.StringAttribute{
 			Optional: true, Computed: true,

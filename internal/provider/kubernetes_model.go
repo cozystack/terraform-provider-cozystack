@@ -113,8 +113,9 @@ func (m *kubernetesResourceModel) flatten(app *client.Application) diag.Diagnost
 // keepConfiguredAttributes returns the server's view of a block with every
 // attribute the configuration left unset reset to null, so state never gains a
 // value the practitioner did not ask for. A block that was not configured at all
-// stays absent. Nested objects are trimmed the same way; a list is kept whole,
-// since a list the configuration wrote is written verbatim.
+// stays absent. Nested objects are trimmed the same way. Every other configured
+// attribute — a list included — takes the server's value, which is what makes
+// drift against something the configuration does name visible.
 func keepConfiguredAttributes(configured, server types.Object) types.Object {
 	if configured.IsNull() || configured.IsUnknown() {
 		return types.ObjectNull(server.AttributeTypes(context.Background()))
@@ -134,9 +135,17 @@ func keepConfiguredAttributes(configured, server types.Object) types.Object {
 			continue
 		}
 
-		nested, isObject := value.(types.Object)
-		if isObject {
-			serverNested, _ := fromServer.(types.Object)
+		if nested, isObject := value.(types.Object); isObject {
+			serverNested, sameShape := fromServer.(types.Object)
+			if !sameShape {
+				// The two sides are built from one AttrTypes, so this cannot
+				// happen; keeping the configured value beats recursing into a
+				// value whose attribute types are unknown.
+				kept[name] = nested
+
+				continue
+			}
+
 			kept[name] = keepConfiguredAttributes(nested, serverNested)
 
 			continue
@@ -177,7 +186,7 @@ type k8sNodeGroupData struct {
 	InstanceType       types.String `tfsdk:"instance_type"`
 	MinReplicas        types.Int64  `tfsdk:"min_replicas"`
 	MaxReplicas        types.Int64  `tfsdk:"max_replicas"`
-	Roles              []string     `tfsdk:"roles"`
+	Roles              types.List   `tfsdk:"roles"`
 	StorageClass       types.String `tfsdk:"storage_class"`
 	Resources          types.Object `tfsdk:"resources"`
 	MaxUnhealthy       types.String `tfsdk:"max_unhealthy"`
@@ -195,10 +204,16 @@ func (m *kubernetesModel) expand(ctx context.Context) (*client.Application, diag
 	}
 
 	spec := map[string]any{
-		specStorageClass: m.StorageClass.ValueString(),
-		attrVersion:      m.Version.ValueString(),
-		specNodeGroups:   nodeGroups,
+		attrVersion:    m.Version.ValueString(),
+		specNodeGroups: nodeGroups,
 	}
+
+	// storageClass carries no provider-side default, so an unset attribute
+	// leaves the key out and the platform supplies "replicated" itself. A
+	// materialised default would pull the plan back to it for any cluster
+	// created on another class, silently rewriting a field whose PVCs can
+	// never follow.
+	setOptionalString(spec, specStorageClass, m.StorageClass)
 
 	// host is server-defaulted to a tenant subdomain; only send it when set so
 	// the computed default does not produce a perpetual diff.
@@ -250,9 +265,9 @@ func expandNodeGroups(ctx context.Context, value types.Map) (map[string]any, dia
 			attrResources:    resources,
 		}
 
-		if len(group.Roles) > 0 {
-			entry["roles"] = stringsToAny(group.Roles)
-		}
+		// An explicitly empty roles list is a node group that deliberately
+		// carries no role, which is not the same as one that never named any.
+		diags.Append(setOptionalStringList(ctx, entry, "roles", group.Roles)...)
 
 		// Both overrides are undefaulted upstream: an absent key means the
 		// cluster-wide nodeHealthCheck applies to this group.
@@ -845,7 +860,7 @@ func flattenNodeGroups(raw any) (types.Map, diag.Diagnostics) {
 			"instance_type":        types.StringValue(specString(group, "instanceType")),
 			"min_replicas":         types.Int64Value(anyToInt64(group["minReplicas"])),
 			"max_replicas":         types.Int64Value(anyToInt64(group["maxReplicas"])),
-			"roles":                stringListOrNull(group["roles"]),
+			"roles":                specStringListOrNull(group["roles"]),
 			"storage_class":        types.StringValue(specString(group, specStorageClass)),
 			"resources":            resources,
 			"max_unhealthy":        specStringOrNull(group, specMaxUnhealthy),
