@@ -123,3 +123,32 @@ func TestKubernetesExpandKeysMatchConfigSpec(t *testing.T) {
 
 	assertSpecCoverage(t, emitted, kubernetes.ConfigSpec{}, "addons", "controlPlane", "images")
 }
+
+// The node-group spec is a second schema surface the top-level ConfigSpec guard
+// does not reach, since it only reflects one level of json tags. Guarding it
+// separately means a node-group field added upstream surfaces as a failing test
+// naming the field, rather than silently going unmodelled.
+func TestKubernetesExpandNodeGroupKeysMatchNodeGroupSpec(t *testing.T) {
+	t.Parallel()
+
+	model := fullKubernetesModel()
+
+	got, diags := model.expand(context.Background())
+	if diags.HasError() {
+		t.Fatalf("expand diagnostics: %v", diags)
+	}
+
+	groups, _ := got.Spec["nodeGroups"].(map[string]any)
+
+	md0, ok := groups["md0"].(map[string]any)
+	if !ok {
+		t.Fatalf("nodeGroups.md0 missing from the emitted spec")
+	}
+
+	emitted := make(map[string]bool, len(md0))
+	for key := range md0 {
+		emitted[key] = true
+	}
+
+	assertSpecCoverage(t, emitted, kubernetes.NodeGroup{}, "gpus", "kubelet")
+}
