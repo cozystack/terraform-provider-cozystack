@@ -66,24 +66,28 @@ func (m *kubernetesModel) identity() (string, string) {
 
 func k8sNodeGroupObjectType() map[string]attr.Type {
 	return map[string]attr.Type{
-		"disk_size":     types.StringType,
-		"instance_type": types.StringType,
-		"min_replicas":  types.Int64Type,
-		"max_replicas":  types.Int64Type,
-		"roles":         types.ListType{ElemType: types.StringType},
-		"storage_class": types.StringType,
-		"resources":     types.ObjectType{AttrTypes: resourcesObjectType()},
+		"disk_size":            types.StringType,
+		"instance_type":        types.StringType,
+		"min_replicas":         types.Int64Type,
+		"max_replicas":         types.Int64Type,
+		"roles":                types.ListType{ElemType: types.StringType},
+		"storage_class":        types.StringType,
+		"resources":            types.ObjectType{AttrTypes: resourcesObjectType()},
+		"max_unhealthy":        types.StringType,
+		"node_startup_timeout": types.StringType,
 	}
 }
 
 type k8sNodeGroupData struct {
-	DiskSize     types.String `tfsdk:"disk_size"`
-	InstanceType types.String `tfsdk:"instance_type"`
-	MinReplicas  types.Int64  `tfsdk:"min_replicas"`
-	MaxReplicas  types.Int64  `tfsdk:"max_replicas"`
-	Roles        []string     `tfsdk:"roles"`
-	StorageClass types.String `tfsdk:"storage_class"`
-	Resources    types.Object `tfsdk:"resources"`
+	DiskSize           types.String `tfsdk:"disk_size"`
+	InstanceType       types.String `tfsdk:"instance_type"`
+	MinReplicas        types.Int64  `tfsdk:"min_replicas"`
+	MaxReplicas        types.Int64  `tfsdk:"max_replicas"`
+	Roles              []string     `tfsdk:"roles"`
+	StorageClass       types.String `tfsdk:"storage_class"`
+	Resources          types.Object `tfsdk:"resources"`
+	MaxUnhealthy       types.String `tfsdk:"max_unhealthy"`
+	NodeStartupTimeout types.String `tfsdk:"node_startup_timeout"`
 }
 
 func (m *kubernetesModel) expand(ctx context.Context) (*client.Application, diag.Diagnostics) {
@@ -155,6 +159,11 @@ func expandNodeGroups(ctx context.Context, value types.Map) (map[string]any, dia
 		if len(group.Roles) > 0 {
 			entry["roles"] = stringsToAny(group.Roles)
 		}
+
+		// Both overrides are undefaulted upstream: an absent key means the
+		// cluster-wide nodeHealthCheck applies to this group.
+		setOptionalString(entry, specMaxUnhealthy, group.MaxUnhealthy)
+		setOptionalString(entry, specNodeStartupTimeout, group.NodeStartupTimeout)
 
 		out[name] = entry
 	}
@@ -553,13 +562,15 @@ func flattenNodeGroups(raw any) (types.Map, diag.Diagnostics) {
 		resources, _ := flattenResources(group[attrResources])
 
 		return map[string]attr.Value{
-			"disk_size":     types.StringValue(specString(group, "diskSize")),
-			"instance_type": types.StringValue(specString(group, "instanceType")),
-			"min_replicas":  types.Int64Value(anyToInt64(group["minReplicas"])),
-			"max_replicas":  types.Int64Value(anyToInt64(group["maxReplicas"])),
-			"roles":         stringListOrNull(group["roles"]),
-			"storage_class": types.StringValue(specString(group, specStorageClass)),
-			"resources":     resources,
+			"disk_size":            types.StringValue(specString(group, "diskSize")),
+			"instance_type":        types.StringValue(specString(group, "instanceType")),
+			"min_replicas":         types.Int64Value(anyToInt64(group["minReplicas"])),
+			"max_replicas":         types.Int64Value(anyToInt64(group["maxReplicas"])),
+			"roles":                stringListOrNull(group["roles"]),
+			"storage_class":        types.StringValue(specString(group, specStorageClass)),
+			"resources":            resources,
+			"max_unhealthy":        specStringOrNull(group, specMaxUnhealthy),
+			"node_startup_timeout": specStringOrNull(group, specNodeStartupTimeout),
 		}
 	})
 }

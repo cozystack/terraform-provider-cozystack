@@ -47,13 +47,15 @@ func fullOIDCObject() types.Object {
 
 func fullKubernetesModel() kubernetesModel {
 	group := types.ObjectValueMust(k8sNodeGroupObjectType(), map[string]attr.Value{
-		"disk_size":     types.StringValue("20Gi"),
-		"instance_type": types.StringValue("u1.medium"),
-		"min_replicas":  types.Int64Value(0),
-		"max_replicas":  types.Int64Value(3),
-		"roles":         types.ListValueMust(types.StringType, []attr.Value{types.StringValue("ingress-nginx")}),
-		"storage_class": types.StringValue(""),
-		"resources":     types.ObjectNull(resourcesObjectType()),
+		"disk_size":            types.StringValue("20Gi"),
+		"instance_type":        types.StringValue("u1.medium"),
+		"min_replicas":         types.Int64Value(0),
+		"max_replicas":         types.Int64Value(3),
+		"roles":                types.ListValueMust(types.StringType, []attr.Value{types.StringValue("ingress-nginx")}),
+		"storage_class":        types.StringValue(""),
+		"resources":            types.ObjectNull(resourcesObjectType()),
+		"max_unhealthy":        types.StringValue("0%"),
+		"node_startup_timeout": types.StringValue("20m"),
 	})
 
 	return kubernetesModel{
@@ -115,6 +117,75 @@ func TestKubernetesExpand_NodeGroups(t *testing.T) {
 	roles, _ := md0["roles"].([]any)
 	if len(roles) != 1 || roles[0] != "ingress-nginx" {
 		t.Errorf("md0.roles = %v, want [ingress-nginx]", roles)
+	}
+}
+
+// The per-group health-check overrides have no upstream default: an absent key
+// means "inherit the cluster-wide nodeHealthCheck", so they must not be written
+// as empty strings.
+func TestKubernetesExpand_NodeGroupHealthOverrides(t *testing.T) {
+	t.Parallel()
+
+	model := fullKubernetesModel()
+
+	got, diags := model.expand(context.Background())
+	if diags.HasError() {
+		t.Fatalf("expand diagnostics: %v", diags)
+	}
+
+	md0 := nestedSpecKeys(t, got.Spec, "nodeGroups", "md0")
+	if !md0["maxUnhealthy"] || !md0["nodeStartupTimeout"] {
+		t.Errorf("node group keys = %v, want the health-check overrides emitted", md0)
+	}
+
+	bare := types.ObjectValueMust(k8sNodeGroupObjectType(), map[string]attr.Value{
+		"disk_size":            types.StringValue("20Gi"),
+		"instance_type":        types.StringValue("u1.medium"),
+		"min_replicas":         types.Int64Value(0),
+		"max_replicas":         types.Int64Value(3),
+		"roles":                types.ListNull(types.StringType),
+		"storage_class":        types.StringValue(""),
+		"resources":            types.ObjectNull(resourcesObjectType()),
+		"max_unhealthy":        types.StringNull(),
+		"node_startup_timeout": types.StringNull(),
+	})
+
+	model.NodeGroups = types.MapValueMust(
+		types.ObjectType{AttrTypes: k8sNodeGroupObjectType()},
+		map[string]attr.Value{"md0": bare},
+	)
+
+	got, diags = model.expand(context.Background())
+	if diags.HasError() {
+		t.Fatalf("expand diagnostics: %v", diags)
+	}
+
+	md0 = nestedSpecKeys(t, got.Spec, "nodeGroups", "md0")
+	if md0["maxUnhealthy"] || md0["nodeStartupTimeout"] {
+		t.Errorf("node group keys = %v, want the unset health-check overrides omitted", md0)
+	}
+}
+
+func TestKubernetesFlatten_NodeGroupHealthOverrides(t *testing.T) {
+	t.Parallel()
+
+	groups, diags := flattenNodeGroups(map[string]any{
+		"md0": map[string]any{"maxUnhealthy": "1"},
+	})
+	if diags.HasError() {
+		t.Fatalf("flatten diagnostics: %v", diags)
+	}
+
+	md0, _ := groups.Elements()["md0"].(types.Object)
+
+	maxUnhealthy, _ := md0.Attributes()["max_unhealthy"].(types.String)
+	if maxUnhealthy.ValueString() != "1" {
+		t.Errorf("max_unhealthy = %q, want 1", maxUnhealthy.ValueString())
+	}
+
+	timeout, _ := md0.Attributes()["node_startup_timeout"].(types.String)
+	if !timeout.IsNull() {
+		t.Errorf("node_startup_timeout = %v for an absent key, want null", timeout)
 	}
 }
 
