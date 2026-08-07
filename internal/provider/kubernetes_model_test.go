@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/cozystack/cozystack/api/apps/v1alpha1/kubernetes"
@@ -9,6 +10,15 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
+
+func fullTalosObject() types.Object {
+	return types.ObjectValueMust(k8sTalosObjectType(), map[string]attr.Value{
+		"image_factory_url":    types.StringValue("https://factory.example.test"),
+		"installer_repository": types.StringValue("registry.example.test/installer"),
+		"schematic_id":         types.StringValue("ce4c980550dd2ab1b17bbf2b08801c7eb59418eafe8f279833297925d67c7515"),
+		"version":              types.StringValue("v1.13.6"),
+	})
+}
 
 func fullKubernetesModel() kubernetesModel {
 	group := types.ObjectValueMust(k8sNodeGroupObjectType(), map[string]attr.Value{
@@ -28,7 +38,32 @@ func fullKubernetesModel() kubernetesModel {
 		Version:      types.StringValue("v1.35"),
 		Host:         types.StringValue("cluster.example.com"),
 		NodeGroups:   types.MapValueMust(types.ObjectType{AttrTypes: k8sNodeGroupObjectType()}, map[string]attr.Value{"md0": group}),
+		Talos:        fullTalosObject(),
 	}
+}
+
+// nestedSpecKeys walks into a nested block of the emitted spec and returns its
+// keys, so the coverage guard can be pointed at a struct below the top level.
+func nestedSpecKeys(t *testing.T, spec map[string]any, path ...string) map[string]bool {
+	t.Helper()
+
+	current := spec
+
+	for _, key := range path {
+		next, ok := current[key].(map[string]any)
+		if !ok {
+			t.Fatalf("spec block %q missing from the emitted spec", strings.Join(path, "."))
+		}
+
+		current = next
+	}
+
+	keys := make(map[string]bool, len(current))
+	for key := range current {
+		keys[key] = true
+	}
+
+	return keys
 }
 
 func TestKubernetesExpand_NodeGroups(t *testing.T) {
@@ -67,6 +102,104 @@ func TestKubernetesExpand_OmitsEmptyHost(t *testing.T) {
 	if _, ok := got.Spec[attrHost]; ok {
 		t.Errorf("host key present for empty host, want omitted")
 	}
+}
+
+// The talos block carries the worker OS image coordinates. Its upstream
+// defaults roll with every Cozystack release, so an unset block must leave the
+// key out of the spec entirely and let the server supply the current value.
+func TestKubernetesExpand_TalosOmittedWhenUnset(t *testing.T) {
+	t.Parallel()
+
+	model := fullKubernetesModel()
+	model.Talos = types.ObjectNull(k8sTalosObjectType())
+
+	got, diags := model.expand(context.Background())
+	if diags.HasError() {
+		t.Fatalf("expand diagnostics: %v", diags)
+	}
+
+	if _, ok := got.Spec["talos"]; ok {
+		t.Errorf("talos key present for an unset block, want omitted")
+	}
+}
+
+func TestKubernetesExpand_TalosEmitsOnlySetFields(t *testing.T) {
+	t.Parallel()
+
+	model := fullKubernetesModel()
+	model.Talos = types.ObjectValueMust(k8sTalosObjectType(), map[string]attr.Value{
+		"image_factory_url":    types.StringNull(),
+		"installer_repository": types.StringNull(),
+		"schematic_id":         types.StringNull(),
+		"version":              types.StringValue("v1.13.7"),
+	})
+
+	got, diags := model.expand(context.Background())
+	if diags.HasError() {
+		t.Fatalf("expand diagnostics: %v", diags)
+	}
+
+	talos, ok := got.Spec["talos"].(map[string]any)
+	if !ok {
+		t.Fatalf("talos = %#v, want a spec submap", got.Spec["talos"])
+	}
+
+	if len(talos) != 1 || talos["version"] != "v1.13.7" {
+		t.Errorf("talos = %v, want only version=v1.13.7", talos)
+	}
+}
+
+func TestKubernetesFlatten_Talos(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		spec  map[string]any
+		null  bool
+		field string
+		want  string
+	}{
+		{name: "absent block flattens to null", spec: map[string]any{}, null: true},
+		{
+			name:  "server-defaulted block round-trips",
+			spec:  map[string]any{"talos": map[string]any{"version": "v1.13.6"}},
+			field: "version",
+			want:  "v1.13.6",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := flattenTalos(tt.spec["talos"])
+			if got.IsNull() != tt.null {
+				t.Fatalf("talos null = %v, want %v", got.IsNull(), tt.null)
+			}
+
+			if tt.null {
+				return
+			}
+
+			value, _ := got.Attributes()[tt.field].(types.String)
+			if value.ValueString() != tt.want {
+				t.Errorf("talos.%s = %q, want %q", tt.field, value.ValueString(), tt.want)
+			}
+		})
+	}
+}
+
+func TestKubernetesExpandTalosKeysMatchTalosSpec(t *testing.T) {
+	t.Parallel()
+
+	model := fullKubernetesModel()
+
+	got, diags := model.expand(context.Background())
+	if diags.HasError() {
+		t.Fatalf("expand diagnostics: %v", diags)
+	}
+
+	assertSpecCoverage(t, nestedSpecKeys(t, got.Spec, "talos"), kubernetes.Talos{})
 }
 
 func TestKubernetesFlatten_RoundTrip(t *testing.T) {

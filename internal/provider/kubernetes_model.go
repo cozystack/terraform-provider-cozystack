@@ -7,11 +7,23 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 )
 
-// kubernetesModel maps the cozystack_kubernetes schema to Go types. The addons,
-// controlPlane, and images blocks, as well as per-node-group GPU and kubelet
-// tuning, are not managed (they use server defaults).
+// Spec keys of the cozystack_kubernetes blocks that carry no shared constant.
+const (
+	specNodeGroups = "nodeGroups"
+	specTalos      = "talos"
+)
+
+// kubernetesModel maps the cozystack_kubernetes schema to Go types. The addons
+// block and per-node-group GPU and kubelet tuning are not managed (they use
+// server defaults).
+//
+// Blocks whose upstream defaults roll with each Cozystack release (talos) are
+// modelled without provider-side defaults: an unset block is left out of the
+// emitted spec so the aggregated apiserver keeps supplying its own current
+// value, which it materialises on every read.
 type kubernetesModel struct {
 	ID           types.String `tfsdk:"id"`
 	Name         types.String `tfsdk:"name"`
@@ -20,6 +32,7 @@ type kubernetesModel struct {
 	Version      types.String `tfsdk:"version"`
 	Host         types.String `tfsdk:"host"`
 	NodeGroups   types.Map    `tfsdk:"node_groups"`
+	Talos        types.Object `tfsdk:"talos"`
 	Ready        types.Bool   `tfsdk:"ready"`
 	ChartVersion types.String `tfsdk:"chart_version"`
 	UID          types.String `tfsdk:"uid"`
@@ -76,13 +89,19 @@ func (m *kubernetesModel) expand(ctx context.Context) (*client.Application, diag
 	spec := map[string]any{
 		specStorageClass: m.StorageClass.ValueString(),
 		attrVersion:      m.Version.ValueString(),
-		"nodeGroups":     nodeGroups,
+		specNodeGroups:   nodeGroups,
 	}
 
 	// host is server-defaulted to a tenant subdomain; only send it when set so
 	// the computed default does not produce a perpetual diff.
 	if host := m.Host.ValueString(); host != "" {
 		spec[attrHost] = host
+	}
+
+	diags.Append(m.expandBlocks(ctx, spec)...)
+
+	if diags.HasError() {
+		return nil, diags
 	}
 
 	return &client.Application{
@@ -143,10 +162,11 @@ func (m *kubernetesModel) flatten(app *client.Application) diag.Diagnostics {
 	m.Version = types.StringValue(specString(app.Spec, attrVersion))
 	m.Host = types.StringValue(specString(app.Spec, attrHost))
 
-	nodeGroups, ngDiags := flattenNodeGroups(app.Spec["nodeGroups"])
+	nodeGroups, ngDiags := flattenNodeGroups(app.Spec[specNodeGroups])
 	diags.Append(ngDiags...)
 
 	m.NodeGroups = nodeGroups
+	m.Talos = flattenTalos(app.Spec[specTalos])
 
 	m.Ready = types.BoolValue(app.Status.Ready)
 	m.ChartVersion = types.StringValue(app.Status.Version)
@@ -179,6 +199,95 @@ func (m *kubernetesModel) readOutputs(ctx context.Context, api *client.Client) d
 	}
 
 	return diags
+}
+
+// expandBlocks renders the optional nested blocks into spec. Each block is
+// written only when the practitioner set it, so an unset block leaves the key
+// out and the server's own default stands.
+func (m *kubernetesModel) expandBlocks(ctx context.Context, spec map[string]any) diag.Diagnostics {
+	var diags diag.Diagnostics
+
+	blocks := []struct {
+		key    string
+		value  types.Object
+		expand func(context.Context, types.Object) (map[string]any, diag.Diagnostics)
+	}{
+		{key: specTalos, value: m.Talos, expand: expandTalos},
+	}
+
+	for _, block := range blocks {
+		out, blockDiags := block.expand(ctx, block.value)
+		diags.Append(blockDiags...)
+
+		if out != nil {
+			spec[block.key] = out
+		}
+	}
+
+	return diags
+}
+
+func k8sTalosObjectType() map[string]attr.Type {
+	return map[string]attr.Type{
+		"image_factory_url":    types.StringType,
+		"installer_repository": types.StringType,
+		"schematic_id":         types.StringType,
+		attrVersion:            types.StringType,
+	}
+}
+
+type k8sTalosData struct {
+	ImageFactoryURL     types.String `tfsdk:"image_factory_url"`
+	InstallerRepository types.String `tfsdk:"installer_repository"`
+	SchematicID         types.String `tfsdk:"schematic_id"`
+	Version             types.String `tfsdk:"version"`
+}
+
+// expandTalos renders the talos block into a spec submap, or nil when the block
+// is unset. Each field is emitted only when set: the upstream defaults name a
+// specific Talos release and image-factory schematic, both of which move with
+// every Cozystack release, so writing the provider's idea of them would pin the
+// cluster to a stale image.
+func expandTalos(ctx context.Context, obj types.Object) (map[string]any, diag.Diagnostics) {
+	var diags diag.Diagnostics
+
+	if obj.IsNull() || obj.IsUnknown() {
+		return nil, diags
+	}
+
+	var data k8sTalosData
+
+	diags.Append(obj.As(ctx, &data, basetypes.ObjectAsOptions{})...)
+
+	if diags.HasError() {
+		return nil, diags
+	}
+
+	out := map[string]any{}
+
+	setOptionalString(out, "imageFactoryURL", data.ImageFactoryURL)
+	setOptionalString(out, "installerRepository", data.InstallerRepository)
+	setOptionalString(out, "schematicID", data.SchematicID)
+	setOptionalString(out, attrVersion, data.Version)
+
+	return out, diags
+}
+
+// flattenTalos builds the talos block from a spec submap. An absent key
+// flattens to null; the aggregated apiserver materialises the block's schema
+// defaults on read, so a managed cluster normally reports every field.
+func flattenTalos(raw any) types.Object {
+	talos, ok := raw.(map[string]any)
+	if !ok {
+		return types.ObjectNull(k8sTalosObjectType())
+	}
+
+	return types.ObjectValueMust(k8sTalosObjectType(), map[string]attr.Value{
+		"image_factory_url":    specStringOrNull(talos, "imageFactoryURL"),
+		"installer_repository": specStringOrNull(talos, "installerRepository"),
+		"schematic_id":         specStringOrNull(talos, "schematicID"),
+		attrVersion:            specStringOrNull(talos, attrVersion),
+	})
 }
 
 func flattenNodeGroups(raw any) (types.Map, diag.Diagnostics) {

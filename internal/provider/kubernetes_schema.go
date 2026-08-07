@@ -54,6 +54,59 @@ func k8sNodeGroupsResourceAttribute() rschema.MapNestedAttribute {
 	}
 }
 
+// k8sTalosResourceAttribute returns the talos worker-image block. None of its
+// fields carries a provider-side default: upstream moves the Talos release and
+// the tested schematic with every Cozystack release, and a materialised default
+// would freeze the cluster on whatever was current when the provider shipped.
+// Leaving a field unset keeps the key out of the spec, so the server's own
+// default applies and is reported back into state.
+func k8sTalosResourceAttribute() rschema.SingleNestedAttribute {
+	return rschema.SingleNestedAttribute{
+		Optional: true, Computed: true,
+		MarkdownDescription: "Talos worker OS image coordinates. Every field follows the " +
+			"platform default while unset; set one only to pin it.",
+		Attributes: map[string]rschema.Attribute{
+			"image_factory_url": rschema.StringAttribute{
+				Optional: true, Computed: true,
+				MarkdownDescription: "Base URL of the Talos Image Factory serving the worker OS disk image " +
+					"(no trailing slash). Point at a self-hosted factory or caching mirror for air-gapped or " +
+					"rate-limited environments. Follows the platform default (`https://factory.talos.dev`) while unset.",
+			},
+			"installer_repository": rschema.StringAttribute{
+				Optional: true, Computed: true,
+				MarkdownDescription: "OCI repository prefix for the Talos installer image, resolved as " +
+					"`<installer_repository>/<schematic_id>:<version>` (no trailing slash). Follows the platform " +
+					"default (`factory.talos.dev/installer`) while unset.",
+			},
+			"schematic_id": rschema.StringAttribute{
+				Optional: true, Computed: true,
+				MarkdownDescription: "Talos image-factory schematic ID. Set it only to use a custom schematic " +
+					"(system extensions, kernel args); while unset the cluster follows the platform's tested " +
+					"schematic, which changes between Cozystack releases.",
+			},
+			attrVersion: rschema.StringAttribute{
+				Optional: true, Computed: true,
+				MarkdownDescription: "Talos release used for the worker OS image and installer. Must satisfy the " +
+					"chart's Talos/Kubernetes support matrix against `version`. Follows the platform default " +
+					"while unset, which is the safe choice — the matrix moves with each Cozystack release.",
+			},
+		},
+	}
+}
+
+func k8sTalosDataSourceAttribute() dsschema.SingleNestedAttribute {
+	return dsschema.SingleNestedAttribute{
+		Computed:            true,
+		MarkdownDescription: "Talos worker OS image coordinates.",
+		Attributes: map[string]dsschema.Attribute{
+			"image_factory_url":    dsschema.StringAttribute{Computed: true, MarkdownDescription: "Talos Image Factory base URL."},
+			"installer_repository": dsschema.StringAttribute{Computed: true, MarkdownDescription: "Talos installer OCI repository prefix."},
+			"schematic_id":         dsschema.StringAttribute{Computed: true, MarkdownDescription: "Talos image-factory schematic ID."},
+			attrVersion:            dsschema.StringAttribute{Computed: true, MarkdownDescription: "Talos release used for workers."},
+		},
+	}
+}
+
 func kubernetesSchema() rschema.Schema {
 	attributes := identityResourceAttributes("Kubernetes cluster name (`metadata.name`). Immutable.")
 
@@ -75,6 +128,7 @@ func kubernetesSchema() rschema.Schema {
 				"Defaults to `<cluster-name>.<tenant-host>`.",
 		},
 		"node_groups": k8sNodeGroupsResourceAttribute(),
+		specTalos:     k8sTalosResourceAttribute(),
 		"kubeconfig": rschema.StringAttribute{
 			Computed:  true,
 			Sensitive: true,
@@ -116,6 +170,7 @@ func kubernetesDataSourceSchema() dsschema.Schema {
 				},
 			},
 		},
+		specTalos: k8sTalosDataSourceAttribute(),
 		"kubeconfig": dsschema.StringAttribute{
 			Computed:            true,
 			Sensitive:           true,
