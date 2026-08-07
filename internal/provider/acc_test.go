@@ -144,6 +144,10 @@ func TestAccTenantResource(t *testing.T) {
 					resource.TestCheckResourceAttr("cozystack_tenant.test", "monitoring", "false"),
 					resource.TestCheckResourceAttr("cozystack_tenant.test", "id", "tenant-root/tfacc"),
 					resource.TestCheckResourceAttrSet("cozystack_tenant.test", "status_namespace"),
+					// gateway is unset here, so the platform decides and the key
+					// must stay out of both the request and the state. A value
+					// showing up would mean the three-state encoding collapsed.
+					resource.TestCheckNoResourceAttr("cozystack_tenant.test", "gateway"),
 				),
 			},
 			{
@@ -1005,6 +1009,17 @@ resource "cozystack_kubernetes" "test" {
 					resource.TestCheckResourceAttr("cozystack_kubernetes.test", "id", "tenant-root/tfacck8s"),
 					resource.TestCheckResourceAttr("cozystack_kubernetes.test", "node_groups.md0.max_replicas", "1"),
 					resource.TestCheckResourceAttr("cozystack_kubernetes.test", "node_groups.md0.disk_size", "20Gi"),
+					// The config pins none of the 1.6 blocks, so these values can
+					// only come from the server, which materialises the schema
+					// defaults on every read. That is what lets the provider leave
+					// drift-prone defaults (the Talos release, the schematic, the
+					// image tags) unpinned instead of copying them into the schema.
+					resource.TestCheckResourceAttrSet("cozystack_kubernetes.test", "talos.version"),
+					resource.TestCheckResourceAttrSet("cozystack_kubernetes.test", "node_health_check.max_unhealthy"),
+					resource.TestCheckResourceAttr("cozystack_kubernetes.test", "oidc.mode", "None"),
+					// Per-group health overrides are undefaulted upstream: unset
+					// stays unset rather than being echoed back as an empty string.
+					resource.TestCheckNoResourceAttr("cozystack_kubernetes.test", "node_groups.md0.max_unhealthy"),
 				),
 			},
 			{
