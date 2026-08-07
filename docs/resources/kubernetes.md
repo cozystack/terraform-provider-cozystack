@@ -4,14 +4,14 @@ page_title: "cozystack_kubernetes Resource - cozystack"
 subcategory: ""
 description: |-
   A Cozystack managed Kubernetes cluster, deployed inside a tenant namespace. The addons block, the control-plane component sizing, and per-node-group GPU and kubelet tuning use server defaults.
-  The talos, node_health_check, oidc, control_plane, and images blocks are driven by the configuration, not by prior state: a block the configuration does not set is left out of every request, so the platform's own defaults apply and keep moving with it rather than being pinned at apply time. The effective values are still reported back into state, so terraform show displays what the platform chose. The flip side is the usual Terraform contract — after an import, a value set out of band inside one of those blocks is dropped on the next update unless the configuration names it.
+  In the talos, node_health_check, oidc, control_plane, and images blocks this resource tracks only what the configuration sets. A field left unset stays out of every request and out of state, so the platform's own default applies and keeps moving with the platform instead of being pinned at apply time; a field that is set refreshes normally, so drift against it is still planned away. Read the effective values — including the ones nobody configured — through the cozystack_kubernetes data source. The flip side is the usual Terraform contract: after an import, a value set out of band inside one of those blocks is dropped on the next update unless the configuration names it.
 ---
 
 # cozystack_kubernetes (Resource)
 
 A Cozystack managed Kubernetes cluster, deployed inside a tenant namespace. The addons block, the control-plane component sizing, and per-node-group GPU and kubelet tuning use server defaults.
 
-The `talos`, `node_health_check`, `oidc`, `control_plane`, and `images` blocks are driven by the configuration, not by prior state: a block the configuration does not set is left out of every request, so the platform's own defaults apply and keep moving with it rather than being pinned at apply time. The effective values are still reported back into state, so `terraform show` displays what the platform chose. The flip side is the usual Terraform contract — after an import, a value set out of band inside one of those blocks is dropped on the next update unless the configuration names it.
+In the `talos`, `node_health_check`, `oidc`, `control_plane`, and `images` blocks this resource tracks only what the configuration sets. A field left unset stays out of every request and out of state, so the platform's own default applies and keeps moving with the platform instead of being pinned at apply time; a field that is set refreshes normally, so drift against it is still planned away. Read the effective values — including the ones nobody configured — through the `cozystack_kubernetes` data source. The flip side is the usual Terraform contract: after an import, a value set out of band inside one of those blocks is dropped on the next update unless the configuration names it.
 
 ## Example Usage
 

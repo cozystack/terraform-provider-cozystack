@@ -47,22 +47,6 @@ func readModelOutputs(ctx context.Context, model any, api *client.Client, diags 
 	}
 }
 
-// configuredModel is an optional behaviour for models that must tell an
-// attribute the practitioner wrote from one Terraform filled in on their
-// behalf. Terraform's proposed new state copies the prior state into the plan
-// for every Optional+Computed attribute the configuration leaves out, so a
-// plan-only expand sees no difference between the two. For a kind whose unset
-// blocks are meant to stay out of the request — leaving the server's own
-// defaults in force, and following them as they move — that difference is the
-// whole point: without it the first update writes the platform's current
-// defaults back as though they had been requested, and pins them.
-//
-// applyConfig runs after the plan is read and before expand, and takes the
-// configuration as the authority for the attributes it covers.
-type configuredModel interface {
-	applyConfig(ctx context.Context, config tfsdk.Config) diag.Diagnostics
-}
-
 // readModelPtr / planModelPtr bind a concrete struct M to its pointer methods so
 // the generic helpers can allocate a model and operate on it.
 type readModelPtr[M any] interface {
@@ -75,28 +59,12 @@ type planModelPtr[M any] interface {
 	planModel
 }
 
-// createOrUpdate is the shared Create/Update implementation for kinds whose
-// model expands from the plan alone.
+// createOrUpdate is the shared Create/Update implementation for every kind.
 func createOrUpdate[M any, PM planModelPtr[M]](
 	ctx context.Context,
 	api *client.Client,
 	res client.Resource,
 	create bool,
-	plan tfsdk.Plan,
-	state *tfsdk.State,
-	diags *diag.Diagnostics,
-) {
-	createOrUpdateWithConfig[M, PM](ctx, api, res, create, nil, plan, state, diags)
-}
-
-// createOrUpdateWithConfig is createOrUpdate with the practitioner's
-// configuration available, for models implementing configuredModel.
-func createOrUpdateWithConfig[M any, PM planModelPtr[M]](
-	ctx context.Context,
-	api *client.Client,
-	res client.Resource,
-	create bool,
-	config *tfsdk.Config,
 	plan tfsdk.Plan,
 	state *tfsdk.State,
 	diags *diag.Diagnostics,
@@ -109,24 +77,6 @@ func createOrUpdateWithConfig[M any, PM planModelPtr[M]](
 
 	if diags.HasError() {
 		return
-	}
-
-	if configured, needsConfig := any(pm).(configuredModel); needsConfig {
-		if config == nil {
-			diags.AddError(
-				"Configuration unavailable",
-				fmt.Sprintf("%T distinguishes configured attributes from planned ones but was created "+
-					"through a code path that does not supply the configuration. This is a bug in the provider.", pm),
-			)
-
-			return
-		}
-
-		diags.Append(configured.applyConfig(ctx, *config)...)
-
-		if diags.HasError() {
-			return
-		}
 	}
 
 	app, expandDiags := pm.expand(ctx)

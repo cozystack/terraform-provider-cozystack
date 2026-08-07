@@ -1038,14 +1038,14 @@ func TestAccKubernetesResource(t *testing.T) {
 					resource.TestCheckResourceAttr("cozystack_kubernetes.test", "id", "tenant-root/tfacck8s"),
 					resource.TestCheckResourceAttr("cozystack_kubernetes.test", "node_groups.md0.max_replicas", "1"),
 					resource.TestCheckResourceAttr("cozystack_kubernetes.test", "node_groups.md0.disk_size", "20Gi"),
-					// The config pins none of the 1.6 blocks, so these values can
-					// only come from the server, which materialises the schema
-					// defaults on every read. That is what lets the provider leave
-					// drift-prone defaults (the Talos release, the schematic, the
-					// image tags) unpinned instead of copying them into the schema.
-					resource.TestCheckResourceAttrSet("cozystack_kubernetes.test", "talos.version"),
-					resource.TestCheckResourceAttrSet("cozystack_kubernetes.test", "node_health_check.max_unhealthy"),
-					resource.TestCheckResourceAttr("cozystack_kubernetes.test", "oidc.mode", "None"),
+					// The configuration pins none of the 1.6 blocks. The server
+					// materialises its schema defaults on every read, and the
+					// managed resource deliberately does not absorb them: storing
+					// them would put them in the plan, and the next update would
+					// write them into the release as explicit values.
+					resource.TestCheckNoResourceAttr("cozystack_kubernetes.test", "talos.version"),
+					resource.TestCheckNoResourceAttr("cozystack_kubernetes.test", "node_health_check.max_unhealthy"),
+					resource.TestCheckNoResourceAttr("cozystack_kubernetes.test", "oidc.mode"),
 					// Per-group health overrides are undefaulted upstream: unset
 					// stays unset rather than being echoed back as an empty string.
 					resource.TestCheckNoResourceAttr("cozystack_kubernetes.test", "node_groups.md0.max_unhealthy"),
@@ -1061,7 +1061,6 @@ func TestAccKubernetesResource(t *testing.T) {
 					resource.TestCheckResourceAttr("cozystack_kubernetes.test", "node_groups.md0.max_replicas", "2"),
 					checkSpecOmits(client.KubernetesResource(), "tenant-root", "tfacck8s",
 						"talos", "oidc", "nodeHealthCheck", "images", "controlPlane"),
-					resource.TestCheckResourceAttrSet("cozystack_kubernetes.test", "talos.version"),
 				),
 			},
 			{

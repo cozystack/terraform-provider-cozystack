@@ -105,34 +105,34 @@ func k8sNodeGroupResourcesAttribute() rschema.SingleNestedAttribute {
 // fields carries a provider-side default: upstream moves the Talos release and
 // the tested schematic with every Cozystack release, and a materialised default
 // would freeze the cluster on whatever was current when the provider shipped.
-// Leaving a field unset keeps the key out of the spec, so the server's own
-// default applies and is reported back into state.
+// Leaving a field unset keeps the key out of the spec, so the platform's own
+// default applies; the data source is where the effective value is read.
 func k8sTalosResourceAttribute() rschema.SingleNestedAttribute {
 	return rschema.SingleNestedAttribute{
-		Optional: true, Computed: true,
+		Optional: true,
 		MarkdownDescription: "Talos worker OS image coordinates. Every field follows the " +
 			"platform default while unset; set one only to pin it.",
 		Attributes: map[string]rschema.Attribute{
 			"image_factory_url": rschema.StringAttribute{
-				Optional: true, Computed: true,
+				Optional: true,
 				MarkdownDescription: "Base URL of the Talos Image Factory serving the worker OS disk image " +
 					"(no trailing slash). Point at a self-hosted factory or caching mirror for air-gapped or " +
 					"rate-limited environments. Follows the platform default (`https://factory.talos.dev`) while unset.",
 			},
 			"installer_repository": rschema.StringAttribute{
-				Optional: true, Computed: true,
+				Optional: true,
 				MarkdownDescription: "OCI repository prefix for the Talos installer image, resolved as " +
 					"`<installer_repository>/<schematic_id>:<version>` (no trailing slash). Follows the platform " +
 					"default (`factory.talos.dev/installer`) while unset.",
 			},
 			"schematic_id": rschema.StringAttribute{
-				Optional: true, Computed: true,
+				Optional: true,
 				MarkdownDescription: "Talos image-factory schematic ID. Set it only to use a custom schematic " +
 					"(system extensions, kernel args); while unset the cluster follows the platform's tested " +
 					"schematic, which changes between Cozystack releases.",
 			},
 			attrVersion: rschema.StringAttribute{
-				Optional: true, Computed: true,
+				Optional: true,
 				MarkdownDescription: "Talos release used for the worker OS image and installer. Must satisfy the " +
 					"chart's Talos/Kubernetes support matrix against `version`. Follows the platform default " +
 					"while unset, which is the safe choice — the matrix moves with each Cozystack release.",
@@ -158,18 +158,18 @@ func k8sTalosDataSourceAttribute() dsschema.SingleNestedAttribute {
 // block. Like every 1.6 block it is left to the platform while unset.
 func k8sNodeHealthCheckResourceAttribute() rschema.SingleNestedAttribute {
 	return rschema.SingleNestedAttribute{
-		Optional: true, Computed: true,
+		Optional: true,
 		MarkdownDescription: "MachineHealthCheck tuning applied to every worker node group. " +
 			"Follows the platform defaults while unset.",
 		Attributes: map[string]rschema.Attribute{
 			"max_unhealthy": rschema.StringAttribute{
-				Optional: true, Computed: true,
+				Optional: true,
 				MarkdownDescription: "Unhealthy nodes tolerated per node group before remediation pauses. " +
 					"The MachineHealthCheck admission webhook takes a bare integer (`\"1\"`) or a percentage " +
 					"(`\"50%\"`); a percentage is the safer form. Follows the platform default (`50%`) while unset.",
 			},
 			"node_startup_timeout": rschema.StringAttribute{
-				Optional: true, Computed: true,
+				Optional: true,
 				MarkdownDescription: "How long a Machine may take to reach Ready before it is remediated " +
 					"(duration, e.g. `20m`). Raise it for slow first boots — a Talos image fetch from the " +
 					"image factory, or a busy StorageClass. Follows the platform default (`10m`) while unset.",
@@ -192,12 +192,12 @@ func k8sNodeHealthCheckDataSourceAttribute() dsschema.SingleNestedAttribute {
 // k8sOIDCResourceAttribute returns the tenant kube-apiserver identity block.
 func k8sOIDCResourceAttribute() rschema.SingleNestedAttribute {
 	return rschema.SingleNestedAttribute{
-		Optional: true, Computed: true,
+		Optional: true,
 		MarkdownDescription: "OIDC authentication and per-user RBAC for the tenant kube-apiserver. " +
 			"Follows the platform default (identity off, static admin kubeconfig only) while unset.",
 		Attributes: map[string]rschema.Attribute{
 			"mode": rschema.StringAttribute{
-				Optional: true, Computed: true,
+				Optional:   true,
 				Validators: []validator.String{stringvalidator.OneOf("None", "System", "CustomConfig")},
 				MarkdownDescription: "Identity mode. `None` leaves only the static admin kubeconfig working. " +
 					"`System` trusts the platform realm through a per-cluster public client with audience " +
@@ -212,7 +212,7 @@ func k8sOIDCResourceAttribute() rschema.SingleNestedAttribute {
 
 func k8sOIDCUsersResourceAttribute() rschema.ListNestedAttribute {
 	return rschema.ListNestedAttribute{
-		Optional: true, Computed: true,
+		Optional: true,
 		MarkdownDescription: "Users granted access to the tenant cluster; each entry becomes one " +
 			"ClusterRoleBinding inside it. Applies to both `System` and `CustomConfig`. An explicitly " +
 			"empty list binds nobody, which is not the same as leaving the attribute unset.",
@@ -235,12 +235,12 @@ func k8sOIDCUsersResourceAttribute() rschema.ListNestedAttribute {
 
 func k8sOIDCCustomConfigResourceAttribute() rschema.SingleNestedAttribute {
 	return rschema.SingleNestedAttribute{
-		Optional: true, Computed: true,
+		Optional: true,
 		MarkdownDescription: "Tenant-supplied `AuthenticationConfiguration`, read only when " +
 			"`mode = \"CustomConfig\"`. Supply it inline or by Secret reference, never both.",
 		Attributes: map[string]rschema.Attribute{
 			"config": rschema.StringAttribute{
-				Optional: true, Computed: true,
+				Optional: true,
 				Validators: []validator.String{
 					stringvalidator.ConflictsWith(path.MatchRelative().AtParent().AtName("secret_ref")),
 				},
@@ -249,12 +249,12 @@ func k8sOIDCCustomConfigResourceAttribute() rschema.SingleNestedAttribute {
 					"Conflicts with `secret_ref`.",
 			},
 			"secret_ref": rschema.SingleNestedAttribute{
-				Optional: true, Computed: true,
+				Optional: true,
 				MarkdownDescription: "Reference to an existing Secret in the tenant namespace holding the " +
 					"AuthenticationConfiguration. Conflicts with `config`.",
 				Attributes: map[string]rschema.Attribute{
 					attrName: rschema.StringAttribute{
-						Optional: true, Computed: true,
+						Optional: true,
 						MarkdownDescription: "Name of a Secret in the release namespace whose `config.yaml` " +
 							"key holds the AuthenticationConfiguration.",
 					},
@@ -303,7 +303,7 @@ func k8sOIDCDataSourceAttribute() dsschema.SingleNestedAttribute {
 // the konnectivity and scheduler blocks keep their server defaults.
 func k8sControlPlaneResourceAttribute() rschema.SingleNestedAttribute {
 	return rschema.SingleNestedAttribute{
-		Optional: true, Computed: true,
+		Optional: true,
 		MarkdownDescription: "Tenant control-plane configuration. Only the API-server passthrough is " +
 			"managed here; component sizing and the replica count follow the platform.",
 		Attributes: map[string]rschema.Attribute{
@@ -314,19 +314,19 @@ func k8sControlPlaneResourceAttribute() rschema.SingleNestedAttribute {
 
 func k8sAPIServerResourceAttribute() rschema.SingleNestedAttribute {
 	return rschema.SingleNestedAttribute{
-		Optional: true, Computed: true,
+		Optional: true,
 		MarkdownDescription: "Escape hatch onto the tenant kube-apiserver, passed through to the " +
 			"KamajiControlPlane. Do not hand-roll `--oidc-*` flags here when `oidc.mode` is not `None`: " +
 			"the chart injects `--authentication-config` and the apiserver refuses to start with both.",
 		Attributes: map[string]rschema.Attribute{
 			"extra_args": rschema.ListAttribute{
-				Optional: true, Computed: true,
+				Optional:    true,
 				ElementType: types.StringType,
 				MarkdownDescription: "Extra command-line flags appended to the tenant kube-apiserver, for " +
 					"feature gates and header configuration. Use `oidc` for identity.",
 			},
 			"extra_volumes": rschema.ListAttribute{
-				Optional: true, Computed: true,
+				Optional:    true,
 				ElementType: jsontypes.NormalizedType{},
 				MarkdownDescription: "Extra volumes on the control-plane Deployment, each a core/v1 Volume as " +
 					"JSON (`jsonencode({ name = \"…\", configMap = { name = \"…\" } })`). The control-plane pod " +
@@ -335,7 +335,7 @@ func k8sAPIServerResourceAttribute() rschema.SingleNestedAttribute {
 					"`talos-tls-cert` are reserved by the chart.",
 			},
 			"extra_volume_mounts": rschema.ListAttribute{
-				Optional: true, Computed: true,
+				Optional:    true,
 				ElementType: jsontypes.NormalizedType{},
 				MarkdownDescription: "Extra volume mounts on the kube-apiserver container, each a core/v1 " +
 					"VolumeMount as JSON. Every `name` must reference a volume declared in `extra_volumes`; the " +
@@ -377,20 +377,20 @@ func k8sControlPlaneDataSourceAttribute() dsschema.SingleNestedAttribute {
 // provider-side default.
 func k8sImagesResourceAttribute() rschema.SingleNestedAttribute {
 	return rschema.SingleNestedAttribute{
-		Optional: true, Computed: true,
+		Optional: true,
 		MarkdownDescription: "Image overrides for air-gapped or rate-limited registries. Each unset field " +
 			"follows the tag pinned by the deployed chart.",
 		Attributes: map[string]rschema.Attribute{
 			"kubectl": rschema.StringAttribute{
-				Optional: true, Computed: true,
+				Optional:            true,
 				MarkdownDescription: "Image for the bootstrap-token Job that runs inside the tenant.",
 			},
 			"talos_csr_signer": rschema.StringAttribute{
-				Optional: true, Computed: true,
+				Optional:            true,
 				MarkdownDescription: "Image for the talos-csr-signer sidecar in the Kamaji control plane.",
 			},
 			"wait_for_kubeconfig": rschema.StringAttribute{
-				Optional: true, Computed: true,
+				Optional:            true,
 				MarkdownDescription: "Image for the wait-for-kubeconfig init container.",
 			},
 		},
@@ -438,9 +438,9 @@ func kubernetesSchema() rschema.Schema {
 		},
 		"node_groups":       k8sNodeGroupsResourceAttribute(),
 		attrTalos:           k8sTalosResourceAttribute(),
-		"node_health_check": k8sNodeHealthCheckResourceAttribute(),
+		attrNodeHealthCheck: k8sNodeHealthCheckResourceAttribute(),
 		attrOIDC:            k8sOIDCResourceAttribute(),
-		"control_plane":     k8sControlPlaneResourceAttribute(),
+		attrControlPlane:    k8sControlPlaneResourceAttribute(),
 		attrImages:          k8sImagesResourceAttribute(),
 		"kubeconfig": rschema.StringAttribute{
 			Computed:  true,
@@ -457,13 +457,14 @@ func kubernetesSchema() rschema.Schema {
 		MarkdownDescription: "A Cozystack managed Kubernetes cluster, deployed inside a tenant namespace. " +
 			"The addons block, the control-plane component sizing, and per-node-group GPU and kubelet " +
 			"tuning use server defaults.\n\n" +
-			"The `talos`, `node_health_check`, `oidc`, `control_plane`, and `images` blocks are driven by " +
-			"the configuration, not by prior state: a block the configuration does not set is left out of " +
-			"every request, so the platform's own defaults apply and keep moving with it rather than being " +
-			"pinned at apply time. The effective values are still reported back into state, so " +
-			"`terraform show` displays what the platform chose. The flip side is the usual Terraform " +
-			"contract — after an import, a value set out of band inside one of those blocks is dropped on " +
-			"the next update unless the configuration names it.",
+			"In the `talos`, `node_health_check`, `oidc`, `control_plane`, and `images` blocks this " +
+			"resource tracks only what the configuration sets. A field left unset stays out of every " +
+			"request and out of state, so the platform's own default applies and keeps moving with the " +
+			"platform instead of being pinned at apply time; a field that is set refreshes normally, so " +
+			"drift against it is still planned away. Read the effective values — including the ones " +
+			"nobody configured — through the `cozystack_kubernetes` data source. The flip side is the " +
+			"usual Terraform contract: after an import, a value set out of band inside one of those " +
+			"blocks is dropped on the next update unless the configuration names it.",
 		Attributes: attributes,
 	}
 }
@@ -493,9 +494,9 @@ func kubernetesDataSourceSchema() dsschema.Schema {
 			},
 		},
 		attrTalos:           k8sTalosDataSourceAttribute(),
-		"node_health_check": k8sNodeHealthCheckDataSourceAttribute(),
+		attrNodeHealthCheck: k8sNodeHealthCheckDataSourceAttribute(),
 		attrOIDC:            k8sOIDCDataSourceAttribute(),
-		"control_plane":     k8sControlPlaneDataSourceAttribute(),
+		attrControlPlane:    k8sControlPlaneDataSourceAttribute(),
 		attrImages:          k8sImagesDataSourceAttribute(),
 		"kubeconfig": dsschema.StringAttribute{
 			Computed:            true,

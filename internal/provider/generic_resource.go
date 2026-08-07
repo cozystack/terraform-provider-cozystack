@@ -74,7 +74,7 @@ func (r *appResource[M, PM]) Create(
 	req resource.CreateRequest,
 	resp *resource.CreateResponse,
 ) {
-	createOrUpdateWithConfig[M, PM](ctx, r.client, r.res, true, &req.Config, req.Plan, &resp.State, &resp.Diagnostics)
+	createOrUpdate[M, PM](ctx, r.client, r.res, true, req.Plan, &resp.State, &resp.Diagnostics)
 }
 
 func (r *appResource[M, PM]) Update(
@@ -82,7 +82,7 @@ func (r *appResource[M, PM]) Update(
 	req resource.UpdateRequest,
 	resp *resource.UpdateResponse,
 ) {
-	createOrUpdateWithConfig[M, PM](ctx, r.client, r.res, false, &req.Config, req.Plan, &resp.State, &resp.Diagnostics)
+	createOrUpdate[M, PM](ctx, r.client, r.res, false, req.Plan, &resp.State, &resp.Diagnostics)
 }
 
 func (r *appResource[M, PM]) Read(

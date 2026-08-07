@@ -790,104 +790,167 @@ func TestKubernetesExpandNodeGroupKeysMatchNodeGroupSpec(t *testing.T) {
 	assertSpecCoverage(t, emitted, kubernetes.NodeGroup{}, "gpus", "kubelet")
 }
 
-// The gap that made the unset-block contract hold only on the first apply:
-// Terraform copies the prior state into the plan for every Optional+Computed
-// attribute the configuration leaves out, and the state holds whatever the
-// server materialised on the previous read. Expanding the plan alone therefore
-// writes the platform's own defaults back as though they had been asked for,
-// and from then on the release carries them and stops following the platform.
-// applyConfig closes it by taking the configuration as the authority.
-func TestKubernetesApplyConfig_DropsBlocksTheConfigNeverSet(t *testing.T) {
+// The managed resource must not absorb blocks the configuration never wrote.
+// The aggregated apiserver materialises this Kind's schema defaults on every
+// read, so a resource that stored them would carry them into the plan and, on
+// the next update, write them into the release as explicit values — freezing the
+// cluster on the Talos release and schematic that were current that day. The
+// data source keeps reporting everything; only the resource trims.
+func TestKubernetesResourceFlatten_KeepsUnconfiguredBlocksOut(t *testing.T) {
 	t.Parallel()
 
-	ctx := context.Background()
-
-	// The configuration sets none of the blocks; the plan carries them all,
-	// exactly as it would after a create against a 1.6 server.
-	bare := fullKubernetesModel()
-	bare.Talos = types.ObjectNull(k8sTalosObjectType())
-	bare.NodeHealthCheck = types.ObjectNull(k8sNodeHealthCheckObjectType())
-	bare.OIDC = types.ObjectNull(k8sOIDCObjectType())
-	bare.ControlPlane = types.ObjectNull(k8sControlPlaneObjectType())
-	bare.Images = types.ObjectNull(k8sImagesObjectType())
-
-	planned := fullKubernetesModel()
-
-	if diags := planned.applyConfig(ctx, kubernetesConfig(ctx, t, bare)); diags.HasError() {
-		t.Fatalf("applyConfig diagnostics: %v", diags)
+	app := &client.Application{
+		Name:      "cluster",
+		Namespace: "tenant-root",
+		Spec: map[string]any{
+			"storageClass": "replicated",
+			"version":      "v1.35",
+			"nodeGroups":   map[string]any{},
+			// The whole surface the server materialises for a cluster whose
+			// configuration pinned none of it.
+			"talos": map[string]any{
+				"imageFactoryURL":     "https://factory.talos.dev",
+				"installerRepository": "factory.talos.dev/installer",
+				"schematicID":         "ce4c980550dd2ab1b17bbf2b08801c7eb59418eafe8f279833297925d67c7515",
+				"version":             "v1.13.6",
+			},
+			"nodeHealthCheck": map[string]any{"maxUnhealthy": "50%", "nodeStartupTimeout": "10m"},
+			"oidc":            map[string]any{"mode": "None", "users": []any{}},
+			"images":          map[string]any{"kubectl": "", "talosCsrSigner": "", "waitForKubeconfig": ""},
+			"controlPlane":    map[string]any{"apiServer": map[string]any{"extraArgs": []any{}}},
+		},
 	}
 
-	got, diags := planned.expand(ctx)
-	if diags.HasError() {
-		t.Fatalf("expand diagnostics: %v", diags)
+	var resourceModel kubernetesResourceModel
+
+	if diags := resourceModel.flatten(app); diags.HasError() {
+		t.Fatalf("flatten diagnostics: %v", diags)
 	}
 
-	for _, key := range []string{"talos", "nodeHealthCheck", "oidc", "controlPlane", "images"} {
-		if _, ok := got.Spec[key]; ok {
-			t.Errorf("%s present after a plan that only echoed the server's own defaults, want omitted", key)
+	for name, value := range map[string]types.Object{
+		"talos":             resourceModel.Talos,
+		"node_health_check": resourceModel.NodeHealthCheck,
+		"oidc":              resourceModel.OIDC,
+		"control_plane":     resourceModel.ControlPlane,
+		"images":            resourceModel.Images,
+	} {
+		if !value.IsNull() {
+			t.Errorf("%s = %v after a read of an unconfigured cluster, want null", name, value)
 		}
 	}
+
+	// Same server response through the data source model, which is what the
+	// effective values are for.
+	var dataSourceModel kubernetesModel
+
+	if diags := dataSourceModel.flatten(app); diags.HasError() {
+		t.Fatalf("flatten diagnostics: %v", diags)
+	}
+
+	talos, _ := dataSourceModel.Talos.Attributes()[attrVersion].(types.String)
+	if talos.ValueString() != "v1.13.6" {
+		t.Errorf("data source talos.version = %q, want the platform's v1.13.6", talos.ValueString())
+	}
 }
 
-// The same hole one level down: a configuration that pins a single field gets a
-// plan whose siblings are filled in from state, and writing those back pins them
-// too.
-func TestKubernetesApplyConfig_KeepsOnlyConfiguredFields(t *testing.T) {
+// A configured field still refreshes, so drift against it stays visible; its
+// unconfigured siblings stay null rather than being adopted from the server.
+func TestKubernetesResourceFlatten_RefreshesConfiguredFieldsOnly(t *testing.T) {
 	t.Parallel()
 
-	ctx := context.Background()
+	resourceModel := kubernetesResourceModel{kubernetesModel: kubernetesModel{
+		Talos: types.ObjectValueMust(k8sTalosObjectType(), map[string]attr.Value{
+			"image_factory_url":    types.StringNull(),
+			"installer_repository": types.StringNull(),
+			"schematic_id":         types.StringNull(),
+			attrVersion:            types.StringValue("v1.13.6"),
+		}),
+	}}
 
-	partial := fullKubernetesModel()
-	partial.Talos = types.ObjectValueMust(k8sTalosObjectType(), map[string]attr.Value{
-		"image_factory_url":    types.StringNull(),
-		"installer_repository": types.StringNull(),
-		"schematic_id":         types.StringNull(),
-		"version":              types.StringValue("v1.13.7"),
+	app := &client.Application{
+		Name:      "cluster",
+		Namespace: "tenant-root",
+		Spec: map[string]any{
+			"nodeGroups": map[string]any{},
+			"talos": map[string]any{
+				"imageFactoryURL": "https://factory.talos.dev",
+				"schematicID":     "ce4c980550dd2ab1b17bbf2b08801c7eb59418eafe8f279833297925d67c7515",
+				"version":         "v1.13.9",
+			},
+		},
+	}
+
+	if diags := resourceModel.flatten(app); diags.HasError() {
+		t.Fatalf("flatten diagnostics: %v", diags)
+	}
+
+	version, _ := resourceModel.Talos.Attributes()[attrVersion].(types.String)
+	if version.ValueString() != "v1.13.9" {
+		t.Errorf("talos.version = %q, want the server's v1.13.9 so the drift is planned away", version.ValueString())
+	}
+
+	schematic, _ := resourceModel.Talos.Attributes()["schematic_id"].(types.String)
+	if !schematic.IsNull() {
+		t.Errorf("talos.schematic_id = %v, want null — the configuration never named it", schematic)
+	}
+}
+
+// Nested objects are trimmed the same way, so a configured secret reference does
+// not drag the inline config the server reports alongside it into state.
+func TestKubernetesResourceFlatten_TrimsNestedObjects(t *testing.T) {
+	t.Parallel()
+
+	secretRef := types.ObjectValueMust(k8sOIDCSecretRefObjectType(), map[string]attr.Value{
+		attrName: types.StringValue("tenant-authentication-config"),
 	})
-	partial.NodeHealthCheck = types.ObjectNull(k8sNodeHealthCheckObjectType())
-	partial.OIDC = types.ObjectNull(k8sOIDCObjectType())
-	partial.ControlPlane = types.ObjectNull(k8sControlPlaneObjectType())
-	partial.Images = types.ObjectNull(k8sImagesObjectType())
 
-	planned := fullKubernetesModel()
+	resourceModel := kubernetesResourceModel{kubernetesModel: kubernetesModel{
+		OIDC: types.ObjectValueMust(k8sOIDCObjectType(), map[string]attr.Value{
+			"mode":  types.StringValue("CustomConfig"),
+			"users": types.ListNull(types.ObjectType{AttrTypes: k8sOIDCUserObjectType()}),
+			"custom_config": types.ObjectValueMust(k8sOIDCCustomConfigObjectType(), map[string]attr.Value{
+				"config":     types.StringNull(),
+				"secret_ref": secretRef,
+			}),
+		}),
+	}}
 
-	if diags := planned.applyConfig(ctx, kubernetesConfig(ctx, t, partial)); diags.HasError() {
-		t.Fatalf("applyConfig diagnostics: %v", diags)
+	app := &client.Application{
+		Name:      "cluster",
+		Namespace: "tenant-root",
+		Spec: map[string]any{
+			"nodeGroups": map[string]any{},
+			"oidc": map[string]any{
+				"mode":  "CustomConfig",
+				"users": []any{},
+				"customConfig": map[string]any{
+					"config":    "",
+					"secretRef": map[string]any{"name": "tenant-authentication-config"},
+				},
+			},
+		},
 	}
 
-	got, diags := planned.expand(ctx)
-	if diags.HasError() {
-		t.Fatalf("expand diagnostics: %v", diags)
+	if diags := resourceModel.flatten(app); diags.HasError() {
+		t.Fatalf("flatten diagnostics: %v", diags)
 	}
 
-	talos := nestedSpec(t, got.Spec, "talos")
-	if len(talos) != 1 || talos["version"] != "v1.13.7" {
-		t.Errorf("talos = %v, want only the configured version", talos)
-	}
-}
-
-// Attributes outside applyConfig's remit keep expanding from the plan, where
-// their materialised defaults live.
-func TestKubernetesApplyConfig_LeavesPlannedDefaultsAlone(t *testing.T) {
-	t.Parallel()
-
-	ctx := context.Background()
-
-	config := fullKubernetesModel()
-	config.StorageClass = types.StringNull()
-
-	planned := fullKubernetesModel()
-
-	if diags := planned.applyConfig(ctx, kubernetesConfig(ctx, t, config)); diags.HasError() {
-		t.Fatalf("applyConfig diagnostics: %v", diags)
+	users, _ := resourceModel.OIDC.Attributes()["users"].(types.List)
+	if !users.IsNull() {
+		t.Errorf("oidc.users = %v, want null — the server's empty list is not a configured value", users)
 	}
 
-	got, diags := planned.expand(ctx)
-	if diags.HasError() {
-		t.Fatalf("expand diagnostics: %v", diags)
+	custom, _ := resourceModel.OIDC.Attributes()["custom_config"].(types.Object)
+
+	config, _ := custom.Attributes()["config"].(types.String)
+	if !config.IsNull() {
+		t.Errorf("oidc.custom_config.config = %v, want null", config)
 	}
 
-	if got.Spec[specStorageClass] != "replicated" {
-		t.Errorf("storageClass = %v, want the planned default replicated", got.Spec[specStorageClass])
+	ref, _ := custom.Attributes()["secret_ref"].(types.Object)
+
+	name, _ := ref.Attributes()[attrName].(types.String)
+	if name.ValueString() != "tenant-authentication-config" {
+		t.Errorf("oidc.custom_config.secret_ref.name = %q, want the configured Secret", name.ValueString())
 	}
 }

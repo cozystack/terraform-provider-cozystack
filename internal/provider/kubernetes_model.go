@@ -7,8 +7,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework-jsontypes/jsontypes"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
-	"github.com/hashicorp/terraform-plugin-framework/path"
-	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 )
@@ -44,10 +42,12 @@ const (
 // block, the control-plane component sizing, and per-node-group GPU and kubelet
 // tuning are not managed (they use server defaults).
 //
-// Blocks whose upstream defaults roll with each Cozystack release (talos) are
-// modelled without provider-side defaults: an unset block is left out of the
-// emitted spec so the aggregated apiserver keeps supplying its own current
-// value, which it materialises on every read.
+// Blocks whose upstream defaults roll with each Cozystack release (talos,
+// images) are modelled without provider-side defaults: an unset block is left
+// out of the emitted spec so the aggregated apiserver keeps supplying its own
+// current value. This model reports what the server returns, which is what a
+// data source wants; the managed resource narrows that to the configured fields
+// in its own flatten.
 type kubernetesModel struct {
 	ID           types.String `tfsdk:"id"`
 	Name         types.String `tfsdk:"name"`
@@ -78,6 +78,80 @@ type kubernetesResourceModel struct {
 
 func (m *kubernetesResourceModel) waitConfig() (types.Bool, types.String) {
 	return m.WaitForReady, m.WaitTimeout
+}
+
+// flatten keeps the managed resource's view of the platform blocks limited to
+// what the configuration asked for.
+//
+// The aggregated apiserver materialises this Kind's schema defaults on every
+// read, so the plain model flatten — the one the data source wants — reports the
+// whole talos, nodeHealthCheck, oidc, controlPlane and images surface whether or
+// not anybody configured it. Letting that into a managed resource's state makes
+// Terraform's own rules work against the practitioner: the value becomes the
+// prior state, the prior state becomes the plan wherever the configuration is
+// silent, and the next update writes the platform's defaults into the release as
+// though they had been chosen — freezing the cluster on the Talos release and
+// schematic that happened to be current that day.
+//
+// Trimming the blocks back to their configured shape keeps an unwritten field
+// out of the request for the life of the resource. A field that was configured
+// still refreshes, so drift against it is still visible; a field that was not
+// stays null, and the platform stays in charge of it. The data source is the
+// place to read the effective values.
+func (m *kubernetesResourceModel) flatten(app *client.Application) diag.Diagnostics {
+	configured := []types.Object{m.Talos, m.NodeHealthCheck, m.OIDC, m.ControlPlane, m.Images}
+
+	diags := m.kubernetesModel.flatten(app)
+
+	for i, target := range []*types.Object{&m.Talos, &m.NodeHealthCheck, &m.OIDC, &m.ControlPlane, &m.Images} {
+		*target = keepConfiguredAttributes(configured[i], *target)
+	}
+
+	return diags
+}
+
+// keepConfiguredAttributes returns the server's view of a block with every
+// attribute the configuration left unset reset to null, so state never gains a
+// value the practitioner did not ask for. A block that was not configured at all
+// stays absent. Nested objects are trimmed the same way; a list is kept whole,
+// since a list the configuration wrote is written verbatim.
+func keepConfiguredAttributes(configured, server types.Object) types.Object {
+	if configured.IsNull() || configured.IsUnknown() {
+		return types.ObjectNull(server.AttributeTypes(context.Background()))
+	}
+
+	if server.IsNull() || server.IsUnknown() {
+		return configured
+	}
+
+	kept := make(map[string]attr.Value, len(configured.Attributes()))
+
+	for name, value := range configured.Attributes() {
+		fromServer, ok := server.Attributes()[name]
+		if !ok {
+			kept[name] = value
+
+			continue
+		}
+
+		nested, isObject := value.(types.Object)
+		if isObject {
+			serverNested, _ := fromServer.(types.Object)
+			kept[name] = keepConfiguredAttributes(nested, serverNested)
+
+			continue
+		}
+
+		if value.IsNull() {
+			kept[name] = value
+
+			continue
+		}
+
+		kept[name] = fromServer
+	}
+
+	return types.ObjectValueMust(configured.AttributeTypes(context.Background()), kept)
 }
 
 func (m *kubernetesModel) identity() (string, string) {
@@ -143,50 +217,6 @@ func (m *kubernetesModel) expand(ctx context.Context) (*client.Application, diag
 		Namespace: m.Namespace.ValueString(),
 		Spec:      spec,
 	}, diags
-}
-
-// applyConfig replaces the planned nested blocks with what the configuration
-// actually holds.
-//
-// These blocks are Optional+Computed so that the server's materialised defaults
-// can land in state, which means Terraform copies the prior state into the plan
-// wherever the configuration is silent. Expanding that plan would send the
-// platform's own defaults back as though the practitioner had chosen them,
-// writing them into the release and freezing the cluster on the values that
-// happened to be current — the Talos release, the tested schematic, the image
-// tags — the first time anything else about the cluster changed. Taking the
-// configuration as the authority keeps an unwritten block out of the request for
-// the life of the resource, and leaves the platform in charge of it.
-//
-// Only these blocks are covered: every other attribute is expanded from the
-// plan, where its materialised default belongs.
-func (m *kubernetesModel) applyConfig(ctx context.Context, config tfsdk.Config) diag.Diagnostics {
-	var diags diag.Diagnostics
-
-	blocks := []struct {
-		name  string
-		value *types.Object
-	}{
-		{name: attrTalos, value: &m.Talos},
-		{name: attrNodeHealthCheck, value: &m.NodeHealthCheck},
-		{name: attrOIDC, value: &m.OIDC},
-		{name: attrControlPlane, value: &m.ControlPlane},
-		{name: attrImages, value: &m.Images},
-	}
-
-	for _, block := range blocks {
-		var configured types.Object
-
-		diags.Append(config.GetAttribute(ctx, path.Root(block.name), &configured)...)
-
-		if diags.HasError() {
-			return diags
-		}
-
-		*block.value = configured
-	}
-
-	return diags
 }
 
 func expandNodeGroups(ctx context.Context, value types.Map) (map[string]any, diag.Diagnostics) {
