@@ -307,7 +307,7 @@ func kubernetesSchema() rschema.Schema {
 		attrVersion: rschema.StringAttribute{
 			Optional: true, Computed: true,
 			Default:             stringdefault.StaticString("v1.35"),
-			Validators:          []validator.String{stringvalidator.OneOf("v1.35", "v1.34", "v1.33", "v1.32", "v1.31", "v1.30")},
+			Validators:          []validator.String{stringvalidator.OneOf("v1.35", "v1.34", "v1.33", "v1.32", "v1.31")},
 			MarkdownDescription: "Kubernetes major.minor version to deploy.",
 		},
 		attrHost: rschema.StringAttribute{

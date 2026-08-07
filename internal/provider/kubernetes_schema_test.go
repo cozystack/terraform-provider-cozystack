@@ -175,3 +175,36 @@ func TestKubernetesResourceModelRoundTrip(t *testing.T) {
 		t.Errorf("node group startup timeout = %q, want 20m", timeout.ValueString())
 	}
 }
+
+// The 1.6 servers reject v1.30; advertising it would let a config plan cleanly
+// and fail at apply.
+func TestKubernetesVersionValidatorRejectsRetiredReleases(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+
+	attribute, ok := kubernetesSchema().Attributes[attrVersion].(rschema.StringAttribute)
+	if !ok {
+		t.Fatalf("version attribute is not a string attribute")
+	}
+
+	for value, wantError := range map[string]bool{"v1.35": false, "v1.31": false, "v1.30": true} {
+		failed := false
+
+		for _, check := range attribute.Validators {
+			response := &validator.StringResponse{}
+			check.ValidateString(ctx, validator.StringRequest{
+				Path:        path.Root(attrVersion),
+				ConfigValue: types.StringValue(value),
+			}, response)
+
+			if response.Diagnostics.HasError() {
+				failed = true
+			}
+		}
+
+		if failed != wantError {
+			t.Errorf("version %q rejected = %v, want %v", value, failed, wantError)
+		}
+	}
+}
