@@ -17,6 +17,9 @@ const (
 	specNodeHealthCheck    = "nodeHealthCheck"
 	specMaxUnhealthy       = "maxUnhealthy"
 	specNodeStartupTimeout = "nodeStartupTimeout"
+	specOIDC               = "oidc"
+	specCustomConfig       = "customConfig"
+	specSecretRef          = "secretRef"
 )
 
 // kubernetesModel maps the cozystack_kubernetes schema to Go types. The addons
@@ -38,6 +41,7 @@ type kubernetesModel struct {
 
 	Talos           types.Object `tfsdk:"talos"`
 	NodeHealthCheck types.Object `tfsdk:"node_health_check"`
+	OIDC            types.Object `tfsdk:"oidc"`
 
 	Ready        types.Bool   `tfsdk:"ready"`
 	ChartVersion types.String `tfsdk:"chart_version"`
@@ -175,6 +179,11 @@ func (m *kubernetesModel) flatten(app *client.Application) diag.Diagnostics {
 	m.Talos = flattenTalos(app.Spec[specTalos])
 	m.NodeHealthCheck = flattenNodeHealthCheck(app.Spec[specNodeHealthCheck])
 
+	oidc, oidcDiags := flattenOIDC(app.Spec[specOIDC])
+	diags.Append(oidcDiags...)
+
+	m.OIDC = oidc
+
 	m.Ready = types.BoolValue(app.Status.Ready)
 	m.ChartVersion = types.StringValue(app.Status.Version)
 	m.UID = types.StringValue(app.UID)
@@ -221,6 +230,7 @@ func (m *kubernetesModel) expandBlocks(ctx context.Context, spec map[string]any)
 	}{
 		{key: specTalos, value: m.Talos, expand: expandTalos},
 		{key: specNodeHealthCheck, value: m.NodeHealthCheck, expand: expandNodeHealthCheck},
+		{key: specOIDC, value: m.OIDC, expand: expandOIDC},
 	}
 
 	for _, block := range blocks {
@@ -346,6 +356,196 @@ func flattenNodeHealthCheck(raw any) types.Object {
 		"max_unhealthy":        specStringOrNull(check, specMaxUnhealthy),
 		"node_startup_timeout": specStringOrNull(check, specNodeStartupTimeout),
 	})
+}
+
+func k8sOIDCObjectType() map[string]attr.Type {
+	return map[string]attr.Type{
+		"mode":          types.StringType,
+		"users":         types.ListType{ElemType: types.ObjectType{AttrTypes: k8sOIDCUserObjectType()}},
+		"custom_config": types.ObjectType{AttrTypes: k8sOIDCCustomConfigObjectType()},
+	}
+}
+
+func k8sOIDCUserObjectType() map[string]attr.Type {
+	return map[string]attr.Type{
+		"email": types.StringType,
+		"role":  types.StringType,
+	}
+}
+
+func k8sOIDCCustomConfigObjectType() map[string]attr.Type {
+	return map[string]attr.Type{
+		"config":     types.StringType,
+		"secret_ref": types.ObjectType{AttrTypes: k8sOIDCSecretRefObjectType()},
+	}
+}
+
+func k8sOIDCSecretRefObjectType() map[string]attr.Type {
+	return map[string]attr.Type{attrName: types.StringType}
+}
+
+type k8sOIDCData struct {
+	Mode         types.String `tfsdk:"mode"`
+	Users        types.List   `tfsdk:"users"`
+	CustomConfig types.Object `tfsdk:"custom_config"`
+}
+
+type k8sOIDCUserData struct {
+	Email types.String `tfsdk:"email"`
+	Role  types.String `tfsdk:"role"`
+}
+
+type k8sOIDCCustomConfigData struct {
+	Config    types.String `tfsdk:"config"`
+	SecretRef types.Object `tfsdk:"secret_ref"`
+}
+
+type k8sOIDCSecretRefData struct {
+	Name types.String `tfsdk:"name"`
+}
+
+// expandOIDC renders the oidc block into a spec submap, or nil when the block
+// is unset. users keeps its presence distinction: the platform defaults the key
+// to an empty list, so an explicitly empty list is an operator saying "bind no
+// users" and must reach the server as written.
+func expandOIDC(ctx context.Context, obj types.Object) (map[string]any, diag.Diagnostics) {
+	var diags diag.Diagnostics
+
+	if obj.IsNull() || obj.IsUnknown() {
+		return nil, diags
+	}
+
+	var data k8sOIDCData
+
+	diags.Append(obj.As(ctx, &data, basetypes.ObjectAsOptions{})...)
+
+	if diags.HasError() {
+		return nil, diags
+	}
+
+	out := map[string]any{}
+
+	setOptionalString(out, "mode", data.Mode)
+	diags.Append(setOptionalObjectList(ctx, out, "users", data.Users, buildOIDCUser)...)
+
+	custom, customDiags := expandOIDCCustomConfig(ctx, data.CustomConfig)
+	diags.Append(customDiags...)
+
+	if custom != nil {
+		out[specCustomConfig] = custom
+	}
+
+	return out, diags
+}
+
+func buildOIDCUser(user k8sOIDCUserData) map[string]any {
+	return map[string]any{
+		"email": user.Email.ValueString(),
+		"role":  user.Role.ValueString(),
+	}
+}
+
+// expandOIDCCustomConfig renders the oidc.customConfig block, or nil when it is
+// unset.
+func expandOIDCCustomConfig(ctx context.Context, obj types.Object) (map[string]any, diag.Diagnostics) {
+	var diags diag.Diagnostics
+
+	if obj.IsNull() || obj.IsUnknown() {
+		return nil, diags
+	}
+
+	var data k8sOIDCCustomConfigData
+
+	diags.Append(obj.As(ctx, &data, basetypes.ObjectAsOptions{})...)
+
+	if diags.HasError() {
+		return nil, diags
+	}
+
+	out := map[string]any{}
+
+	setOptionalString(out, "config", data.Config)
+
+	if data.SecretRef.IsNull() || data.SecretRef.IsUnknown() {
+		return out, diags
+	}
+
+	var ref k8sOIDCSecretRefData
+
+	diags.Append(data.SecretRef.As(ctx, &ref, basetypes.ObjectAsOptions{})...)
+
+	if diags.HasError() {
+		return nil, diags
+	}
+
+	secretRef := map[string]any{}
+	setOptionalString(secretRef, attrName, ref.Name)
+	out[specSecretRef] = secretRef
+
+	return out, diags
+}
+
+// flattenOIDC builds the oidc block from a spec submap. An absent key flattens
+// to null; every other value is read presence-preserving, since the platform
+// materialises this block's defaults on read and an empty string there is a
+// real value rather than an unset field.
+func flattenOIDC(raw any) (types.Object, diag.Diagnostics) {
+	var diags diag.Diagnostics
+
+	oidc, ok := raw.(map[string]any)
+	if !ok {
+		return types.ObjectNull(k8sOIDCObjectType()), diags
+	}
+
+	users, userDiags := specObjectListOrNull(oidc["users"], k8sOIDCUserObjectType(), flattenOIDCUser)
+	diags.Append(userDiags...)
+
+	custom, customDiags := flattenOIDCCustomConfig(oidc[specCustomConfig])
+	diags.Append(customDiags...)
+
+	value, valueDiags := types.ObjectValue(k8sOIDCObjectType(), map[string]attr.Value{
+		"mode":          specStringOrNull(oidc, "mode"),
+		"users":         users,
+		"custom_config": custom,
+	})
+	diags.Append(valueDiags...)
+
+	return value, diags
+}
+
+func flattenOIDCUser(user map[string]any) map[string]attr.Value {
+	return map[string]attr.Value{
+		"email": types.StringValue(specString(user, "email")),
+		"role":  types.StringValue(specString(user, "role")),
+	}
+}
+
+func flattenOIDCCustomConfig(raw any) (types.Object, diag.Diagnostics) {
+	var diags diag.Diagnostics
+
+	custom, ok := raw.(map[string]any)
+	if !ok {
+		return types.ObjectNull(k8sOIDCCustomConfigObjectType()), diags
+	}
+
+	secretRef := types.ObjectNull(k8sOIDCSecretRefObjectType())
+
+	if ref, ok := custom[specSecretRef].(map[string]any); ok {
+		value, refDiags := types.ObjectValue(k8sOIDCSecretRefObjectType(), map[string]attr.Value{
+			attrName: specStringOrNull(ref, attrName),
+		})
+		diags.Append(refDiags...)
+
+		secretRef = value
+	}
+
+	value, valueDiags := types.ObjectValue(k8sOIDCCustomConfigObjectType(), map[string]attr.Value{
+		"config":     specStringOrNull(custom, "config"),
+		"secret_ref": secretRef,
+	})
+	diags.Append(valueDiags...)
+
+	return value, diags
 }
 
 func flattenNodeGroups(raw any) (types.Map, diag.Diagnostics) {

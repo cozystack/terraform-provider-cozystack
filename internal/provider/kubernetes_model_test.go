@@ -20,6 +20,31 @@ func fullTalosObject() types.Object {
 	})
 }
 
+// fullOIDCObject sets every OIDC key so the coverage guards see the whole
+// surface. An inline config and a secretRef are mutually exclusive in practice;
+// the schema validators reject that pairing, expand does not police it.
+func fullOIDCObject() types.Object {
+	user := types.ObjectValueMust(k8sOIDCUserObjectType(), map[string]attr.Value{
+		"email": types.StringValue("operator@example.test"),
+		"role":  types.StringValue("admin"),
+	})
+
+	secretRef := types.ObjectValueMust(k8sOIDCSecretRefObjectType(), map[string]attr.Value{
+		attrName: types.StringValue("tenant-authentication-config"),
+	})
+
+	customConfig := types.ObjectValueMust(k8sOIDCCustomConfigObjectType(), map[string]attr.Value{
+		"config":     types.StringValue("apiVersion: apiserver.config.k8s.io/v1beta1\n"),
+		"secret_ref": secretRef,
+	})
+
+	return types.ObjectValueMust(k8sOIDCObjectType(), map[string]attr.Value{
+		"mode":          types.StringValue("System"),
+		"users":         types.ListValueMust(types.ObjectType{AttrTypes: k8sOIDCUserObjectType()}, []attr.Value{user}),
+		"custom_config": customConfig,
+	})
+}
+
 func fullKubernetesModel() kubernetesModel {
 	group := types.ObjectValueMust(k8sNodeGroupObjectType(), map[string]attr.Value{
 		"disk_size":     types.StringValue("20Gi"),
@@ -43,6 +68,7 @@ func fullKubernetesModel() kubernetesModel {
 			"max_unhealthy":        types.StringValue("50%"),
 			"node_startup_timeout": types.StringValue("10m"),
 		}),
+		OIDC: fullOIDCObject(),
 	}
 }
 
@@ -265,6 +291,145 @@ func TestKubernetesExpandNodeHealthCheckKeysMatchSpec(t *testing.T) {
 	}
 
 	assertSpecCoverage(t, nestedSpecKeys(t, got.Spec, "nodeHealthCheck"), kubernetes.NodeHealthCheck{})
+}
+
+func TestKubernetesExpand_OIDCOmittedWhenUnset(t *testing.T) {
+	t.Parallel()
+
+	model := fullKubernetesModel()
+	model.OIDC = types.ObjectNull(k8sOIDCObjectType())
+
+	got, diags := model.expand(context.Background())
+	if diags.HasError() {
+		t.Fatalf("expand diagnostics: %v", diags)
+	}
+
+	if _, ok := got.Spec["oidc"]; ok {
+		t.Errorf("oidc key present for an unset block, want omitted")
+	}
+}
+
+func TestKubernetesExpand_OIDCUsersAndCustomConfig(t *testing.T) {
+	t.Parallel()
+
+	model := fullKubernetesModel()
+
+	got, diags := model.expand(context.Background())
+	if diags.HasError() {
+		t.Fatalf("expand diagnostics: %v", diags)
+	}
+
+	oidc, _ := got.Spec["oidc"].(map[string]any)
+	if oidc["mode"] != "System" {
+		t.Errorf("oidc.mode = %v, want System", oidc["mode"])
+	}
+
+	users, _ := oidc["users"].([]any)
+	if len(users) != 1 {
+		t.Fatalf("oidc.users has %d entries, want 1", len(users))
+	}
+
+	user, _ := users[0].(map[string]any)
+	if user["email"] != "operator@example.test" || user["role"] != "admin" {
+		t.Errorf("oidc.users[0] = %v, want the admin operator entry", user)
+	}
+
+	custom, _ := oidc["customConfig"].(map[string]any)
+
+	secretRef, _ := custom["secretRef"].(map[string]any)
+	if secretRef["name"] != "tenant-authentication-config" {
+		t.Errorf("oidc.customConfig.secretRef.name = %v, want tenant-authentication-config", secretRef["name"])
+	}
+}
+
+// An empty users list is not the same as no users list: the platform defaults
+// the key to an empty list, so a practitioner who writes `users = []` is opting
+// out of user bindings explicitly and the key must be emitted as written.
+func TestKubernetesExpand_OIDCEmptyUsersListIsEmitted(t *testing.T) {
+	t.Parallel()
+
+	model := fullKubernetesModel()
+	model.OIDC = types.ObjectValueMust(k8sOIDCObjectType(), map[string]attr.Value{
+		"mode":          types.StringValue("None"),
+		"users":         types.ListValueMust(types.ObjectType{AttrTypes: k8sOIDCUserObjectType()}, []attr.Value{}),
+		"custom_config": types.ObjectNull(k8sOIDCCustomConfigObjectType()),
+	})
+
+	got, diags := model.expand(context.Background())
+	if diags.HasError() {
+		t.Fatalf("expand diagnostics: %v", diags)
+	}
+
+	oidc, _ := got.Spec["oidc"].(map[string]any)
+
+	users, ok := oidc["users"].([]any)
+	if !ok || len(users) != 0 {
+		t.Errorf("oidc.users = %#v, want an empty list", oidc["users"])
+	}
+
+	if _, ok := oidc["customConfig"]; ok {
+		t.Errorf("oidc.customConfig present for an unset block, want omitted")
+	}
+}
+
+func TestKubernetesFlatten_OIDC(t *testing.T) {
+	t.Parallel()
+
+	null, diags := flattenOIDC(nil)
+	if diags.HasError() {
+		t.Fatalf("flatten diagnostics: %v", diags)
+	}
+
+	if !null.IsNull() {
+		t.Errorf("oidc = %v for an absent key, want null", null)
+	}
+
+	got, diags := flattenOIDC(map[string]any{
+		"mode":         "System",
+		"users":        []any{map[string]any{"email": "operator@example.test", "role": "view"}},
+		"customConfig": map[string]any{"config": "", "secretRef": map[string]any{"name": ""}},
+	})
+	if diags.HasError() {
+		t.Fatalf("flatten diagnostics: %v", diags)
+	}
+
+	users, _ := got.Attributes()["users"].(types.List)
+	if len(users.Elements()) != 1 {
+		t.Fatalf("oidc.users has %d elements, want 1", len(users.Elements()))
+	}
+
+	custom, _ := got.Attributes()["custom_config"].(types.Object)
+
+	config, _ := custom.Attributes()["config"].(types.String)
+	if config.IsNull() {
+		t.Errorf("custom_config.config is null, want the server's empty string")
+	}
+}
+
+func TestKubernetesExpandOIDCKeysMatchOIDCSpec(t *testing.T) {
+	t.Parallel()
+
+	model := fullKubernetesModel()
+
+	got, diags := model.expand(context.Background())
+	if diags.HasError() {
+		t.Fatalf("expand diagnostics: %v", diags)
+	}
+
+	assertSpecCoverage(t, nestedSpecKeys(t, got.Spec, "oidc"), kubernetes.OIDC{})
+	assertSpecCoverage(t, nestedSpecKeys(t, got.Spec, "oidc", "customConfig"), kubernetes.OIDCCustomConfig{})
+	assertSpecCoverage(t, nestedSpecKeys(t, got.Spec, "oidc", "customConfig", "secretRef"), kubernetes.OIDCSecretRef{})
+
+	oidc, _ := got.Spec["oidc"].(map[string]any)
+	users, _ := oidc["users"].([]any)
+	user, _ := users[0].(map[string]any)
+
+	emitted := make(map[string]bool, len(user))
+	for key := range user {
+		emitted[key] = true
+	}
+
+	assertSpecCoverage(t, emitted, kubernetes.OIDCUser{})
 }
 
 func TestKubernetesFlatten_RoundTrip(t *testing.T) {

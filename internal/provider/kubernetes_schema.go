@@ -5,6 +5,7 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	dsschema "github.com/hashicorp/terraform-plugin-framework/datasource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	rschema "github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64default"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
@@ -142,6 +143,115 @@ func k8sNodeHealthCheckDataSourceAttribute() dsschema.SingleNestedAttribute {
 	}
 }
 
+// k8sOIDCResourceAttribute returns the tenant kube-apiserver identity block.
+func k8sOIDCResourceAttribute() rschema.SingleNestedAttribute {
+	return rschema.SingleNestedAttribute{
+		Optional: true, Computed: true,
+		MarkdownDescription: "OIDC authentication and per-user RBAC for the tenant kube-apiserver. " +
+			"Follows the platform default (identity off, static admin kubeconfig only) while unset.",
+		Attributes: map[string]rschema.Attribute{
+			"mode": rschema.StringAttribute{
+				Optional: true, Computed: true,
+				Validators: []validator.String{stringvalidator.OneOf("None", "System", "CustomConfig")},
+				MarkdownDescription: "Identity mode. `None` leaves only the static admin kubeconfig working. " +
+					"`System` trusts the platform realm through a per-cluster public client with audience " +
+					"binding. `CustomConfig` trusts a tenant-supplied issuer directly, taking the platform " +
+					"realm out of the path. Follows the platform default (`None`) while unset.",
+			},
+			"users":         k8sOIDCUsersResourceAttribute(),
+			"custom_config": k8sOIDCCustomConfigResourceAttribute(),
+		},
+	}
+}
+
+func k8sOIDCUsersResourceAttribute() rschema.ListNestedAttribute {
+	return rschema.ListNestedAttribute{
+		Optional: true, Computed: true,
+		MarkdownDescription: "Users granted access to the tenant cluster; each entry becomes one " +
+			"ClusterRoleBinding inside it. Applies to both `System` and `CustomConfig`. An explicitly " +
+			"empty list binds nobody, which is not the same as leaving the attribute unset.",
+		NestedObject: rschema.NestedAttributeObject{
+			Attributes: map[string]rschema.Attribute{
+				"email": rschema.StringAttribute{
+					Required: true,
+					MarkdownDescription: "Email matched against the issuer's `email` claim and used verbatim " +
+						"as the binding subject.",
+				},
+				"role": rschema.StringAttribute{
+					Required:            true,
+					Validators:          []validator.String{stringvalidator.OneOf("admin", "view")},
+					MarkdownDescription: "Role to bind: `admin` maps to `cluster-admin`, `view` maps to `view`.",
+				},
+			},
+		},
+	}
+}
+
+func k8sOIDCCustomConfigResourceAttribute() rschema.SingleNestedAttribute {
+	return rschema.SingleNestedAttribute{
+		Optional: true, Computed: true,
+		MarkdownDescription: "Tenant-supplied `AuthenticationConfiguration`, read only when " +
+			"`mode = \"CustomConfig\"`. Supply it inline or by Secret reference, never both.",
+		Attributes: map[string]rschema.Attribute{
+			"config": rschema.StringAttribute{
+				Optional: true, Computed: true,
+				Validators: []validator.String{
+					stringvalidator.ConflictsWith(path.MatchRelative().AtParent().AtName("secret_ref")),
+				},
+				MarkdownDescription: "Inline `apiserver.config.k8s.io/v1beta1` AuthenticationConfiguration " +
+					"YAML. The chart writes it verbatim into a Secret mounted on the kube-apiserver. " +
+					"Conflicts with `secret_ref`.",
+			},
+			"secret_ref": rschema.SingleNestedAttribute{
+				Optional: true, Computed: true,
+				MarkdownDescription: "Reference to an existing Secret in the tenant namespace holding the " +
+					"AuthenticationConfiguration. Conflicts with `config`.",
+				Attributes: map[string]rschema.Attribute{
+					attrName: rschema.StringAttribute{
+						Optional: true, Computed: true,
+						MarkdownDescription: "Name of a Secret in the release namespace whose `config.yaml` " +
+							"key holds the AuthenticationConfiguration.",
+					},
+				},
+			},
+		},
+	}
+}
+
+func k8sOIDCDataSourceAttribute() dsschema.SingleNestedAttribute {
+	return dsschema.SingleNestedAttribute{
+		Computed:            true,
+		MarkdownDescription: "OIDC authentication and per-user RBAC for the tenant kube-apiserver.",
+		Attributes: map[string]dsschema.Attribute{
+			"mode": dsschema.StringAttribute{Computed: true, MarkdownDescription: "Identity mode."},
+			"users": dsschema.ListNestedAttribute{
+				Computed:            true,
+				MarkdownDescription: "Users granted access to the tenant cluster.",
+				NestedObject: dsschema.NestedAttributeObject{
+					Attributes: map[string]dsschema.Attribute{
+						"email": dsschema.StringAttribute{Computed: true, MarkdownDescription: "Email claim matched for this binding."},
+						"role":  dsschema.StringAttribute{Computed: true, MarkdownDescription: "Bound role."},
+					},
+				},
+			},
+			"custom_config": dsschema.SingleNestedAttribute{
+				Computed:            true,
+				MarkdownDescription: "Tenant-supplied AuthenticationConfiguration.",
+				Attributes: map[string]dsschema.Attribute{
+					"config": dsschema.StringAttribute{Computed: true, MarkdownDescription: "Inline AuthenticationConfiguration YAML."},
+					"secret_ref": dsschema.SingleNestedAttribute{
+						Computed:            true,
+						MarkdownDescription: "Secret holding the AuthenticationConfiguration.",
+						Attributes: map[string]dsschema.Attribute{
+							attrName: dsschema.StringAttribute{Computed: true, MarkdownDescription: "Secret name."},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 func kubernetesSchema() rschema.Schema {
 	attributes := identityResourceAttributes("Kubernetes cluster name (`metadata.name`). Immutable.")
 
@@ -165,6 +275,7 @@ func kubernetesSchema() rschema.Schema {
 		"node_groups":       k8sNodeGroupsResourceAttribute(),
 		specTalos:           k8sTalosResourceAttribute(),
 		"node_health_check": k8sNodeHealthCheckResourceAttribute(),
+		specOIDC:            k8sOIDCResourceAttribute(),
 		"kubeconfig": rschema.StringAttribute{
 			Computed:  true,
 			Sensitive: true,
@@ -208,6 +319,7 @@ func kubernetesDataSourceSchema() dsschema.Schema {
 		},
 		specTalos:           k8sTalosDataSourceAttribute(),
 		"node_health_check": k8sNodeHealthCheckDataSourceAttribute(),
+		specOIDC:            k8sOIDCDataSourceAttribute(),
 		"kubeconfig": dsschema.StringAttribute{
 			Computed:            true,
 			Sensitive:           true,
