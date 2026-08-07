@@ -3,12 +3,15 @@
 page_title: "cozystack_kubernetes Resource - cozystack"
 subcategory: ""
 description: |-
-  A Cozystack managed Kubernetes cluster, deployed inside a tenant namespace. The addons block, the control-plane component sizing, and per-node-group GPU and kubelet tuning use server defaults. Blocks left unset are omitted from the request, so the platform's own defaults apply and keep moving with it rather than being pinned at apply time.
+  A Cozystack managed Kubernetes cluster, deployed inside a tenant namespace. The addons block, the control-plane component sizing, and per-node-group GPU and kubelet tuning use server defaults.
+  The talos, node_health_check, oidc, control_plane, and images blocks are driven by the configuration, not by prior state: a block the configuration does not set is left out of every request, so the platform's own defaults apply and keep moving with it rather than being pinned at apply time. The effective values are still reported back into state, so terraform show displays what the platform chose. The flip side is the usual Terraform contract — after an import, a value set out of band inside one of those blocks is dropped on the next update unless the configuration names it.
 ---
 
 # cozystack_kubernetes (Resource)
 
-A Cozystack managed Kubernetes cluster, deployed inside a tenant namespace. The addons block, the control-plane component sizing, and per-node-group GPU and kubelet tuning use server defaults. Blocks left unset are omitted from the request, so the platform's own defaults apply and keep moving with it rather than being pinned at apply time.
+A Cozystack managed Kubernetes cluster, deployed inside a tenant namespace. The addons block, the control-plane component sizing, and per-node-group GPU and kubelet tuning use server defaults.
+
+The `talos`, `node_health_check`, `oidc`, `control_plane`, and `images` blocks are driven by the configuration, not by prior state: a block the configuration does not set is left out of every request, so the platform's own defaults apply and keep moving with it rather than being pinned at apply time. The effective values are still reported back into state, so `terraform show` displays what the platform chose. The flip side is the usual Terraform contract — after an import, a value set out of band inside one of those blocks is dropped on the next update unless the configuration names it.
 
 ## Example Usage
 
@@ -149,7 +152,7 @@ resource "cozystack_kubernetes" "byo_identity" {
 - `images` (Attributes) Image overrides for air-gapped or rate-limited registries. Each unset field follows the tag pinned by the deployed chart. (see [below for nested schema](#nestedatt--images))
 - `node_health_check` (Attributes) MachineHealthCheck tuning applied to every worker node group. Follows the platform defaults while unset. (see [below for nested schema](#nestedatt--node_health_check))
 - `oidc` (Attributes) OIDC authentication and per-user RBAC for the tenant kube-apiserver. Follows the platform default (identity off, static admin kubeconfig only) while unset. (see [below for nested schema](#nestedatt--oidc))
-- `storage_class` (String) StorageClass used to store the data. Changing it replaces the cluster: a PersistentVolumeClaim's class is fixed when it is created, so an in-place change would be recorded in state while every existing volume stayed on the old class.
+- `storage_class` (String) StorageClass used to store the data. Changing a configured value replaces the cluster: a PersistentVolumeClaim's class is fixed when it is created, so an in-place change would be recorded in state while every existing volume stayed on the old class.
 - `talos` (Attributes) Talos worker OS image coordinates. Every field follows the platform default while unset; set one only to pin it. (see [below for nested schema](#nestedatt--talos))
 - `version` (String) Kubernetes major.minor version to deploy.
 - `wait_for_ready` (Boolean) Block on create/update until the tenant's `Ready` condition is true.
