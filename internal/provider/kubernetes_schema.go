@@ -214,8 +214,9 @@ func k8sOIDCUsersResourceAttribute() rschema.ListNestedAttribute {
 	return rschema.ListNestedAttribute{
 		Optional: true,
 		MarkdownDescription: "Users granted access to the tenant cluster; each entry becomes one " +
-			"ClusterRoleBinding inside it. Applies to both `System` and `CustomConfig`. An explicitly " +
-			"empty list binds nobody, which is not the same as leaving the attribute unset.",
+			"ClusterRoleBinding inside it. Applies to both `System` and `CustomConfig`. The platform " +
+			"defaults the list to empty, so an empty list and an unset attribute both bind nobody; " +
+			"writing the empty list only records the choice in state.",
 		NestedObject: rschema.NestedAttributeObject{
 			Attributes: map[string]rschema.Attribute{
 				"email": rschema.StringAttribute{

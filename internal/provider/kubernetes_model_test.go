@@ -986,9 +986,11 @@ func TestKubernetesExpand_StorageClassOmittedWhenUnset(t *testing.T) {
 	}
 }
 
-// A node group with `roles = []` deliberately carries no role. Collapsing that
-// to an absent key made the server return nothing, the state read back null, and
-// the apply fail with an inconsistent-result error on a valid configuration.
+// `roles = []` reaches the cluster the same way an absent key does — the chart
+// just ranges over the list. It matters on the Terraform side: collapsing the
+// empty list to an absent key made the server return nothing, the state read
+// back null against a plan holding an empty list, and the apply fail on a valid
+// configuration.
 func TestKubernetesExpand_NodeGroupRolesThreeStates(t *testing.T) {
 	t.Parallel()
 

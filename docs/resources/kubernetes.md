@@ -237,7 +237,7 @@ Optional:
 
 - `custom_config` (Attributes) Tenant-supplied `AuthenticationConfiguration`, read only when `mode = "CustomConfig"`. Supply it inline or by Secret reference, never both. (see [below for nested schema](#nestedatt--oidc--custom_config))
 - `mode` (String) Identity mode. `None` leaves only the static admin kubeconfig working. `System` trusts the platform realm through a per-cluster public client with audience binding. `CustomConfig` trusts a tenant-supplied issuer directly, taking the platform realm out of the path. Follows the platform default (`None`) while unset.
-- `users` (Attributes List) Users granted access to the tenant cluster; each entry becomes one ClusterRoleBinding inside it. Applies to both `System` and `CustomConfig`. An explicitly empty list binds nobody, which is not the same as leaving the attribute unset. (see [below for nested schema](#nestedatt--oidc--users))
+- `users` (Attributes List) Users granted access to the tenant cluster; each entry becomes one ClusterRoleBinding inside it. Applies to both `System` and `CustomConfig`. The platform defaults the list to empty, so an empty list and an unset attribute both bind nobody; writing the empty list only records the choice in state. (see [below for nested schema](#nestedatt--oidc--users))
 
 <a id="nestedatt--oidc--custom_config"></a>
 ### Nested Schema for `oidc.custom_config`

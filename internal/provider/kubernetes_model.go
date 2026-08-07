@@ -102,8 +102,10 @@ func (m *kubernetesResourceModel) waitConfig() (types.Bool, types.String) {
 func (m *kubernetesResourceModel) flatten(app *client.Application) diag.Diagnostics {
 	ctx := context.Background()
 
-	// One slice of pairs rather than two parallel ones: a block added to the
-	// targets and forgotten in the configured values would silently trim
+	// Snapshot the configured values before the embedded flatten overwrites
+	// them from the server response — that ordering is the whole mechanism. One
+	// slice of pairs rather than two parallel ones, so a block added to the
+	// targets and forgotten in the configured values cannot silently trim
 	// against its neighbour.
 	blocks := []struct {
 		configured types.Object
@@ -314,12 +316,16 @@ func expandNodeGroups(ctx context.Context, value types.Map) (map[string]any, dia
 			attrResources:    resources,
 		}
 
-		// An explicitly empty roles list is a node group that deliberately
-		// carries no role, which is not the same as one that never named any.
+		// The chart ranges over roles, so an empty list and an absent key mean
+		// the same thing to it; writing the list as configured keeps the request
+		// a faithful copy of the configuration, and keeps an empty list from
+		// reading back as null against a plan that holds one.
 		diags.Append(setOptionalStringList(ctx, entry, "roles", group.Roles)...)
 
-		// Both overrides are undefaulted upstream: an absent key means the
-		// cluster-wide nodeHealthCheck applies to this group.
+		// These two are the group's genuinely presence-sensitive keys: the chart
+		// reads them with hasKey, and falls back to the cluster-wide
+		// nodeHealthCheck when they are absent. An empty string is not the same
+		// as absent here.
 		setOptionalString(entry, specMaxUnhealthy, group.MaxUnhealthy)
 		setOptionalString(entry, specNodeStartupTimeout, group.NodeStartupTimeout)
 
@@ -580,9 +586,10 @@ type k8sOIDCSecretRefData struct {
 }
 
 // expandOIDC renders the oidc block into a spec submap, or nil when the block
-// is unset. users keeps its presence distinction: the platform defaults the key
-// to an empty list, so an explicitly empty list is an operator saying "bind no
-// users" and must reach the server as written.
+// is unset. An explicitly empty users list is written as written — the chart
+// ranges over the list and defaults it to empty, so it lands the same as an
+// absent key on the cluster, but sending what the configuration says keeps the
+// request a faithful copy of it.
 func expandOIDC(ctx context.Context, obj types.Object) (map[string]any, diag.Diagnostics) {
 	var diags diag.Diagnostics
 

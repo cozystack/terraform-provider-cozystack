@@ -1064,10 +1064,10 @@ func TestAccKubernetesResource(t *testing.T) {
 				),
 			},
 			{
-				// Explicitly empty lists, at both levels the provider claims to
-				// distinguish from "unset". The unit tests echo the provider's
-				// own request back, so only a real server says whether an empty
-				// list survives the round trip.
+				// Explicitly empty lists at both levels. They mean the same to
+				// the chart as an absent key, but the provider sends them as
+				// configured, and only a real server says whether an empty list
+				// survives the round trip into state.
 				Config: `
 resource "cozystack_kubernetes" "test" {
   name      = "tfacck8s"
