@@ -67,14 +67,13 @@ func (m *tenantModel) expand(ctx context.Context) (*client.Application, diag.Dia
 		"resourceQuotas":  quotas,
 	}
 
-	// gateway is three-state by key presence, and the three states are not
-	// interchangeable: upstream describes true as "own Gateway", absent as
-	// "inherit the nearest ancestor's", and false as opting out of Gateway
-	// publishing entirely — though the templates in the pinned release render
-	// absent and false the same way. Either way the chart branches on the key
-	// being missing rather than on a null, so an unset attribute has to leave
-	// the key out: `gateway: null` fails the schema generated from the field,
-	// and `false` would claim an opt-out the practitioner never asked for.
+	// gateway is emitted only when the practitioner set it. The chart resolves
+	// true to "this tenant owns a Gateway" and both false and a missing key to
+	// "publish through the nearest ancestor that owns one" — the helper says so
+	// itself, and it is the key's presence rather than a null that it reads, so
+	// `gateway: null` fails the schema generated from the field. Writing false
+	// for an unset attribute would record a choice nobody made, against a field
+	// whose own upstream documentation has changed its mind more than once.
 	if !m.Gateway.IsNull() && !m.Gateway.IsUnknown() {
 		spec["gateway"] = m.Gateway.ValueBool()
 	}

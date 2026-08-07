@@ -469,9 +469,10 @@ func kubernetesSchema() rschema.Schema {
 			"request and out of state, so the platform's own default applies and keeps moving with the " +
 			"platform instead of being pinned at apply time; a field that is set refreshes normally, so " +
 			"drift against it is still planned away. Read the effective values — including the ones " +
-			"nobody configured — through the `cozystack_kubernetes` data source. The flip side is the " +
-			"usual Terraform contract: after an import, a value set out of band inside one of those " +
-			"blocks is dropped on the next update unless the configuration names it.",
+			"nobody configured — through the `cozystack_kubernetes` data source. The flip side is that " +
+			"the provider replaces the whole spec on every update: a value set out of band inside one of " +
+			"those blocks — by `kubectl`, or by an import that never made it into the configuration — is " +
+			"dropped on the next apply unless the configuration names it.",
 		Attributes: attributes,
 	}
 }

@@ -102,15 +102,27 @@ func (m *kubernetesResourceModel) waitConfig() (types.Bool, types.String) {
 func (m *kubernetesResourceModel) flatten(app *client.Application) diag.Diagnostics {
 	ctx := context.Background()
 
-	configured := []types.Object{m.Talos, m.NodeHealthCheck, m.OIDC, m.ControlPlane, m.Images}
+	// One slice of pairs rather than two parallel ones: a block added to the
+	// targets and forgotten in the configured values would silently trim
+	// against its neighbour.
+	blocks := []struct {
+		configured types.Object
+		target     *types.Object
+	}{
+		{configured: m.Talos, target: &m.Talos},
+		{configured: m.NodeHealthCheck, target: &m.NodeHealthCheck},
+		{configured: m.OIDC, target: &m.OIDC},
+		{configured: m.ControlPlane, target: &m.ControlPlane},
+		{configured: m.Images, target: &m.Images},
+	}
 
 	diags := m.kubernetesModel.flatten(app)
 
-	for i, target := range []*types.Object{&m.Talos, &m.NodeHealthCheck, &m.OIDC, &m.ControlPlane, &m.Images} {
-		trimmed, trimDiags := keepConfiguredAttributes(ctx, configured[i], *target)
+	for _, block := range blocks {
+		trimmed, trimDiags := keepConfiguredAttributes(ctx, block.configured, *block.target)
 		diags.Append(trimDiags...)
 
-		*target = trimmed
+		*block.target = trimmed
 	}
 
 	return diags

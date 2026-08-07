@@ -301,3 +301,52 @@ func TestKubernetesStorageClassRequiresReplace(t *testing.T) {
 		})
 	}
 }
+
+// The data source binds the same model to a different schema, and it is the
+// surface the documented `data.cozystack_kubernetes.….talos.version` output
+// reads. A tfsdk tag that names no attribute there fails at runtime, and no
+// expand/flatten test would reach it.
+func TestKubernetesDataSourceModelRoundTrip(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	schema := kubernetesDataSourceSchema()
+
+	state := tfsdk.State{
+		Schema: schema,
+		Raw:    tftypes.NewValue(schema.Type().TerraformType(ctx), nil),
+	}
+
+	in := fullKubernetesModel()
+	in.ID = types.StringValue("tenant-root/cluster")
+	in.Ready = types.BoolValue(true)
+	in.ChartVersion = types.StringValue("1.6.1")
+	in.UID = types.StringValue("6f0b1f9c-0000-4000-8000-000000000000")
+	in.Kubeconfig = types.StringNull()
+
+	if diags := state.Set(ctx, &in); diags.HasError() {
+		t.Fatalf("state.Set: %v", diags)
+	}
+
+	var out kubernetesModel
+
+	if diags := state.Get(ctx, &out); diags.HasError() {
+		t.Fatalf("state.Get: %v", diags)
+	}
+
+	// The two attributes the data-source example publishes as outputs.
+	talos, _ := out.Talos.Attributes()[attrVersion].(types.String)
+	if talos.ValueString() != "v1.13.6" {
+		t.Errorf("talos.version = %q, want v1.13.6", talos.ValueString())
+	}
+
+	oidc, _ := out.OIDC.Attributes()["mode"].(types.String)
+	if oidc.ValueString() != "System" {
+		t.Errorf("oidc.mode = %q, want System", oidc.ValueString())
+	}
+
+	if out.ControlPlane.IsNull() || out.Images.IsNull() || out.NodeHealthCheck.IsNull() {
+		t.Errorf("blocks lost through the data-source schema: control_plane=%v images=%v node_health_check=%v",
+			out.ControlPlane, out.Images, out.NodeHealthCheck)
+	}
+}

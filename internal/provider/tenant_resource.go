@@ -175,15 +175,14 @@ func tenantSpecAttributes() map[string]schema.Attribute {
 		attrIngress:    boolToggle("Deploy a dedicated ingress controller for the tenant."),
 		"gateway": schema.BoolAttribute{
 			Optional: true,
-			MarkdownDescription: "Deploy a Gateway API Gateway of the tenant's own, backed by the Cilium " +
-				"Gateway API controller. Unset means the tenant gets no Gateway of its own and inherits the " +
-				"nearest ancestor's, falling back to Ingress when no ancestor owns one — so a tenant with a " +
-				"custom apex (`host` set to something the parent apex does not cover) has to ask for `true` " +
-				"explicitly, since the ancestor's certificate does not cover that apex. The attribute is " +
-				"omitted from the spec entirely when unset — the platform reads the key's absence, not a " +
-				"null. Prefer leaving it unset to writing `false`: upstream documents the two as different " +
-				"states, `false` being an opt-out of Gateway publishing altogether, and the templates in the " +
-				"pinned release do not yet act on the difference.",
+			MarkdownDescription: "Give the tenant a Gateway API Gateway of its own, with its own Service, " +
+				"load-balancer address and certificate, backed by the Cilium Gateway API controller. " +
+				"Without it the tenant publishes through the nearest ancestor that owns one — routing is " +
+				"not skipped, only ownership — which is why a tenant whose `host` is an apex the ancestor's " +
+				"certificate does not cover has to ask for `true`. In the pinned release `false` and leaving " +
+				"the attribute out resolve to the same thing; the attribute is still omitted from the spec " +
+				"when unset, because the chart distinguishes the states by the key's presence and rejects a " +
+				"null.",
 		},
 		attrSeaweedfs: boolToggle("Deploy a dedicated SeaweedFS instance for the tenant."),
 		"scheduling_class": schema.StringAttribute{

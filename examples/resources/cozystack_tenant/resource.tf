@@ -20,12 +20,10 @@ resource "cozystack_tenant" "team_b" {
   wait_timeout   = "15m"
 }
 
-# Leave gateway out and the tenant gets no Gateway of its own: it inherits the
-# nearest ancestor's, or falls back to Ingress when no ancestor owns one. A
-# tenant with a custom apex has to ask explicitly, because the ancestor's
-# certificate does not cover that apex. Writing `gateway = false` is not the
-# same as leaving it out — upstream reads it as opting out of Gateway
-# publishing altogether.
+# Leave gateway out and the tenant publishes through the nearest ancestor that
+# owns a Gateway. Set it to true to give this tenant its own — which a tenant
+# with a custom apex has to do, because the ancestor's certificate does not
+# cover that apex.
 resource "cozystack_tenant" "team_c" {
   name      = "team-c"
   namespace = "tenant-root"

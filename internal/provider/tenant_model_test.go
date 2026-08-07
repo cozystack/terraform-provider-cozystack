@@ -96,11 +96,11 @@ func TestExpand_NullQuotasYieldEmptyMap(t *testing.T) {
 	}
 }
 
-// gateway is three-state by key presence, not by value: upstream reads true as
-// "own Gateway", absent as "inherit the ancestor's", and false as opting out of
-// Gateway publishing. The chart branches on the key being missing rather than on
-// a null, so an unset attribute must leave the key out — `gateway: null` fails
-// the generated JSON schema, and `false` claims an opt-out nobody asked for.
+// gateway travels by key presence, not by value. The chart reads true as "this
+// tenant owns a Gateway" and both false and a missing key as "publish through
+// the nearest ancestor". It branches on the key being absent rather than on a
+// null, so an unset attribute must leave the key out entirely: `gateway: null`
+// fails the generated JSON schema, and false records a choice nobody made.
 func TestExpand_GatewayThreeState(t *testing.T) {
 	t.Parallel()
 
