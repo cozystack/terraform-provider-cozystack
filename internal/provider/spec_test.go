@@ -7,6 +7,7 @@ import (
 	"github.com/cozystack/terraform-provider-cozystack/internal/client"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
+	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
@@ -388,6 +389,14 @@ func tlsBlock(enabled bool) types.Object {
 	return types.ObjectValueMust(tlsObjectType(), map[string]attr.Value{attrEnabled: types.BoolValue(enabled)})
 }
 
+// backupBlock builds a backup block with an explicit use_system_bucket flag.
+func backupBlock(useSystemBucket bool) types.Object {
+	return types.ObjectValueMust(
+		backupObjectType(),
+		map[string]attr.Value{attrUseSystemBucket: types.BoolValue(useSystemBucket)},
+	)
+}
+
 // blockCase wires one kind's model to a shared nested block: expand it with the
 // block set to value, and flatten a server spec back to the block.
 type blockCase struct {
@@ -555,5 +564,170 @@ func TestTLSBlock_Flatten(t *testing.T) {
 				t.Errorf("tls.enabled = %v, want false", enabled)
 			}
 		})
+	}
+}
+
+// backupCases covers the kinds carrying the minimal backup block.
+func backupCases() map[string]blockCase {
+	return map[string]blockCase{
+		"postgresql": {
+			expand: func(t *testing.T, value types.Object) map[string]any {
+				t.Helper()
+
+				model := fullPostgresqlModel()
+				model.Backup = value
+
+				return expandSpec(t, &model)
+			},
+			flatten: func(t *testing.T, spec map[string]any) types.Object {
+				t.Helper()
+
+				var model postgresqlModel
+
+				flattenSpec(t, &model, spec)
+
+				return model.Backup
+			},
+		},
+		"clickhouse": {
+			expand: func(t *testing.T, value types.Object) map[string]any {
+				t.Helper()
+
+				model := fullClickhouseModel()
+				model.Backup = value
+
+				return expandSpec(t, &model)
+			},
+			flatten: func(t *testing.T, spec map[string]any) types.Object {
+				t.Helper()
+
+				var model clickhouseModel
+
+				flattenSpec(t, &model, spec)
+
+				return model.Backup
+			},
+		},
+	}
+}
+
+// TestBackupBlock_UnsetOmitsKey keeps the block presence-preserving: the rest of
+// the backup spec is deliberately unmanaged, so an unset block must leave the
+// key out rather than pin a partial backup object the chart would then honour.
+func TestBackupBlock_UnsetOmitsKey(t *testing.T) {
+	t.Parallel()
+
+	for name, kind := range backupCases() {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			if _, ok := kind.expand(t, types.ObjectNull(backupObjectType()))[specBackup]; ok {
+				t.Errorf("null backup emits the %q key, want it omitted", specBackup)
+			}
+
+			blockWithoutFlag := types.ObjectValueMust(
+				backupObjectType(),
+				map[string]attr.Value{attrUseSystemBucket: types.BoolNull()},
+			)
+			if _, ok := kind.expand(t, blockWithoutFlag)[specBackup]; ok {
+				t.Errorf("backup without use_system_bucket emits the %q key, want it omitted", specBackup)
+			}
+		})
+	}
+}
+
+func TestBackupBlock_RoundTrip(t *testing.T) {
+	t.Parallel()
+
+	for name, kind := range backupCases() {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			block, ok := kind.expand(t, backupBlock(true))[specBackup].(map[string]any)
+			if !ok {
+				t.Fatalf("backup block did not emit a %q object", specBackup)
+			}
+
+			if block[specUseSystemBucket] != true {
+				t.Errorf("backup.useSystemBucket = %v, want true", block[specUseSystemBucket])
+			}
+
+			if got := kind.flatten(t, map[string]any{specBackup: map[string]any{}}); !got.IsNull() {
+				t.Errorf("backup without useSystemBucket flattens to %v, want null", got)
+			}
+
+			// The shape an untouched instance actually reads back as: the
+			// aggregated apiserver materialises the upstream schema defaults,
+			// so the flag is present and false even though nobody set it. Only
+			// the modelled leaf may reach state.
+			served := kind.flatten(t, map[string]any{specBackup: map[string]any{
+				"enabled":           false,
+				specUseSystemBucket: false,
+				"retentionPolicy":   "30d",
+			}})
+			if served.IsNull() {
+				t.Fatalf("server-defaulted backup flattens to null, want an object")
+			}
+
+			if len(served.Attributes()) != 1 {
+				t.Errorf("backup block carries %v, want only the system-bucket flag", served.Attributes())
+			}
+
+			got := kind.flatten(t, map[string]any{specBackup: block})
+
+			flag, _ := got.Attributes()[attrUseSystemBucket].(types.Bool)
+			if flag.IsNull() || !flag.ValueBool() {
+				t.Errorf("backup.use_system_bucket = %v, want true", flag)
+			}
+		})
+	}
+}
+
+// TestBackupBlockIsComputed pins the backup block as computed. The aggregated
+// apiserver materialises the upstream schema defaults on every read, and the
+// upstream backup schema defaults the system-bucket flag itself, so an instance
+// that never asked for backups still reads back as `backup: {useSystemBucket:
+// false}`. An optional-only block has nowhere to put that value when the
+// practitioner omits the block, and every apply then fails with an
+// inconsistent-result error.
+func TestBackupBlockIsComputed(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+
+	kinds := map[string]bool{"cozystack_postgres": true, "cozystack_clickhouse": true}
+	seen := 0
+
+	for _, factory := range New("test")().Resources(ctx) {
+		res := factory()
+
+		var metadata resource.MetadataResponse
+
+		res.Metadata(ctx, resource.MetadataRequest{ProviderTypeName: "cozystack"}, &metadata)
+
+		if !kinds[metadata.TypeName] {
+			continue
+		}
+
+		seen++
+
+		var schemaResp resource.SchemaResponse
+
+		res.Schema(ctx, resource.SchemaRequest{}, &schemaResp)
+
+		backup, ok := schemaResp.Schema.Attributes[specBackup]
+		if !ok {
+			t.Errorf("%s has no backup block", metadata.TypeName)
+
+			continue
+		}
+
+		if !backup.IsComputed() {
+			t.Errorf("%s: backup block is not computed", metadata.TypeName)
+		}
+	}
+
+	if seen != len(kinds) {
+		t.Errorf("checked %d kinds, want %d", seen, len(kinds))
 	}
 }

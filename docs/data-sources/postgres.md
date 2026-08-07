@@ -29,6 +29,7 @@ data "cozystack_postgres" "app" {
 
 ### Read-Only
 
+- `backup` (Attributes) Backup configuration, limited to the system-bucket opt-in. (see [below for nested schema](#nestedatt--backup))
 - `chart_version` (String) Deployed chart version.
 - `databases` (Attributes Map) Databases keyed by name. (see [below for nested schema](#nestedatt--databases))
 - `endpoints` (Attributes) Connection endpoints. (see [below for nested schema](#nestedatt--endpoints))
@@ -44,6 +45,14 @@ data "cozystack_postgres" "app" {
 - `uid` (String) Server-assigned object UID (`metadata.uid`).
 - `users` (Attributes Map) PostgreSQL users keyed by user name. (see [below for nested schema](#nestedatt--users))
 - `version` (String) PostgreSQL major version.
+
+<a id="nestedatt--backup"></a>
+### Nested Schema for `backup`
+
+Read-Only:
+
+- `use_system_bucket` (Boolean) Whether the instance backs up to the platform-managed system bucket.
+
 
 <a id="nestedatt--databases"></a>
 ### Nested Schema for `databases`

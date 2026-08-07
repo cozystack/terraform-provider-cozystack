@@ -29,6 +29,7 @@ data "cozystack_clickhouse" "analytics" {
 
 ### Read-Only
 
+- `backup` (Attributes) Backup configuration, limited to the system-bucket opt-in. (see [below for nested schema](#nestedatt--backup))
 - `chart_version` (String) Deployed chart version.
 - `id` (String) Synthetic identifier `namespace/name`.
 - `log_storage_size` (String) Persistent volume size for logs.
@@ -42,6 +43,14 @@ data "cozystack_clickhouse" "analytics" {
 - `storage_class` (String) StorageClass used to store the data.
 - `uid` (String) Server-assigned object UID (`metadata.uid`).
 - `users` (Attributes Map) ClickHouse users keyed by user name. (see [below for nested schema](#nestedatt--users))
+
+<a id="nestedatt--backup"></a>
+### Nested Schema for `backup`
+
+Read-Only:
+
+- `use_system_bucket` (Boolean) Whether the instance backs up to the platform-managed system bucket.
+
 
 <a id="nestedatt--resources"></a>
 ### Nested Schema for `resources`

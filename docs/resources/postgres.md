@@ -3,12 +3,12 @@
 page_title: "cozystack_postgres Resource - cozystack"
 subcategory: ""
 description: |-
-  A Cozystack managed PostgreSQL instance, deployed inside a tenant namespace. The postgresql tuning, quorum, deprecated backup, and bootstrap blocks use server defaults.
+  A Cozystack managed PostgreSQL instance, deployed inside a tenant namespace. The postgresql tuning, quorum, and bootstrap blocks use server defaults.
 ---
 
 # cozystack_postgres (Resource)
 
-A Cozystack managed PostgreSQL instance, deployed inside a tenant namespace. The postgresql tuning, quorum, deprecated backup, and bootstrap blocks use server defaults.
+A Cozystack managed PostgreSQL instance, deployed inside a tenant namespace. The postgresql tuning, quorum, and bootstrap blocks use server defaults.
 
 ## Example Usage
 
@@ -21,6 +21,8 @@ resource "cozystack_postgres" "app" {
   version  = "v18"
   size     = "20Gi"
   tls      = { enabled = true }
+
+  backup = { use_system_bucket = true }
 
   users = {
     app = { password = "change-me" }
@@ -44,6 +46,7 @@ resource "cozystack_postgres" "app" {
 
 ### Optional
 
+- `backup` (Attributes) Backup configuration. Only the system-bucket opt-in is managed here — the per-release S3 settings are deprecated upstream in favour of the platform-managed backup class and are deliberately left unmanaged. Omitting the block leaves the flag to the server; once an instance has opted in, set `use_system_bucket = false` to opt back out, because deleting the block keeps the last applied value. Like every unmanaged part of the spec, backup fields set outside Terraform are not carried over by an apply. (see [below for nested schema](#nestedatt--backup))
 - `databases` (Attributes Map) Databases keyed by name. (see [below for nested schema](#nestedatt--databases))
 - `external` (Boolean) Enable external access from outside the cluster.
 - `replicas` (Number) Number of PostgreSQL replicas.
@@ -64,6 +67,14 @@ resource "cozystack_postgres" "app" {
 - `id` (String) Synthetic identifier in the form `namespace/name`.
 - `ready` (Boolean) Whether the application's `Ready` condition is true.
 - `uid` (String) Server-assigned object UID (`metadata.uid`). Stable across updates; changes on recreate.
+
+<a id="nestedatt--backup"></a>
+### Nested Schema for `backup`
+
+Required:
+
+- `use_system_bucket` (Boolean) Take bucket coordinates and credentials from the platform-managed system bucket instead of per-release S3 settings. On an instance that already exists, backups only start archiving once the first backup job runs, so trigger one right after enabling this.
+
 
 <a id="nestedatt--databases"></a>
 ### Nested Schema for `databases`

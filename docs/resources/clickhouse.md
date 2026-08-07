@@ -3,12 +3,12 @@
 page_title: "cozystack_clickhouse Resource - cozystack"
 subcategory: ""
 description: |-
-  A Cozystack managed ClickHouse instance, deployed inside a tenant namespace. The deprecated backup block and the clickhouseKeeper block use server defaults.
+  A Cozystack managed ClickHouse instance, deployed inside a tenant namespace. The clickhouseKeeper block uses server defaults.
 ---
 
 # cozystack_clickhouse (Resource)
 
-A Cozystack managed ClickHouse instance, deployed inside a tenant namespace. The deprecated backup block and the clickhouseKeeper block use server defaults.
+A Cozystack managed ClickHouse instance, deployed inside a tenant namespace. The clickhouseKeeper block uses server defaults.
 
 ## Example Usage
 
@@ -20,6 +20,8 @@ resource "cozystack_clickhouse" "analytics" {
   replicas = 2
   shards   = 2
   size     = "50Gi"
+
+  backup = { use_system_bucket = true }
 
   users = {
     reader = { password = "change-me", readonly = true }
@@ -37,6 +39,7 @@ resource "cozystack_clickhouse" "analytics" {
 
 ### Optional
 
+- `backup` (Attributes) Backup configuration. Only the system-bucket opt-in is managed here — the per-release S3 settings are deprecated upstream in favour of the platform-managed backup class and are deliberately left unmanaged. Omitting the block leaves the flag to the server; once an instance has opted in, set `use_system_bucket = false` to opt back out, because deleting the block keeps the last applied value. Like every unmanaged part of the spec, backup fields set outside Terraform are not carried over by an apply. (see [below for nested schema](#nestedatt--backup))
 - `log_storage_size` (String) Persistent volume size for logs (quantity, e.g. `2Gi`).
 - `log_ttl` (Number) Log retention in days.
 - `replicas` (Number) Number of ClickHouse replicas per shard.
@@ -55,6 +58,14 @@ resource "cozystack_clickhouse" "analytics" {
 - `id` (String) Synthetic identifier in the form `namespace/name`.
 - `ready` (Boolean) Whether the application's `Ready` condition is true.
 - `uid` (String) Server-assigned object UID (`metadata.uid`). Stable across updates; changes on recreate.
+
+<a id="nestedatt--backup"></a>
+### Nested Schema for `backup`
+
+Required:
+
+- `use_system_bucket` (Boolean) Take bucket coordinates and credentials from the platform-managed system bucket instead of per-release S3 settings. On an instance that already exists, backups only start archiving once the first backup job runs, so trigger one right after enabling this.
+
 
 <a id="nestedatt--resources"></a>
 ### Nested Schema for `resources`

@@ -65,6 +65,51 @@ func tlsDataSourceAttribute(description string) dsschema.SingleNestedAttribute {
 	}
 }
 
+// backupResourceAttribute returns the backup block. Only the system-bucket
+// opt-in is modelled; upstream superseded the per-release S3 fields with the
+// platform-managed default BackupClass, so they stay unmanaged and an omitted
+// block writes no backup key at all. The flag inside it is required, so a block
+// written without one is rejected at plan time rather than expanding to a spec
+// key that is not there.
+//
+// Unlike the tls block this one is also computed, because its upstream schema
+// defaults the flag itself: the aggregated apiserver materialises schema
+// defaults on every read, so an instance that never asked for backups still
+// reads back as `backup: {useSystemBucket: false}`. Without Computed that value
+// has nowhere to go when the practitioner omits the block, and every apply ends
+// in an inconsistent-result error. The tls block escapes this because its flag
+// is a pointer with no default, so an untouched instance reads back as an empty
+// block.
+func backupResourceAttribute(description string) rschema.SingleNestedAttribute {
+	return rschema.SingleNestedAttribute{
+		Optional:            true,
+		Computed:            true,
+		MarkdownDescription: description,
+		Attributes: map[string]rschema.Attribute{
+			attrUseSystemBucket: rschema.BoolAttribute{
+				Required: true,
+				MarkdownDescription: "Take bucket coordinates and credentials from the platform-managed system bucket " +
+					"instead of per-release S3 settings. On an instance that already exists, backups only start " +
+					"archiving once the first backup job runs, so trigger one right after enabling this.",
+			},
+		},
+	}
+}
+
+// backupDataSourceAttribute returns the computed backup block.
+func backupDataSourceAttribute(description string) dsschema.SingleNestedAttribute {
+	return dsschema.SingleNestedAttribute{
+		Computed:            true,
+		MarkdownDescription: description,
+		Attributes: map[string]dsschema.Attribute{
+			attrUseSystemBucket: dsschema.BoolAttribute{
+				Computed:            true,
+				MarkdownDescription: "Whether the instance backs up to the platform-managed system bucket.",
+			},
+		},
+	}
+}
+
 // externalAttribute returns the optional/computed external attribute.
 func externalAttribute() rschema.BoolAttribute {
 	return rschema.BoolAttribute{

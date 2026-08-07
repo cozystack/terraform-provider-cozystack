@@ -79,6 +79,14 @@ func postgresSchema() rschema.Schema {
 				"operator-managed server certificate; CNPG keeps TLS on the wire either way, and turning " +
 				"PostgreSQL TLS off entirely is a server-parameter matter. Omit the block to follow `external`.",
 		),
+		specBackup: backupResourceAttribute(
+			"Backup configuration. Only the system-bucket opt-in is managed here — the per-release S3 " +
+				"settings are deprecated upstream in favour of the platform-managed backup class and are " +
+				"deliberately left unmanaged. Omitting the block leaves the flag to the server; once an " +
+				"instance has opted in, set `use_system_bucket = false` to opt back out, because deleting " +
+				"the block keeps the last applied value. Like every unmanaged part of the spec, backup " +
+				"fields set outside Terraform are not carried over by an apply.",
+		),
 		attrVersion: rschema.StringAttribute{
 			Optional: true, Computed: true,
 			Default:             stringdefault.StaticString("v18"),
@@ -103,7 +111,7 @@ func postgresSchema() rschema.Schema {
 
 	return rschema.Schema{
 		MarkdownDescription: "A Cozystack managed PostgreSQL instance, deployed inside a tenant namespace. " +
-			"The postgresql tuning, quorum, deprecated backup, and bootstrap blocks use server defaults.",
+			"The postgresql tuning, quorum, and bootstrap blocks use server defaults.",
 		Attributes: attributes,
 	}
 }
@@ -128,6 +136,7 @@ func postgresDataSourceSchema() dsschema.Schema {
 		attrStorageClass:    dsschema.StringAttribute{Computed: true, MarkdownDescription: "StorageClass used to store the data."},
 		attrExternal:        dsschema.BoolAttribute{Computed: true, MarkdownDescription: "Whether external access is enabled."},
 		specTLS:             tlsDataSourceAttribute("TLS configuration."),
+		specBackup:          backupDataSourceAttribute("Backup configuration, limited to the system-bucket opt-in."),
 		attrVersion:         dsschema.StringAttribute{Computed: true, MarkdownDescription: "PostgreSQL major version."},
 		"users": dsschema.MapNestedAttribute{
 			Computed:            true,
