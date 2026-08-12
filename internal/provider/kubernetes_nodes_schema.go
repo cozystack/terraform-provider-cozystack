@@ -27,7 +27,11 @@ const k8sNodesDescription = "A worker node pool for a Cozystack managed Kubernet
 	"unset, so a pool keeps following the Talos release, schematic, and images that ship with the installed " +
 	"Cozystack version — the same ones its parent cluster follows.\n\n" +
 	"A pool cannot report `Ready` until its workers join, which needs the parent control plane up first, so " +
-	"`wait_for_ready` on a pool created alongside its cluster will usually spend the whole `wait_timeout`."
+	"`wait_for_ready` on a pool created alongside its cluster will usually spend the whole `wait_timeout`.\n\n" +
+	"Import captures the overrides an existing pool carries. Copy the imported `talos`, `images`, `kubelet`, " +
+	"`roles`, and `gpus` values into the configuration before the first apply: an update replaces the whole " +
+	"spec, so an override present on the object but absent from configuration is removed by that apply — the " +
+	"plan shows the removal, but only the configuration can prevent it."
 
 // k8sNodesSizingAttributes returns the pool sizing and placement attributes.
 func k8sNodesSizingAttributes() map[string]rschema.Attribute {

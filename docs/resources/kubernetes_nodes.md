@@ -6,6 +6,7 @@ description: |-
   A worker node pool for a Cozystack managed Kubernetes cluster. The pool attaches to its parent cluster by name: cluster names the cozystack_kubernetes object in the same namespace, and the pool itself must be named <cluster>-<pool>. A pool whose name collides with a node group the parent cluster still manages — the default md0, for instance — fails to render on an ownership conflict.
   The talos, images, and kubelet blocks are left to the chart unless set, and stay out of state when unset, so a pool keeps following the Talos release, schematic, and images that ship with the installed Cozystack version — the same ones its parent cluster follows.
   A pool cannot report Ready until its workers join, which needs the parent control plane up first, so wait_for_ready on a pool created alongside its cluster will usually spend the whole wait_timeout.
+  Import captures the overrides an existing pool carries. Copy the imported talos, images, kubelet, roles, and gpus values into the configuration before the first apply: an update replaces the whole spec, so an override present on the object but absent from configuration is removed by that apply — the plan shows the removal, but only the configuration can prevent it.
 ---
 
 # cozystack_kubernetes_nodes (Resource)
@@ -15,6 +16,8 @@ A worker node pool for a Cozystack managed Kubernetes cluster. The pool attaches
 The `talos`, `images`, and `kubelet` blocks are left to the chart unless set, and stay out of state when unset, so a pool keeps following the Talos release, schematic, and images that ship with the installed Cozystack version — the same ones its parent cluster follows.
 
 A pool cannot report `Ready` until its workers join, which needs the parent control plane up first, so `wait_for_ready` on a pool created alongside its cluster will usually spend the whole `wait_timeout`.
+
+Import captures the overrides an existing pool carries. Copy the imported `talos`, `images`, `kubelet`, `roles`, and `gpus` values into the configuration before the first apply: an update replaces the whole spec, so an override present on the object but absent from configuration is removed by that apply — the plan shows the removal, but only the configuration can prevent it.
 
 ## Example Usage
 
