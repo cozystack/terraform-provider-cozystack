@@ -61,6 +61,14 @@ The same JSON-spec passthrough also covers the backup framework:
 
 `backup_plan` (schedule a backup) and `restore_job` (restore a backup) are user-authored, so they are fully typed (`application_ref`, `backup_class_name`, `schedule` / `backup_name`, `target_application_ref`, `options`). The remaining backups kinds are records or driver config and stay JSON-spec.
 
+### Gateway (`gateway.cozystack.io`)
+
+| Kind | Resource | Data source |
+| --- | --- | --- |
+| TenantGateway — per-tenant Gateway API / Cilium Gateway | [`cozystack_tenant_gateway`](docs/resources/tenant_gateway.md) | [`cozystack_tenant_gateway`](docs/data-sources/tenant_gateway.md) |
+
+Namespaced, JSON-spec (`apex`, `certMode`, `issuerName`, `dns01`, `wildcardSecretRef`, `attachedNamespaces`, `tlsPassthroughServices`, `gatewayClassName`) — the cozystack-controller reconciles the actual Gateway and per-listener Certificate resources from it.
+
 ### Tenant core resources (`core.cozystack.io`)
 
 These do not follow the spec pattern, so they have purpose-built models:
