@@ -30,6 +30,7 @@ Every kind is served by the same aggregated API, so the provider is built to gro
 | Managed FoundationDB | [`cozystack_foundationdb`](docs/resources/foundationdb.md) | [`cozystack_foundationdb`](docs/data-sources/foundationdb.md) |
 | Virtual machine instance | [`cozystack_vminstance`](docs/resources/vminstance.md) | [`cozystack_vminstance`](docs/data-sources/vminstance.md) |
 | Managed Kubernetes | [`cozystack_kubernetes`](docs/resources/kubernetes.md) | [`cozystack_kubernetes`](docs/data-sources/kubernetes.md) |
+| Managed Kubernetes worker node pool | [`cozystack_kubernetes_nodes`](docs/resources/kubernetes_nodes.md) | [`cozystack_kubernetes_nodes`](docs/data-sources/kubernetes_nodes.md) |
 
 Every kind served by the aggregated `apps.cozystack.io` API is now covered.
 
@@ -46,9 +47,9 @@ Beyond the namespaced tenant apps, the provider also manages the cluster-scoped 
 
 These are cluster-scoped (imported by name, no namespace). `cozystack_package` is fully typed (`variant`, `ignore_dependencies`, per-component overrides). The other three are platform-definition documents whose deeply-nested, version-coupled specs are surfaced as a single normalized-JSON `spec` attribute (write with `jsonencode`, read back with `jsondecode`) rather than brittle per-field modeling.
 
-### Backups and dashboard
+### Backups
 
-The same JSON-spec passthrough also covers the backup framework and dashboard panels:
+The same JSON-spec passthrough also covers the backup framework:
 
 | Kind | Resource | Data source |
 | --- | --- | --- |
@@ -57,9 +58,16 @@ The same JSON-spec passthrough also covers the backup framework and dashboard pa
 | BackupClass | [`cozystack_backup_class`](docs/resources/backup_class.md) | [`cozystack_backup_class`](docs/data-sources/backup_class.md) |
 | Backup | [`cozystack_backup`](docs/resources/backup.md) | [`cozystack_backup`](docs/data-sources/backup.md) |
 | BackupJob | [`cozystack_backup_job`](docs/resources/backup_job.md) | [`cozystack_backup_job`](docs/data-sources/backup_job.md) |
-| MarketplacePanel | [`cozystack_marketplace_panel`](docs/resources/marketplace_panel.md) | [`cozystack_marketplace_panel`](docs/data-sources/marketplace_panel.md) |
 
 `backup_plan` (schedule a backup) and `restore_job` (restore a backup) are user-authored, so they are fully typed (`application_ref`, `backup_class_name`, `schedule` / `backup_name`, `target_application_ref`, `options`). The remaining backups kinds are records or driver config and stay JSON-spec.
+
+### Gateway (`gateway.cozystack.io`)
+
+| Kind | Resource | Data source |
+| --- | --- | --- |
+| TenantGateway — per-tenant Gateway API / Cilium Gateway | [`cozystack_tenant_gateway`](docs/resources/tenant_gateway.md) | [`cozystack_tenant_gateway`](docs/data-sources/tenant_gateway.md) |
+
+Namespaced, JSON-spec (`apex`, `certMode`, `issuerName`, `dns01`, `wildcardSecretRef`, `attachedNamespaces`, `tlsPassthroughServices`, `gatewayClassName`) — the cozystack-controller reconciles the actual Gateway and per-listener Certificate resources from it.
 
 ### Tenant core resources (`core.cozystack.io`)
 

@@ -19,6 +19,7 @@ resource "cozystack_qdrant" "vectors" {
 
   replicas = 2
   size     = "20Gi"
+  tls      = { enabled = true }
 }
 ```
 
@@ -37,7 +38,8 @@ resource "cozystack_qdrant" "vectors" {
 - `resources` (Attributes) Explicit CPU and memory per replica. Overrides `resources_preset` for any field set. (see [below for nested schema](#nestedatt--resources))
 - `resources_preset` (String) Sizing preset applied when `resources` is omitted (e.g. `t1.small`).
 - `size` (String) Persistent volume size for vector data (quantity, e.g. `10Gi`).
-- `storage_class` (String) StorageClass used to store the data.
+- `storage_class` (String) StorageClass used to store the data. Changing a value set here replaces the object, because an existing volume is never migrated to another class. Removing the attribute from the configuration does not: the object keeps its volumes and the recorded class reverts to the default.
+- `tls` (Attributes) TLS configuration. Omit the block to follow `external`. (see [below for nested schema](#nestedatt--tls))
 - `wait_for_ready` (Boolean) Block on create/update until the tenant's `Ready` condition is true.
 - `wait_timeout` (String) Maximum time to wait when `wait_for_ready` is set (Go duration, e.g. `10m`).
 
@@ -55,6 +57,14 @@ Optional:
 
 - `cpu` (String) CPU available to each replica (quantity, e.g. `500m`).
 - `memory` (String) Memory available to each replica (quantity, e.g. `512Mi`).
+
+
+<a id="nestedatt--tls"></a>
+### Nested Schema for `tls`
+
+Required:
+
+- `enabled` (Boolean) Whether TLS is enabled. Leave the whole block out to inherit `external`; set it to pin TLS on or off regardless of external access.
 
 ## Import
 

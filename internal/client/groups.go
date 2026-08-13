@@ -1,7 +1,7 @@
 package client
 
 // Additional Cozystack API groups beyond apps.cozystack.io and the cozystack.io
-// platform group: backups, tenant core resources, and the dashboard.
+// platform group: backups and tenant core resources.
 
 // BackupClassResource identifies the BackupClass kind (cluster-scoped).
 func BackupClassResource() Resource {
@@ -49,7 +49,8 @@ func TenantSecretResource() Resource {
 	return Resource{Group: "core.cozystack.io", Resource: "tenantsecrets", Kind: "TenantSecret"}
 }
 
-// MarketplacePanelResource identifies the MarketplacePanel kind (cluster-scoped).
-func MarketplacePanelResource() Resource {
-	return Resource{Group: "dashboard.cozystack.io", Resource: "marketplacepanels", Kind: "MarketplacePanel", ClusterScoped: true}
+// TenantGatewayResource identifies the TenantGateway kind (namespaced): the
+// per-tenant Gateway API / Cilium Gateway declaration.
+func TenantGatewayResource() Resource {
+	return Resource{Group: "gateway.cozystack.io", Resource: "tenantgateways", Kind: "TenantGateway"}
 }

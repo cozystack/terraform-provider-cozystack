@@ -175,8 +175,14 @@ func tenantSpecAttributes() map[string]schema.Attribute {
 		attrIngress:    boolToggle("Deploy a dedicated ingress controller for the tenant."),
 		"gateway": schema.BoolAttribute{
 			Optional: true,
-			MarkdownDescription: "Deploy a dedicated Gateway API controller (newer Cozystack only). " +
-				"Tri-state: omitted when unset, so it is a no-op on clusters that do not support it.",
+			MarkdownDescription: "Give the tenant a Gateway API Gateway of its own, with its own Service, " +
+				"load-balancer address and certificate, backed by the Cilium Gateway API controller. " +
+				"Without it the tenant publishes through the nearest ancestor that owns one — routing is " +
+				"not skipped, only ownership — which is why a tenant whose `host` is an apex the ancestor's " +
+				"certificate does not cover has to ask for `true`. In the pinned release `false` and leaving " +
+				"the attribute out resolve to the same thing; the attribute is still omitted from the spec " +
+				"when unset, because the chart distinguishes the states by the key's presence and rejects a " +
+				"null.",
 		},
 		attrSeaweedfs: boolToggle("Deploy a dedicated SeaweedFS instance for the tenant."),
 		"scheduling_class": schema.StringAttribute{

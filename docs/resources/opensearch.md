@@ -42,7 +42,7 @@ resource "cozystack_opensearch" "search" {
 - `resources` (Attributes) Explicit CPU and memory per replica; overrides `resources_preset` for any field set. (see [below for nested schema](#nestedatt--resources))
 - `resources_preset` (String) Sizing preset applied when `resources` is omitted.
 - `size` (String) Persistent volume size (quantity, e.g. `10Gi`).
-- `storage_class` (String) StorageClass used to store the data.
+- `storage_class` (String) StorageClass used to store the data. Changing a value set here replaces the object, because an existing volume is never migrated to another class. Removing the attribute from the configuration does not: the object keeps its volumes and the recorded class reverts to the default.
 - `topology_spread_policy` (String) Pod topology spread policy (`soft` or `hard`).
 - `users` (Attributes Map) OpenSearch users keyed by user name. (see [below for nested schema](#nestedatt--users))
 - `version` (String) OpenSearch major version (`v3`, `v2`, `v1`).

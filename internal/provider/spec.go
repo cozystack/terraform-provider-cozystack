@@ -2,7 +2,10 @@ package provider
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 
+	"github.com/hashicorp/terraform-plugin-framework-jsontypes/jsontypes"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -38,6 +41,16 @@ const (
 	specStorageClass    = "storageClass"
 	specResourcesPreset = "resourcesPreset"
 	specAuthEnabled     = "authEnabled"
+)
+
+// Attribute and spec-key names of the shared tls and backup blocks.
+const (
+	attrEnabled         = "enabled"
+	attrUseSystemBucket = "use_system_bucket"
+
+	specTLS             = "tls"
+	specBackup          = "backup"
+	specUseSystemBucket = "useSystemBucket"
 )
 
 // Shared helpers for reading and writing the free-form application spec across
@@ -453,6 +466,299 @@ func flattenObjectList(
 	}
 
 	value, listDiags := types.ListValue(elementType, elements)
+	diags.Append(listDiags...)
+
+	return value, diags
+}
+
+// Presence-preserving spec fields.
+//
+// Most optional spec keys treat "absent" and "empty" alike, so the helpers above
+// deliberately collapse the two: a null attribute expands to an empty value and
+// an empty value flattens back to null. A few upstream keys instead give the
+// empty form its own meaning — the chart substitutes its own value when the key
+// is absent, and an explicitly empty value opts out of that substitution. For
+// those, collapsing the states silently reinstates the substitution the operator
+// opted out of, and flattening a stored empty value back to null makes every
+// apply report drift. The helpers below carry the distinction through both
+// directions: they write a key only when the attribute is set, and they read a
+// key back as null only when it is absent.
+
+// setOptionalString writes a string into spec under key. A null or unknown
+// attribute leaves the key out; an explicit empty string is written.
+func setOptionalString(spec map[string]any, key string, value types.String) {
+	if value.IsNull() || value.IsUnknown() {
+		return
+	}
+
+	spec[key] = value.ValueString()
+}
+
+// specStringOrNull reads a string from spec, flattening an absent key to null
+// and a present empty string to an empty string value.
+func specStringOrNull(spec map[string]any, key string) types.String {
+	text, ok := spec[key].(string)
+	if !ok {
+		return types.StringNull()
+	}
+
+	return types.StringValue(text)
+}
+
+// setOptionalStringList writes a string list into spec under key. A null or
+// unknown attribute leaves the key out; an empty list writes an empty list.
+func setOptionalStringList(
+	ctx context.Context,
+	spec map[string]any,
+	key string,
+	value types.List,
+) diag.Diagnostics {
+	var diags diag.Diagnostics
+
+	if value.IsNull() || value.IsUnknown() {
+		return diags
+	}
+
+	items, itemDiags := expandStringList(ctx, value)
+	diags.Append(itemDiags...)
+
+	if diags.HasError() {
+		return diags
+	}
+
+	spec[key] = items
+
+	return diags
+}
+
+// specStringListOrNull builds a string list from a spec value, flattening an
+// absent key to null and a present empty list to an empty list.
+func specStringListOrNull(raw any) types.List {
+	items, ok := raw.([]any)
+	if !ok {
+		return types.ListNull(types.StringType)
+	}
+
+	elements := make([]attr.Value, 0, len(items))
+	for _, item := range items {
+		text, _ := item.(string)
+		elements = append(elements, types.StringValue(text))
+	}
+
+	return types.ListValueMust(types.StringType, elements)
+}
+
+// setOptionalObjectList writes a nested-object list into spec under key,
+// delegating per-element conversion to build. A null or unknown attribute leaves
+// the key out; an empty list writes an empty list.
+func setOptionalObjectList[T any](
+	ctx context.Context,
+	spec map[string]any,
+	key string,
+	value types.List,
+	build func(T) map[string]any,
+) diag.Diagnostics {
+	var diags diag.Diagnostics
+
+	if value.IsNull() || value.IsUnknown() {
+		return diags
+	}
+
+	items, itemDiags := expandObjectList(ctx, value, build)
+	diags.Append(itemDiags...)
+
+	if diags.HasError() {
+		return diags
+	}
+
+	spec[key] = items
+
+	return diags
+}
+
+// specObjectListOrNull builds a nested-object list from a spec value,
+// delegating per-element conversion to build. An absent key flattens to null; a
+// present empty list flattens to an empty list.
+func specObjectListOrNull(
+	raw any,
+	objectType map[string]attr.Type,
+	build func(map[string]any) map[string]attr.Value,
+) (types.List, diag.Diagnostics) {
+	var diags diag.Diagnostics
+
+	elementType := types.ObjectType{AttrTypes: objectType}
+
+	items, ok := raw.([]any)
+	if !ok {
+		return types.ListNull(elementType), diags
+	}
+
+	elements := make([]attr.Value, 0, len(items))
+
+	for _, item := range items {
+		entry, _ := item.(map[string]any)
+
+		object, objectDiags := types.ObjectValue(objectType, build(entry))
+		diags.Append(objectDiags...)
+
+		elements = append(elements, object)
+	}
+
+	value, listDiags := types.ListValue(elementType, elements)
+	diags.Append(listDiags...)
+
+	return value, diags
+}
+
+// Shared tri-state blocks.
+//
+// The tls and backup blocks below hold a single flag whose absence carries its
+// own meaning upstream: an absent tls key inherits `external`, and an absent
+// backup key leaves the chart's own backup defaults in place instead of pinning
+// a partial block. Both therefore write their spec key only when the flag is
+// set, and read an empty block back as null so the schema default the
+// aggregated API may echo does not drift.
+
+// tlsObjectType is the {enabled} object of the tls block.
+func tlsObjectType() map[string]attr.Type {
+	return map[string]attr.Type{attrEnabled: types.BoolType}
+}
+
+// setOptionalTLS writes the tls block into spec. An unset block, or one whose
+// enabled flag is unset, leaves the key out so the chart keeps inheriting
+// `external`.
+func setOptionalTLS(spec map[string]any, value types.Object) {
+	if enabled, ok := optionalBlockFlag(value, attrEnabled); ok {
+		spec[specTLS] = map[string]any{attrEnabled: enabled}
+	}
+}
+
+// flattenTLS builds the tls block from a spec value. An absent block, and the
+// empty one the upstream schema default produces, both flatten to null.
+func flattenTLS(raw any) types.Object {
+	return flattenBlockFlag(raw, tlsObjectType(), attrEnabled, attrEnabled)
+}
+
+// backupObjectType is the {use_system_bucket} object of the backup block.
+func backupObjectType() map[string]attr.Type {
+	return map[string]attr.Type{attrUseSystemBucket: types.BoolType}
+}
+
+// setOptionalBackup writes the backup block into spec. Only the system-bucket
+// opt-in is managed, so an unset block leaves the key out entirely rather than
+// overwriting the unmanaged backup fields of an existing release.
+func setOptionalBackup(spec map[string]any, value types.Object) {
+	if useSystemBucket, ok := optionalBlockFlag(value, attrUseSystemBucket); ok {
+		spec[specBackup] = map[string]any{specUseSystemBucket: useSystemBucket}
+	}
+}
+
+// flattenBackup builds the backup block from a spec value, keeping the
+// unmanaged sibling fields out of state.
+func flattenBackup(raw any) types.Object {
+	return flattenBlockFlag(raw, backupObjectType(), attrUseSystemBucket, specUseSystemBucket)
+}
+
+// optionalBlockFlag reads the single boolean of a one-flag block, reporting
+// whether it is set.
+func optionalBlockFlag(value types.Object, name string) (bool, bool) {
+	if value.IsNull() || value.IsUnknown() {
+		return false, false
+	}
+
+	flag, ok := value.Attributes()[name].(types.Bool)
+	if !ok || flag.IsNull() || flag.IsUnknown() {
+		return false, false
+	}
+
+	return flag.ValueBool(), true
+}
+
+// flattenBlockFlag builds a one-flag block object from a spec submap, returning
+// null unless the flag itself is present.
+func flattenBlockFlag(raw any, objectType map[string]attr.Type, name, specKey string) types.Object {
+	block, ok := raw.(map[string]any)
+	if !ok {
+		return types.ObjectNull(objectType)
+	}
+
+	flag, ok := block[specKey].(bool)
+	if !ok {
+		return types.ObjectNull(objectType)
+	}
+
+	return types.ObjectValueMust(objectType, map[string]attr.Value{name: types.BoolValue(flag)})
+}
+
+// setOptionalJSONList writes a list of JSON documents into spec under key. The
+// upstream fields are free-form core/v1 objects, so they travel as normalized
+// JSON strings rather than a hand-modelled Volume schema.
+func setOptionalJSONList(
+	ctx context.Context,
+	spec map[string]any,
+	key string,
+	value types.List,
+) diag.Diagnostics {
+	var diags diag.Diagnostics
+
+	if value.IsNull() || value.IsUnknown() {
+		return diags
+	}
+
+	var items []jsontypes.Normalized
+
+	diags.Append(value.ElementsAs(ctx, &items, false)...)
+
+	if diags.HasError() {
+		return diags
+	}
+
+	out := make([]any, 0, len(items))
+
+	for index, item := range items {
+		var document any
+
+		if err := json.Unmarshal([]byte(item.ValueString()), &document); err != nil {
+			diags.AddError(
+				"Invalid JSON document in "+key,
+				fmt.Sprintf("Element %d is not a JSON document: %s", index, err),
+			)
+
+			return diags
+		}
+
+		out = append(out, document)
+	}
+
+	spec[key] = out
+
+	return diags
+}
+
+// specJSONListOrNull builds a list of JSON documents from a spec value. An
+// absent key flattens to null; a present empty list stays an empty list.
+func specJSONListOrNull(raw any) (types.List, diag.Diagnostics) {
+	var diags diag.Diagnostics
+
+	items, ok := raw.([]any)
+	if !ok {
+		return types.ListNull(jsontypes.NormalizedType{}), diags
+	}
+
+	elements := make([]attr.Value, 0, len(items))
+
+	for _, item := range items {
+		encoded, err := json.Marshal(item)
+		if err != nil {
+			diags.AddError("Unable to encode a spec document", err.Error())
+
+			return types.ListNull(jsontypes.NormalizedType{}), diags
+		}
+
+		elements = append(elements, jsontypes.NewNormalizedValue(string(encoded)))
+	}
+
+	value, listDiags := types.ListValue(jsontypes.NormalizedType{}, elements)
 	diags.Append(listDiags...)
 
 	return value, diags

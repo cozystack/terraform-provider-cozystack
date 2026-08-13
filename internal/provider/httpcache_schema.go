@@ -18,7 +18,7 @@ func httpcacheSchema() rschema.Schema {
 			Default:             stringdefault.StaticString("10Gi"),
 			MarkdownDescription: "Persistent volume size for cache data (quantity, e.g. `10Gi`).",
 		},
-		attrStorageClass: storageClassAttribute(),
+		attrStorageClass: storageClassAttribute(""),
 		attrExternal:     externalAttribute(),
 		"endpoints": rschema.ListAttribute{
 			Optional:            true,
