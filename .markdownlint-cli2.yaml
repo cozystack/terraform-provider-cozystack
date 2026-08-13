@@ -5,6 +5,10 @@ config:
   line-length: false
   # Allow inline HTML where the registry docs need it.
   no-inline-html: false
+  # Changelog release sections legitimately repeat headings such as
+  # "Breaking changes"; only same-level siblings must stay unique.
+  no-duplicate-heading:
+    siblings_only: true
 globs:
   - "**/*.md"
 ignores:
