@@ -43,6 +43,16 @@ const (
 	specAuthEnabled     = "authEnabled"
 )
 
+// Attribute and spec-key names of the shared tls and backup blocks.
+const (
+	attrEnabled         = "enabled"
+	attrUseSystemBucket = "use_system_bucket"
+
+	specTLS             = "tls"
+	specBackup          = "backup"
+	specUseSystemBucket = "useSystemBucket"
+)
+
 // Shared helpers for reading and writing the free-form application spec across
 // Cozystack resource kinds.
 
@@ -598,6 +608,86 @@ func specObjectListOrNull(
 	diags.Append(listDiags...)
 
 	return value, diags
+}
+
+// Shared tri-state blocks.
+//
+// The tls and backup blocks below hold a single flag whose absence carries its
+// own meaning upstream: an absent tls key inherits `external`, and an absent
+// backup key leaves the chart's own backup defaults in place instead of pinning
+// a partial block. Both therefore write their spec key only when the flag is
+// set, and read an empty block back as null so the schema default the
+// aggregated API may echo does not drift.
+
+// tlsObjectType is the {enabled} object of the tls block.
+func tlsObjectType() map[string]attr.Type {
+	return map[string]attr.Type{attrEnabled: types.BoolType}
+}
+
+// setOptionalTLS writes the tls block into spec. An unset block, or one whose
+// enabled flag is unset, leaves the key out so the chart keeps inheriting
+// `external`.
+func setOptionalTLS(spec map[string]any, value types.Object) {
+	if enabled, ok := optionalBlockFlag(value, attrEnabled); ok {
+		spec[specTLS] = map[string]any{attrEnabled: enabled}
+	}
+}
+
+// flattenTLS builds the tls block from a spec value. An absent block, and the
+// empty one the upstream schema default produces, both flatten to null.
+func flattenTLS(raw any) types.Object {
+	return flattenBlockFlag(raw, tlsObjectType(), attrEnabled, attrEnabled)
+}
+
+// backupObjectType is the {use_system_bucket} object of the backup block.
+func backupObjectType() map[string]attr.Type {
+	return map[string]attr.Type{attrUseSystemBucket: types.BoolType}
+}
+
+// setOptionalBackup writes the backup block into spec. Only the system-bucket
+// opt-in is managed, so an unset block leaves the key out entirely rather than
+// overwriting the unmanaged backup fields of an existing release.
+func setOptionalBackup(spec map[string]any, value types.Object) {
+	if useSystemBucket, ok := optionalBlockFlag(value, attrUseSystemBucket); ok {
+		spec[specBackup] = map[string]any{specUseSystemBucket: useSystemBucket}
+	}
+}
+
+// flattenBackup builds the backup block from a spec value, keeping the
+// unmanaged sibling fields out of state.
+func flattenBackup(raw any) types.Object {
+	return flattenBlockFlag(raw, backupObjectType(), attrUseSystemBucket, specUseSystemBucket)
+}
+
+// optionalBlockFlag reads the single boolean of a one-flag block, reporting
+// whether it is set.
+func optionalBlockFlag(value types.Object, name string) (bool, bool) {
+	if value.IsNull() || value.IsUnknown() {
+		return false, false
+	}
+
+	flag, ok := value.Attributes()[name].(types.Bool)
+	if !ok || flag.IsNull() || flag.IsUnknown() {
+		return false, false
+	}
+
+	return flag.ValueBool(), true
+}
+
+// flattenBlockFlag builds a one-flag block object from a spec submap, returning
+// null unless the flag itself is present.
+func flattenBlockFlag(raw any, objectType map[string]attr.Type, name, specKey string) types.Object {
+	block, ok := raw.(map[string]any)
+	if !ok {
+		return types.ObjectNull(objectType)
+	}
+
+	flag, ok := block[specKey].(bool)
+	if !ok {
+		return types.ObjectNull(objectType)
+	}
+
+	return types.ObjectValueMust(objectType, map[string]attr.Value{name: types.BoolValue(flag)})
 }
 
 // setOptionalJSONList writes a list of JSON documents into spec under key. The

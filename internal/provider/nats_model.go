@@ -19,6 +19,7 @@ type natsModel struct {
 	ResourcesPreset types.String `tfsdk:"resources_preset"`
 	StorageClass    types.String `tfsdk:"storage_class"`
 	External        types.Bool   `tfsdk:"external"`
+	TLS             types.Object `tfsdk:"tls"`
 	Users           types.Map    `tfsdk:"users"`
 	Ready           types.Bool   `tfsdk:"ready"`
 	ChartVersion    types.String `tfsdk:"chart_version"`
@@ -62,6 +63,8 @@ func (m *natsModel) expand(ctx context.Context) (*client.Application, diag.Diagn
 		"users":             users,
 	}
 
+	setOptionalTLS(spec, m.TLS)
+
 	return &client.Application{
 		Name:      m.Name.ValueString(),
 		Namespace: m.Namespace.ValueString(),
@@ -79,6 +82,7 @@ func (m *natsModel) flatten(app *client.Application) diag.Diagnostics {
 	m.ResourcesPreset = types.StringValue(specString(app.Spec, specResourcesPreset))
 	m.StorageClass = types.StringValue(specString(app.Spec, specStorageClass))
 	m.External = types.BoolValue(specBool(app.Spec, attrExternal))
+	m.TLS = flattenTLS(app.Spec[specTLS])
 
 	resources, rDiags := flattenResources(app.Spec[attrResources])
 	diags.Append(rDiags...)

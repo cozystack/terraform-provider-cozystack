@@ -24,6 +24,7 @@ func fullClickhouseModel() clickhouseModel {
 		StorageClass:    types.StringValue(""),
 		LogStorageSize:  types.StringValue("2Gi"),
 		LogTTL:          types.Int64Value(15),
+		Backup:          backupBlock(true),
 		Users: types.MapValueMust(usersType, map[string]attr.Value{
 			"reader": types.ObjectValueMust(clickhouseUserObjectType(), map[string]attr.Value{
 				"password": types.StringValue("pw"),
@@ -106,5 +107,5 @@ func TestClickhouseExpandKeysMatchConfigSpec(t *testing.T) {
 		emitted[key] = true
 	}
 
-	assertSpecCoverage(t, emitted, clickhouse.ConfigSpec{}, "backup", "clickhouseKeeper")
+	assertSpecCoverage(t, emitted, clickhouse.ConfigSpec{}, "clickhouseKeeper")
 }

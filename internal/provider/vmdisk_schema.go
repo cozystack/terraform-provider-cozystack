@@ -55,11 +55,7 @@ func vmdiskSchema() rschema.Schema {
 			Default:             stringdefault.StaticString("5Gi"),
 			MarkdownDescription: "Disk size allocated for the virtual machine (quantity, e.g. `5Gi`).",
 		},
-		attrStorageClass: rschema.StringAttribute{
-			Optional: true, Computed: true,
-			Default:             stringdefault.StaticString("replicated"),
-			MarkdownDescription: "StorageClass used to store the data.",
-		},
+		attrStorageClass: storageClassAttribute("replicated"),
 	})
 	maps.Copy(attributes, statusResourceAttributes())
 	maps.Copy(attributes, waitBehaviorAttributes())

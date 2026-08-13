@@ -2,6 +2,9 @@ resource "cozystack_kafka" "events" {
   name      = "events"
   namespace = "tenant-root"
 
+  external = true
+  tls      = { enabled = true }
+
   kafka     = { replicas = 3, size = "10Gi" }
   zookeeper = { replicas = 3, size = "5Gi" }
 

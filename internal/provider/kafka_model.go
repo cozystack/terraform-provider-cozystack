@@ -17,6 +17,7 @@ type kafkaModel struct {
 	Name         types.String `tfsdk:"name"`
 	Namespace    types.String `tfsdk:"namespace"`
 	External     types.Bool   `tfsdk:"external"`
+	TLS          types.Object `tfsdk:"tls"`
 	Topics       types.List   `tfsdk:"topics"`
 	Kafka        types.Object `tfsdk:"kafka"`
 	Zookeeper    types.Object `tfsdk:"zookeeper"`
@@ -101,6 +102,8 @@ func (m *kafkaModel) expand(ctx context.Context) (*client.Application, diag.Diag
 		"zookeeper":  zookeeper,
 	}
 
+	setOptionalTLS(spec, m.TLS)
+
 	return &client.Application{
 		Name:      m.Name.ValueString(),
 		Namespace: m.Namespace.ValueString(),
@@ -144,6 +147,7 @@ func (m *kafkaModel) flatten(app *client.Application) diag.Diagnostics {
 	m.Name = types.StringValue(app.Name)
 	m.Namespace = types.StringValue(app.Namespace)
 	m.External = types.BoolValue(specBool(app.Spec, attrExternal))
+	m.TLS = flattenTLS(app.Spec[specTLS])
 
 	topics, tDiags := flattenObjectList(app.Spec["topics"], kafkaTopicObjectType(), func(topic map[string]any) map[string]attr.Value {
 		name, _ := topic["name"].(string)

@@ -26,12 +26,7 @@ func openbaoSchema() rschema.Schema {
 			Default:             stringdefault.StaticString("10Gi"),
 			MarkdownDescription: "Persistent volume size (quantity, e.g. `10Gi`).",
 		},
-		attrStorageClass: rschema.StringAttribute{
-			Optional:            true,
-			Computed:            true,
-			Default:             stringdefault.StaticString(""),
-			MarkdownDescription: "StorageClass used to store the data.",
-		},
+		attrStorageClass: storageClassAttribute(""),
 		attrExternal: rschema.BoolAttribute{
 			Optional:            true,
 			Computed:            true,

@@ -54,6 +54,7 @@ func (d *qdrantDataSource) Schema(
 			attrSize:            schema.StringAttribute{Computed: true, MarkdownDescription: "Persistent volume size."},
 			attrStorageClass:    schema.StringAttribute{Computed: true, MarkdownDescription: "StorageClass used to store the data."},
 			attrExternal:        schema.BoolAttribute{Computed: true, MarkdownDescription: "Whether external access is enabled."},
+			specTLS:             tlsDataSourceAttribute("TLS configuration."),
 			attrResourcesPreset: schema.StringAttribute{Computed: true, MarkdownDescription: "Sizing preset."},
 			attrResources: schema.SingleNestedAttribute{
 				Computed:            true,

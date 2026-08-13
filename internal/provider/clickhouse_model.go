@@ -10,7 +10,9 @@ import (
 )
 
 // clickhouseModel maps the cozystack_clickhouse schema to Go types. The
-// deprecated backup block and the clickhouseKeeper block are not managed.
+// clickhouseKeeper block is not managed, and of the backup block only the
+// system-bucket opt-in is: every other backup field is deprecated or legacy
+// upstream, superseded by the platform-managed default BackupClass.
 type clickhouseModel struct {
 	ID              types.String `tfsdk:"id"`
 	Name            types.String `tfsdk:"name"`
@@ -23,6 +25,7 @@ type clickhouseModel struct {
 	StorageClass    types.String `tfsdk:"storage_class"`
 	LogStorageSize  types.String `tfsdk:"log_storage_size"`
 	LogTTL          types.Int64  `tfsdk:"log_ttl"`
+	Backup          types.Object `tfsdk:"backup"`
 	Users           types.Map    `tfsdk:"users"`
 	Ready           types.Bool   `tfsdk:"ready"`
 	ChartVersion    types.String `tfsdk:"chart_version"`
@@ -121,6 +124,8 @@ func (m *clickhouseModel) expand(ctx context.Context) (*client.Application, diag
 		"users":             users,
 	}
 
+	setOptionalBackup(spec, m.Backup)
+
 	return &client.Application{
 		Name:      m.Name.ValueString(),
 		Namespace: m.Namespace.ValueString(),
@@ -141,6 +146,7 @@ func (m *clickhouseModel) flatten(app *client.Application) diag.Diagnostics {
 	m.StorageClass = types.StringValue(specString(app.Spec, specStorageClass))
 	m.LogStorageSize = types.StringValue(specString(app.Spec, "logStorageSize"))
 	m.LogTTL = types.Int64Value(specInt64(app.Spec, "logTTL"))
+	m.Backup = flattenBackup(app.Spec[specBackup])
 
 	resources, rDiags := flattenResources(app.Spec[attrResources])
 	diags.Append(rDiags...)
