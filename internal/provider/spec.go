@@ -2,7 +2,10 @@ package provider
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 
+	"github.com/hashicorp/terraform-plugin-framework-jsontypes/jsontypes"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -685,4 +688,78 @@ func flattenBlockFlag(raw any, objectType map[string]attr.Type, name, specKey st
 	}
 
 	return types.ObjectValueMust(objectType, map[string]attr.Value{name: types.BoolValue(flag)})
+}
+
+// setOptionalJSONList writes a list of JSON documents into spec under key. The
+// upstream fields are free-form core/v1 objects, so they travel as normalized
+// JSON strings rather than a hand-modelled Volume schema.
+func setOptionalJSONList(
+	ctx context.Context,
+	spec map[string]any,
+	key string,
+	value types.List,
+) diag.Diagnostics {
+	var diags diag.Diagnostics
+
+	if value.IsNull() || value.IsUnknown() {
+		return diags
+	}
+
+	var items []jsontypes.Normalized
+
+	diags.Append(value.ElementsAs(ctx, &items, false)...)
+
+	if diags.HasError() {
+		return diags
+	}
+
+	out := make([]any, 0, len(items))
+
+	for index, item := range items {
+		var document any
+
+		if err := json.Unmarshal([]byte(item.ValueString()), &document); err != nil {
+			diags.AddError(
+				"Invalid JSON document in "+key,
+				fmt.Sprintf("Element %d is not a JSON document: %s", index, err),
+			)
+
+			return diags
+		}
+
+		out = append(out, document)
+	}
+
+	spec[key] = out
+
+	return diags
+}
+
+// specJSONListOrNull builds a list of JSON documents from a spec value. An
+// absent key flattens to null; a present empty list stays an empty list.
+func specJSONListOrNull(raw any) (types.List, diag.Diagnostics) {
+	var diags diag.Diagnostics
+
+	items, ok := raw.([]any)
+	if !ok {
+		return types.ListNull(jsontypes.NormalizedType{}), diags
+	}
+
+	elements := make([]attr.Value, 0, len(items))
+
+	for _, item := range items {
+		encoded, err := json.Marshal(item)
+		if err != nil {
+			diags.AddError("Unable to encode a spec document", err.Error())
+
+			return types.ListNull(jsontypes.NormalizedType{}), diags
+		}
+
+		elements = append(elements, jsontypes.NewNormalizedValue(string(encoded)))
+	}
+
+	value, listDiags := types.ListValue(jsontypes.NormalizedType{}, elements)
+	diags.Append(listDiags...)
+
+	return value, diags
 }

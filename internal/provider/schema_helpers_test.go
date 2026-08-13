@@ -17,13 +17,9 @@ import (
 //
 // The kubernetes node-group class is deliberately mutable upstream: the field is
 // optional and undefaulted there, so an immutability rule would block ever
-// setting it on an existing node group. The cluster-level one carries the same
-// immutability rule as every kind covered here and belongs under the guard; it
-// is listed only because its schema does not yet plan a replacement, and the
-// entry goes away with the modifier that fixes it.
+// setting it on an existing node group.
 var storageClassReplaceExempt = map[string]bool{
 	"cozystack_kubernetes.node_groups.storage_class": true,
-	"cozystack_kubernetes.storage_class":             true,
 }
 
 // TestStorageClassRequiresReplace checks that every storage_class attribute,

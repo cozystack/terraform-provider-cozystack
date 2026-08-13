@@ -2,9 +2,11 @@ package provider
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/cozystack/terraform-provider-cozystack/internal/client"
+	"github.com/hashicorp/terraform-plugin-framework-jsontypes/jsontypes"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -729,5 +731,124 @@ func TestBackupBlockIsComputed(t *testing.T) {
 
 	if seen != len(kinds) {
 		t.Errorf("checked %d kinds, want %d", seen, len(kinds))
+	}
+}
+
+// jsonList builds a list of JSON documents in the shape the schema declares.
+func jsonList(t *testing.T, documents ...string) types.List {
+	t.Helper()
+
+	elements := make([]attr.Value, 0, len(documents))
+	for _, document := range documents {
+		elements = append(elements, jsontypes.NewNormalizedValue(document))
+	}
+
+	return types.ListValueMust(jsontypes.NormalizedType{}, elements)
+}
+
+func TestSetOptionalJSONList_ThreeStates(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		value   types.List
+		present bool
+		length  int
+	}{
+		{name: "null omits the key", value: types.ListNull(jsontypes.NormalizedType{})},
+		{name: "unknown omits the key", value: types.ListUnknown(jsontypes.NormalizedType{})},
+		{name: "empty writes an empty list", value: jsonList(t), present: true},
+		{
+			name:    "populated writes the documents",
+			value:   jsonList(t, `{"name":"auth-config"}`),
+			present: true,
+			length:  1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			spec := map[string]any{}
+
+			if diags := setOptionalJSONList(context.Background(), spec, "extraVolumes", tt.value); diags.HasError() {
+				t.Fatalf("diagnostics: %v", diags)
+			}
+
+			raw, ok := spec["extraVolumes"]
+			if ok != tt.present {
+				t.Fatalf("extraVolumes present = %v, want %v", ok, tt.present)
+			}
+
+			if !tt.present {
+				return
+			}
+
+			items, _ := raw.([]any)
+			if len(items) != tt.length {
+				t.Errorf("extraVolumes has %d entries, want %d", len(items), tt.length)
+			}
+		})
+	}
+}
+
+// A list element that is not a JSON document is reachable from configuration —
+// `extra_volumes = [null]` is enough — so the diagnostic has to say which
+// element, not just which key.
+func TestSetOptionalJSONList_ReportsTheOffendingElement(t *testing.T) {
+	t.Parallel()
+
+	value := types.ListValueMust(jsontypes.NormalizedType{}, []attr.Value{
+		jsontypes.NewNormalizedValue(`{"name":"auth-config"}`),
+		jsontypes.NewNormalizedNull(),
+	})
+
+	spec := map[string]any{}
+
+	diags := setOptionalJSONList(context.Background(), spec, "extraVolumes", value)
+	if !diags.HasError() {
+		t.Fatalf("a null element produced no error")
+	}
+
+	detail := diags.Errors()[0].Detail()
+	if !strings.Contains(detail, "Element 1") {
+		t.Errorf("detail = %q, want it to name element 1", detail)
+	}
+
+	if _, ok := spec["extraVolumes"]; ok {
+		t.Errorf("extraVolumes written despite the error")
+	}
+}
+
+func TestSpecJSONListOrNull_DistinguishesAbsentFromEmpty(t *testing.T) {
+	t.Parallel()
+
+	absent, diags := specJSONListOrNull(nil)
+	if diags.HasError() {
+		t.Fatalf("diagnostics: %v", diags)
+	}
+
+	if !absent.IsNull() {
+		t.Errorf("absent key = %v, want null", absent)
+	}
+
+	empty, diags := specJSONListOrNull([]any{})
+	if diags.HasError() {
+		t.Fatalf("diagnostics: %v", diags)
+	}
+
+	if empty.IsNull() || len(empty.Elements()) != 0 {
+		t.Errorf("stored empty list = %v, want an empty list", empty)
+	}
+
+	got, diags := specJSONListOrNull([]any{map[string]any{"name": "auth-config"}})
+	if diags.HasError() {
+		t.Fatalf("diagnostics: %v", diags)
+	}
+
+	document, _ := got.Elements()[0].(jsontypes.Normalized)
+	if document.ValueString() != `{"name":"auth-config"}` {
+		t.Errorf("document = %s, want the auth-config volume", document.ValueString())
 	}
 }

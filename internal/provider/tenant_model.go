@@ -67,8 +67,13 @@ func (m *tenantModel) expand(ctx context.Context) (*client.Application, diag.Dia
 		"resourceQuotas":  quotas,
 	}
 
-	// gateway is HEAD-only and tri-state: emit only when set so it never drifts
-	// against older clusters that prune unknown spec keys.
+	// gateway is emitted only when the practitioner set it. The chart resolves
+	// true to "this tenant owns a Gateway" and both false and a missing key to
+	// "publish through the nearest ancestor that owns one" — the helper says so
+	// itself, and it is the key's presence rather than a null that it reads, so
+	// `gateway: null` fails the schema generated from the field. Writing false
+	// for an unset attribute would record a choice nobody made, against a field
+	// whose own upstream documentation has changed its mind more than once.
 	if !m.Gateway.IsNull() && !m.Gateway.IsUnknown() {
 		spec["gateway"] = m.Gateway.ValueBool()
 	}

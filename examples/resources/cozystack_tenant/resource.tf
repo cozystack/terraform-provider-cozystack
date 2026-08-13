@@ -19,3 +19,15 @@ resource "cozystack_tenant" "team_b" {
   wait_for_ready = true
   wait_timeout   = "15m"
 }
+
+# Leave gateway out and the tenant publishes through the nearest ancestor that
+# owns a Gateway. Set it to true to give this tenant its own — which a tenant
+# with a custom apex has to do, because the ancestor's certificate does not
+# cover that apex.
+resource "cozystack_tenant" "team_c" {
+  name      = "team-c"
+  namespace = "tenant-root"
+
+  host    = "team-c.example.com"
+  gateway = true
+}

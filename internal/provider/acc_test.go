@@ -144,6 +144,10 @@ func TestAccTenantResource(t *testing.T) {
 					resource.TestCheckResourceAttr("cozystack_tenant.test", "monitoring", "false"),
 					resource.TestCheckResourceAttr("cozystack_tenant.test", "id", "tenant-root/tfacc"),
 					resource.TestCheckResourceAttrSet("cozystack_tenant.test", "status_namespace"),
+					// gateway is unset here, so the platform decides and the key
+					// must stay out of both the request and the state. A value
+					// showing up would mean the three-state encoding collapsed.
+					resource.TestCheckNoResourceAttr("cozystack_tenant.test", "gateway"),
 				),
 			},
 			{
@@ -978,8 +982,33 @@ resource "cozystack_vminstance" "test" {
 	})
 }
 
-func TestAccKubernetesResource(t *testing.T) {
-	config := `
+// checkSpecOmits reads the application straight from the cluster and fails when
+// the spec carries any of the given keys. The provider's own state is not
+// evidence here: the question is what was written to the release.
+func checkSpecOmits(res client.Resource, namespace, name string, keys ...string) resource.TestCheckFunc {
+	return func(_ *terraform.State) error {
+		api, err := newAccClient()
+		if err != nil {
+			return err
+		}
+
+		app, err := api.Get(context.Background(), res, namespace, name)
+		if err != nil {
+			return fmt.Errorf("reading %s %s/%s: %w", res.Kind, namespace, name, err)
+		}
+
+		for _, key := range keys {
+			if _, ok := app.Spec[key]; ok {
+				return fmt.Errorf("%s %s/%s spec carries %q, which the configuration never set", res.Kind, namespace, name, key)
+			}
+		}
+
+		return nil
+	}
+}
+
+func kubernetesAccConfig(maxReplicas int) string {
+	return fmt.Sprintf(`
 resource "cozystack_kubernetes" "test" {
   name      = "tfacck8s"
   namespace = "tenant-root"
@@ -988,12 +1017,16 @@ resource "cozystack_kubernetes" "test" {
     md0 = {
       instance_type = "u1.medium"
       min_replicas  = 0
-      max_replicas  = 1
+      max_replicas  = %[1]d
       roles         = ["ingress-nginx"]
     }
   }
 }
-`
+`, maxReplicas)
+}
+
+func TestAccKubernetesResource(t *testing.T) {
+	config := kubernetesAccConfig(1)
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
@@ -1005,6 +1038,74 @@ resource "cozystack_kubernetes" "test" {
 					resource.TestCheckResourceAttr("cozystack_kubernetes.test", "id", "tenant-root/tfacck8s"),
 					resource.TestCheckResourceAttr("cozystack_kubernetes.test", "node_groups.md0.max_replicas", "1"),
 					resource.TestCheckResourceAttr("cozystack_kubernetes.test", "node_groups.md0.disk_size", "20Gi"),
+					// The configuration pins none of the 1.6 blocks. The server
+					// materialises its schema defaults on every read, and the
+					// managed resource deliberately does not absorb them: storing
+					// them would put them in the plan, and the next update would
+					// write them into the release as explicit values.
+					resource.TestCheckNoResourceAttr("cozystack_kubernetes.test", "talos.version"),
+					resource.TestCheckNoResourceAttr("cozystack_kubernetes.test", "node_health_check.max_unhealthy"),
+					resource.TestCheckNoResourceAttr("cozystack_kubernetes.test", "oidc.mode"),
+					// Per-group health overrides are undefaulted upstream: unset
+					// stays unset rather than being echoed back as an empty string.
+					resource.TestCheckNoResourceAttr("cozystack_kubernetes.test", "node_groups.md0.max_unhealthy"),
+				),
+			},
+			{
+				// An update with the blocks still unconfigured. The plan carries
+				// the defaults the previous read put in state, so this is the step
+				// that would write them into the release and pin the cluster to
+				// them; the spec must still come out without those keys.
+				Config: kubernetesAccConfig(2),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("cozystack_kubernetes.test", "node_groups.md0.max_replicas", "2"),
+					checkSpecOmits(client.KubernetesResource(), "tenant-root", "tfacck8s",
+						"talos", "oidc", "nodeHealthCheck", "images", "controlPlane"),
+				),
+			},
+			{
+				// Explicitly empty lists at both levels. They mean the same to
+				// the chart as an absent key, but the provider sends them as
+				// configured, and only a real server says whether an empty list
+				// survives the round trip into state.
+				Config: `
+resource "cozystack_kubernetes" "test" {
+  name      = "tfacck8s"
+  namespace = "tenant-root"
+  version   = "v1.35"
+  node_groups = {
+    md0 = {
+      instance_type = "u1.medium"
+      min_replicas  = 0
+      max_replicas  = 2
+      roles         = []
+    }
+  }
+  oidc = {
+    users = []
+  }
+}
+`,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("cozystack_kubernetes.test", "node_groups.md0.roles.#", "0"),
+					resource.TestCheckResourceAttr("cozystack_kubernetes.test", "oidc.users.#", "0"),
+				),
+			},
+			{
+				// A cluster that declares no node groups at all — the platform's
+				// own default, and the shape the provider's example uses. Same
+				// reasoning as the step above: an empty map is only a round trip
+				// once a server has echoed it.
+				Config: `
+resource "cozystack_kubernetes" "test" {
+  name        = "tfacck8s"
+  namespace   = "tenant-root"
+  version     = "v1.35"
+  node_groups = {}
+}
+`,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("cozystack_kubernetes.test", "node_groups.%", "0"),
 				),
 			},
 			{
