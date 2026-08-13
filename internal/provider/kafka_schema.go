@@ -53,11 +53,7 @@ func kafkaBrokerResourceAttribute(desc, sizeDefault string) rschema.SingleNested
 				Default:             stringdefault.StaticString(sizeDefault),
 				MarkdownDescription: "Persistent volume size (quantity, e.g. `10Gi`).",
 			},
-			"storage_class": rschema.StringAttribute{
-				Optional: true, Computed: true,
-				Default:             stringdefault.StaticString(""),
-				MarkdownDescription: "StorageClass used to store the data.",
-			},
+			attrStorageClass: storageClassAttribute(""),
 		},
 	}
 }
@@ -85,6 +81,11 @@ func kafkaSchema() rschema.Schema {
 			Default:             booldefault.StaticBool(false),
 			MarkdownDescription: "Enable external access from outside the cluster.",
 		},
+		specTLS: tlsResourceAttribute(
+			"TLS configuration for the external listener on port 9094. The internal listener on 9093 is " +
+				"always TLS, and Strimzi manages the cluster PKI itself. Omit the block to follow `external`; " +
+				"disabling TLS while `external` is true publishes Kafka in plaintext on a public address.",
+		),
 		"topics":    kafkaTopicsResourceAttribute(),
 		"kafka":     kafkaBrokerResourceAttribute("Kafka broker configuration.", "10Gi"),
 		"zookeeper": kafkaBrokerResourceAttribute("ZooKeeper configuration.", "5Gi"),
@@ -118,6 +119,7 @@ func kafkaDataSourceSchema() dsschema.Schema {
 
 	maps.Copy(attributes, map[string]dsschema.Attribute{
 		attrExternal: dsschema.BoolAttribute{Computed: true, MarkdownDescription: "Whether external access is enabled."},
+		specTLS:      tlsDataSourceAttribute("TLS configuration for the external listener."),
 		"topics": dsschema.ListNestedAttribute{
 			Computed:            true,
 			MarkdownDescription: "Provisioned topics.",

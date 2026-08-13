@@ -173,18 +173,14 @@ func qdrantSpecAttributes() map[string]schema.Attribute {
 			Default:             stringdefault.StaticString("10Gi"),
 			MarkdownDescription: "Persistent volume size for vector data (quantity, e.g. `10Gi`).",
 		},
-		attrStorageClass: schema.StringAttribute{
-			Optional:            true,
-			Computed:            true,
-			Default:             stringdefault.StaticString(""),
-			MarkdownDescription: "StorageClass used to store the data.",
-		},
+		attrStorageClass: storageClassAttribute(""),
 		attrExternal: schema.BoolAttribute{
 			Optional:            true,
 			Computed:            true,
 			Default:             booldefault.StaticBool(false),
 			MarkdownDescription: "Enable external access from outside the cluster.",
 		},
+		specTLS: tlsResourceAttribute("TLS configuration. Omit the block to follow `external`."),
 		attrResourcesPreset: schema.StringAttribute{
 			Optional:            true,
 			Computed:            true,
