@@ -83,7 +83,7 @@ resource "cozystack_kubernetes_nodes" "gpu" {
 - `node_startup_timeout` (String) How long a machine may take to reach `Ready` before it is remediated (Go duration). Raise it for slow first boots.
 - `resources` (Attributes) Explicit CPU and memory per node, replacing `instance_type` sizing. Set both fields or neither — setting only one is rejected when the pool renders. (see [below for nested schema](#nestedatt--resources))
 - `roles` (List of String) Node roles. Each role `r` labels the pool's nodes `node-role.kubernetes.io/<r>`; use `["ingress-nginx"]` for a pool hosting the tenant ingress controller.
-- `storage_class` (String) StorageClass for the worker node system disks. Worker VMs live-migrate, so the class must serve ReadWriteMany volumes — prefer a replicated, DRBD-backed class.
+- `storage_class` (String) StorageClass for the worker node system disks. Worker VMs live-migrate, so the class must serve ReadWriteMany volumes — prefer a replicated, DRBD-backed class. Changing a configured value replaces the pool: an existing volume is never migrated to another class.
 - `talos` (Attributes) Talos worker image configuration, kept in sync with the parent cluster's Talos settings. Every field follows the chart when unset. (see [below for nested schema](#nestedatt--talos))
 - `version` (String) Kubernetes major.minor version the pool joins. Must match the parent cluster's version and satisfy the Talos/Kubernetes support matrix against `talos.version`.
 - `wait_for_ready` (Boolean) Block on create/update until the tenant's `Ready` condition is true.

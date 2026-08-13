@@ -45,9 +45,11 @@ func k8sNodesSizingAttributes() map[string]rschema.Attribute {
 		},
 		attrStorageClass: rschema.StringAttribute{
 			Optional: true, Computed: true,
-			Default: stringdefault.StaticString("replicated"),
+			Default:       stringdefault.StaticString("replicated"),
+			PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplaceIfConfigured()},
 			MarkdownDescription: "StorageClass for the worker node system disks. Worker VMs live-migrate, so the " +
-				"class must serve ReadWriteMany volumes — prefer a replicated, DRBD-backed class.",
+				"class must serve ReadWriteMany volumes — prefer a replicated, DRBD-backed class. Changing a " +
+				"configured value replaces the pool: an existing volume is never migrated to another class.",
 		},
 		"min_replicas": rschema.Int64Attribute{
 			Optional: true, Computed: true,
