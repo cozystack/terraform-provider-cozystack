@@ -10,8 +10,10 @@ import (
 )
 
 // postgresqlModel maps the cozystack_postgresql schema to Go types. The
-// postgresql tuning, quorum, deprecated backup, and bootstrap blocks are not
-// managed (they use server defaults).
+// postgresql tuning, quorum, and bootstrap blocks are not managed (they use
+// server defaults), and of the backup block only the system-bucket opt-in is:
+// every other backup field is deprecated upstream in favour of the
+// platform-managed default BackupClass.
 type postgresqlModel struct {
 	ID              types.String `tfsdk:"id"`
 	Name            types.String `tfsdk:"name"`
@@ -22,6 +24,8 @@ type postgresqlModel struct {
 	Size            types.String `tfsdk:"size"`
 	StorageClass    types.String `tfsdk:"storage_class"`
 	External        types.Bool   `tfsdk:"external"`
+	TLS             types.Object `tfsdk:"tls"`
+	Backup          types.Object `tfsdk:"backup"`
 	Version         types.String `tfsdk:"version"`
 	Users           types.Map    `tfsdk:"users"`
 	Databases       types.Map    `tfsdk:"databases"`
@@ -200,6 +204,9 @@ func (m *postgresqlModel) expand(ctx context.Context) (*client.Application, diag
 		"databases":         databases,
 	}
 
+	setOptionalTLS(spec, m.TLS)
+	setOptionalBackup(spec, m.Backup)
+
 	return &client.Application{
 		Name:      m.Name.ValueString(),
 		Namespace: m.Namespace.ValueString(),
@@ -262,6 +269,8 @@ func (m *postgresqlModel) flatten(app *client.Application) diag.Diagnostics {
 	m.Size = types.StringValue(specString(app.Spec, attrSize))
 	m.StorageClass = types.StringValue(specString(app.Spec, specStorageClass))
 	m.External = types.BoolValue(specBool(app.Spec, attrExternal))
+	m.TLS = flattenTLS(app.Spec[specTLS])
+	m.Backup = flattenBackup(app.Spec[specBackup])
 	m.Version = types.StringValue(specString(app.Spec, attrVersion))
 
 	resources, rDiags := flattenResources(app.Spec[attrResources])

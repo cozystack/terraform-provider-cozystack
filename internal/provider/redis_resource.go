@@ -175,12 +175,7 @@ func redisSpecAttributes() map[string]schema.Attribute {
 			Default:             stringdefault.StaticString("1Gi"),
 			MarkdownDescription: "Persistent volume size for application data (quantity, e.g. `1Gi`).",
 		},
-		attrStorageClass: schema.StringAttribute{
-			Optional:            true,
-			Computed:            true,
-			Default:             stringdefault.StaticString(""),
-			MarkdownDescription: "StorageClass used to store the data.",
-		},
+		attrStorageClass: storageClassAttribute(""),
 		attrExternal: schema.BoolAttribute{
 			Optional:            true,
 			Computed:            true,

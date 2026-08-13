@@ -22,13 +22,110 @@ func presetAttribute(def string) rschema.StringAttribute {
 	}
 }
 
-// storageClassAttribute returns the optional/computed storage_class attribute.
-func storageClassAttribute() rschema.StringAttribute {
+// storageClassAttribute returns the optional/computed storage_class attribute,
+// defaulting to def.
+//
+// Changing a configured value replaces the object. Kubernetes fixes a volume's
+// storage class when the volume is created and never migrates it afterwards,
+// and the aggregated apiserver does not evaluate the immutability rule the
+// upstream schema carries — it accepts the write, the stored spec changes, and
+// the data stays on the original class. Planning a replacement is what keeps
+// state and reality from parting ways silently.
+//
+// The modifier is the configured-only variant on purpose. Attribute defaults
+// are applied to the planned value whenever the configuration is null, and that
+// happens before plan modifiers run, so an instance imported without the
+// attribute — or one whose attribute was just deleted from the configuration —
+// would otherwise plan the default against the stored class and destroy a
+// database nobody asked to move.
+func storageClassAttribute(def string) rschema.StringAttribute {
 	return rschema.StringAttribute{
+		Optional:      true,
+		Computed:      true,
+		Default:       stringdefault.StaticString(def),
+		PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplaceIfConfigured()},
+		MarkdownDescription: "StorageClass used to store the data. Changing a value set here replaces " +
+			"the object, because an existing volume is never migrated to another class. Removing the " +
+			"attribute from the configuration does not: the object keeps its volumes and the recorded " +
+			"class reverts to the default.",
+	}
+}
+
+// tlsResourceAttribute returns the optional tls block. It is deliberately not
+// computed and carries no default: leaving it out keeps the spec key absent,
+// which is what makes the chart fall back to inheriting `external`. The flag
+// inside it is required, so a block written without one is rejected at plan
+// time rather than expanding to a spec key that is not there.
+func tlsResourceAttribute(description string) rschema.SingleNestedAttribute {
+	return rschema.SingleNestedAttribute{
+		Optional:            true,
+		MarkdownDescription: description,
+		Attributes: map[string]rschema.Attribute{
+			attrEnabled: rschema.BoolAttribute{
+				Required: true,
+				MarkdownDescription: "Whether TLS is enabled. Leave the whole block out to inherit `external`; " +
+					"set it to pin TLS on or off regardless of external access.",
+			},
+		},
+	}
+}
+
+// tlsDataSourceAttribute returns the computed tls block.
+func tlsDataSourceAttribute(description string) dsschema.SingleNestedAttribute {
+	return dsschema.SingleNestedAttribute{
+		Computed:            true,
+		MarkdownDescription: description,
+		Attributes: map[string]dsschema.Attribute{
+			attrEnabled: dsschema.BoolAttribute{
+				Computed:            true,
+				MarkdownDescription: "Whether TLS is explicitly enabled or disabled. Null when the instance inherits `external`.",
+			},
+		},
+	}
+}
+
+// backupResourceAttribute returns the backup block. Only the system-bucket
+// opt-in is modelled; upstream superseded the per-release S3 fields with the
+// platform-managed default BackupClass, so they stay unmanaged and an omitted
+// block writes no backup key at all. The flag inside it is required, so a block
+// written without one is rejected at plan time rather than expanding to a spec
+// key that is not there.
+//
+// Unlike the tls block this one is also computed, because its upstream schema
+// defaults the flag itself: the aggregated apiserver materialises schema
+// defaults on every read, so an instance that never asked for backups still
+// reads back as `backup: {useSystemBucket: false}`. Without Computed that value
+// has nowhere to go when the practitioner omits the block, and every apply ends
+// in an inconsistent-result error. The tls block escapes this because its flag
+// is a pointer with no default, so an untouched instance reads back as an empty
+// block.
+func backupResourceAttribute(description string) rschema.SingleNestedAttribute {
+	return rschema.SingleNestedAttribute{
 		Optional:            true,
 		Computed:            true,
-		Default:             stringdefault.StaticString(""),
-		MarkdownDescription: "StorageClass used to store the data.",
+		MarkdownDescription: description,
+		Attributes: map[string]rschema.Attribute{
+			attrUseSystemBucket: rschema.BoolAttribute{
+				Required: true,
+				MarkdownDescription: "Take bucket coordinates and credentials from the platform-managed system bucket " +
+					"instead of per-release S3 settings. On an instance that already exists, backups only start " +
+					"archiving once the first backup job runs, so trigger one right after enabling this.",
+			},
+		},
+	}
+}
+
+// backupDataSourceAttribute returns the computed backup block.
+func backupDataSourceAttribute(description string) dsschema.SingleNestedAttribute {
+	return dsschema.SingleNestedAttribute{
+		Computed:            true,
+		MarkdownDescription: description,
+		Attributes: map[string]dsschema.Attribute{
+			attrUseSystemBucket: dsschema.BoolAttribute{
+				Computed:            true,
+				MarkdownDescription: "Whether the instance backs up to the platform-managed system bucket.",
+			},
+		},
 	}
 }
 

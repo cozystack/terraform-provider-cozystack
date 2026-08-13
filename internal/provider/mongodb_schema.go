@@ -28,7 +28,7 @@ func mongodbSchema() rschema.Schema {
 			Default:             stringdefault.StaticString("10Gi"),
 			MarkdownDescription: "Persistent volume size (quantity, e.g. `10Gi`).",
 		},
-		attrStorageClass: storageClassAttribute(),
+		attrStorageClass: storageClassAttribute(""),
 		attrExternal:     externalAttribute(),
 		attrVersion: rschema.StringAttribute{
 			Optional: true, Computed: true,

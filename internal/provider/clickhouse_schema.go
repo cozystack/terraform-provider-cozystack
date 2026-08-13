@@ -51,7 +51,7 @@ func clickhouseSchema() rschema.Schema {
 			Default:             stringdefault.StaticString("10Gi"),
 			MarkdownDescription: "Persistent volume size for data (quantity, e.g. `10Gi`).",
 		},
-		attrStorageClass: storageClassAttribute(),
+		attrStorageClass: storageClassAttribute(""),
 		"log_storage_size": rschema.StringAttribute{
 			Optional: true, Computed: true,
 			Default:             stringdefault.StaticString("2Gi"),
@@ -62,6 +62,14 @@ func clickhouseSchema() rschema.Schema {
 			Default:             int64default.StaticInt64(15),
 			MarkdownDescription: "Log retention in days.",
 		},
+		specBackup: backupResourceAttribute(
+			"Backup configuration. Only the system-bucket opt-in is managed here — the per-release S3 " +
+				"settings are deprecated upstream in favour of the platform-managed backup class and are " +
+				"deliberately left unmanaged. Omitting the block leaves the flag to the server; once an " +
+				"instance has opted in, set `use_system_bucket = false` to opt back out, because deleting " +
+				"the block keeps the last applied value. Like every unmanaged part of the spec, backup " +
+				"fields set outside Terraform are not carried over by an apply.",
+		),
 		"users": clickhouseUsersResourceAttribute(),
 	})
 	maps.Copy(attributes, statusResourceAttributes())
@@ -69,7 +77,7 @@ func clickhouseSchema() rschema.Schema {
 
 	return rschema.Schema{
 		MarkdownDescription: "A Cozystack managed ClickHouse instance, deployed inside a tenant namespace. " +
-			"The deprecated backup block and the clickhouseKeeper block use server defaults.",
+			"The clickhouseKeeper block uses server defaults.",
 		Attributes: attributes,
 	}
 }
@@ -86,6 +94,7 @@ func clickhouseDataSourceSchema() dsschema.Schema {
 		attrStorageClass:    dsschema.StringAttribute{Computed: true, MarkdownDescription: "StorageClass used to store the data."},
 		"log_storage_size":  dsschema.StringAttribute{Computed: true, MarkdownDescription: "Persistent volume size for logs."},
 		"log_ttl":           dsschema.Int64Attribute{Computed: true, MarkdownDescription: "Log retention in days."},
+		specBackup:          backupDataSourceAttribute("Backup configuration, limited to the system-bucket opt-in."),
 		"users": dsschema.MapNestedAttribute{
 			Computed:            true,
 			MarkdownDescription: "ClickHouse users keyed by user name.",

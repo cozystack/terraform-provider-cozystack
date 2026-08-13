@@ -21,6 +21,7 @@ func fullKafkaModel() kafkaModel {
 		Name:      types.StringValue("queue"),
 		Namespace: types.StringValue("tenant-root"),
 		External:  types.BoolValue(false),
+		TLS:       tlsBlock(true),
 		Topics:    types.ListValueMust(types.ObjectType{AttrTypes: kafkaTopicObjectType()}, []attr.Value{topic}),
 		Kafka:     kafkaBrokerDefault("10Gi"),
 		Zookeeper: kafkaBrokerDefault("5Gi"),

@@ -24,11 +24,7 @@ func fdbStorageResourceAttribute() rschema.SingleNestedAttribute {
 				Default:             stringdefault.StaticString("16Gi"),
 				MarkdownDescription: "Size of persistent volumes for each instance.",
 			},
-			"storage_class": rschema.StringAttribute{
-				Optional: true, Computed: true,
-				Default:             stringdefault.StaticString(""),
-				MarkdownDescription: "StorageClass used to store the data.",
-			},
+			attrStorageClass: storageClassAttribute(""),
 		},
 	}
 }
