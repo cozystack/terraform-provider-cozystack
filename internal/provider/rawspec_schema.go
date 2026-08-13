@@ -149,17 +149,6 @@ func backupJobDataSourceSchema() dsschema.Schema {
 
 // Plan and RestoreJob are typed (see backups_typed.go), not raw-spec.
 
-// dashboard.cozystack.io group.
-
-func marketplacePanelSchema() rschema.Schema {
-	return rawSpecSchema("A Cozystack MarketplacePanel (cluster-scoped dashboard panel).",
-		"MarketplacePanel name. Immutable.", "Full MarketplacePanel spec as JSON.")
-}
-
-func marketplacePanelDataSourceSchema() dsschema.Schema {
-	return rawSpecDataSourceSchema("Read a Cozystack MarketplacePanel by name.", "MarketplacePanel name.")
-}
-
 // gateway.cozystack.io group.
 
 func tenantGatewaySchema() rschema.Schema {

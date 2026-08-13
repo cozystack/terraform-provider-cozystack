@@ -44,7 +44,7 @@ resource "cozystack_rabbitmq" "broker" {
 - `resources` (Attributes) Explicit CPU and memory per replica; overrides `resources_preset` for any field set. (see [below for nested schema](#nestedatt--resources))
 - `resources_preset` (String) Sizing preset applied when `resources` is omitted.
 - `size` (String) Persistent volume size (quantity, e.g. `10Gi`).
-- `storage_class` (String) StorageClass used to store the data.
+- `storage_class` (String) StorageClass used to store the data. Changing a value set here replaces the object, because an existing volume is never migrated to another class. Removing the attribute from the configuration does not: the object keeps its volumes and the recorded class reverts to the default.
 - `users` (Attributes Map) RabbitMQ users keyed by user name. (see [below for nested schema](#nestedatt--users))
 - `version` (String) RabbitMQ major version (`v4.2`, `v4.1`, `v4.0`, `v3.13`).
 - `vhosts` (Attributes Map) Virtual hosts keyed by name, each with admin/readonly user roles. (see [below for nested schema](#nestedatt--vhosts))

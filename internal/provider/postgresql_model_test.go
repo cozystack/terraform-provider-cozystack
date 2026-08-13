@@ -22,6 +22,8 @@ func fullPostgresqlModel() postgresqlModel {
 		Size:            types.StringValue("10Gi"),
 		StorageClass:    types.StringValue(""),
 		External:        types.BoolValue(false),
+		TLS:             tlsBlock(true),
+		Backup:          backupBlock(true),
 		Version:         types.StringValue("v18"),
 		Users: types.MapValueMust(usersType, map[string]attr.Value{
 			"app": types.ObjectValueMust(pgUserObjectType(), map[string]attr.Value{
@@ -103,5 +105,5 @@ func TestPostgresqlExpandKeysMatchConfigSpec(t *testing.T) {
 		emitted[key] = true
 	}
 
-	assertSpecCoverage(t, emitted, postgresql.ConfigSpec{}, "postgresql", "quorum", "backup", "bootstrap")
+	assertSpecCoverage(t, emitted, postgresql.ConfigSpec{}, "postgresql", "quorum", "bootstrap")
 }

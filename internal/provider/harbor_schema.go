@@ -16,7 +16,7 @@ func harborSchema() rschema.Schema {
 			MarkdownDescription: "Hostname for external access to Harbor. " +
 				"Defaults to a `harbor` subdomain of the tenant host.",
 		},
-		attrStorageClass: storageClassAttribute(),
+		attrStorageClass: storageClassAttribute(""),
 	})
 	maps.Copy(attributes, statusResourceAttributes())
 	maps.Copy(attributes, waitBehaviorAttributes())

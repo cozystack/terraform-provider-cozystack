@@ -18,6 +18,7 @@ type qdrantModel struct {
 	Size            types.String `tfsdk:"size"`
 	StorageClass    types.String `tfsdk:"storage_class"`
 	External        types.Bool   `tfsdk:"external"`
+	TLS             types.Object `tfsdk:"tls"`
 	ResourcesPreset types.String `tfsdk:"resources_preset"`
 	Resources       types.Object `tfsdk:"resources"`
 	Ready           types.Bool   `tfsdk:"ready"`
@@ -50,6 +51,8 @@ func (m *qdrantModel) expand(ctx context.Context) (*client.Application, diag.Dia
 		attrResources:       resources,
 	}
 
+	setOptionalTLS(spec, m.TLS)
+
 	return &client.Application{
 		Name:      m.Name.ValueString(),
 		Namespace: m.Namespace.ValueString(),
@@ -68,6 +71,7 @@ func (m *qdrantModel) flatten(app *client.Application) diag.Diagnostics {
 	m.Size = types.StringValue(specString(app.Spec, attrSize))
 	m.StorageClass = types.StringValue(specString(app.Spec, specStorageClass))
 	m.External = types.BoolValue(specBool(app.Spec, attrExternal))
+	m.TLS = flattenTLS(app.Spec[specTLS])
 	m.ResourcesPreset = types.StringValue(specString(app.Spec, specResourcesPreset))
 
 	resources, rDiags := flattenResources(app.Spec[attrResources])
