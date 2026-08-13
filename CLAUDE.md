@@ -20,7 +20,7 @@ The provider talks to the Cozystack aggregated Kubernetes API (`apps.cozystack.i
 
 ## Conventions
 
-- The provider version tracks the Cozystack API version it builds against; the `github.com/cozystack/cozystack/api/apps/v1alpha1` module is pinned to a released tag (currently `v1.4.2`), never a pseudo-version.
+- The provider version tracks the Cozystack API version it builds against; the `github.com/cozystack/cozystack/api/apps/v1alpha1` module is pinned to a released tag (currently `v1.6.1`), never a pseudo-version.
 - Typed models are guarded against upstream spec drift by `assertSpecCoverage(t, emitted, ConfigSpec{}, omit...)`, which reflects emitted spec keys against the api-module's `ConfigSpec` json tags. For Kinds whose Go types live in the heavy root cozystack module, a small vendored guard struct stands in.
 - Adding a Kind: add the `client.Resource` constructor, register it in `provider.go`, choose typed vs rawspec vs marker, add a unit test (with the spec-coverage guard for typed models), add `examples/resources/` + `examples/data-sources/` entries, then run `make docs`.
 

@@ -1,5 +1,31 @@
 # Changelog
 
+## v1.6.1
+
+Tracks the Cozystack API at v1.6.1 (`apps.cozystack.io`), jumping straight from the 1.4 line; the 1.5 line is skipped.
+
+### Breaking changes
+
+- The `cozystack_marketplace_panel` resource and data source are removed. Cozystack 1.6 deleted the `dashboard.cozystack.io` API group, and the platform migration drops its CRDs during upgrade. Run `terraform state rm` on existing `cozystack_marketplace_panel` resources and remove them from configuration before upgrading.
+- Changing a configured `storage_class` now replaces the object on every data-storing kind. The aggregated apiserver accepts an in-place change without migrating any volume, so the previous behaviour silently recorded a class the data does not live on.
+- `cozystack_kubernetes` no longer defaults `storage_class` to `replicated` and no longer accepts `version = "v1.30"`, which the 1.6 server rejects.
+
+### New resources
+
+- `cozystack_kubernetes_nodes` resource and data source for the new `KubernetesNodes` kind: standalone worker node pools managed independently of the parent cluster. The object must be named `<cluster>-<pool>`.
+- `cozystack_tenant_gateway` resource and data source for the new `TenantGateway` kind (`gateway.cozystack.io`), as a raw-spec passthrough.
+
+### Features
+
+- `kubernetes`: new `talos`, `oidc`, `node_health_check`, `control_plane.api_server`, and `images` blocks; per-node-group `max_unhealthy` and `node_startup_timeout`; `resources.cpu` and `resources.memory` are validated both-or-neither at plan time; `node_groups = {}` and `roles = []` no longer fail apply.
+- `tls` block with a tri-state `enabled` flag on `kafka`, `nats`, `qdrant`, and `postgres`. Unset inherits the `external` flag.
+- `backup.use_system_bucket` opt-in on `postgres` and `clickhouse` for the platform-managed backup bucket; the upstream-deprecated per-tenant S3 fields stay unmanaged.
+- `tenant`: `gateway` flag carrying the upstream three-state contract; an unset attribute leaves the spec key out.
+
+### Design note
+
+- No new 1.6 field carries a provider-side default, and resources store only configured values. The aggregated apiserver materialises chart defaults on every read; a provider that stored them would write them back as explicit spec keys and silently pin a cluster to the Talos release and schematic of its creation day.
+
 ## v1.4.3
 
 The provider moved to the cozystack GitHub organization and now publishes under the `cozystack/cozystack` registry namespace. The tracked Cozystack API version (`apps.cozystack.io` v1.4.3) carries no schema changes relevant to the provider over v1.4.2.
