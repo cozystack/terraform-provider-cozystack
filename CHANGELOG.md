@@ -9,6 +9,7 @@ Tracks the Cozystack API at v1.6.1 (`apps.cozystack.io`), jumping straight from 
 - The `cozystack_marketplace_panel` resource and data source are removed. Cozystack 1.6 deleted the `dashboard.cozystack.io` API group, and the platform migration drops its CRDs during upgrade. Run `terraform state rm` on existing `cozystack_marketplace_panel` resources and remove them from configuration before upgrading.
 - Changing a configured `storage_class` now replaces the object on every data-storing kind. The aggregated apiserver accepts an in-place change without migrating any volume, so the previous behaviour silently recorded a class the data does not live on.
 - `cozystack_kubernetes` no longer defaults `storage_class` to `replicated` and no longer accepts `version = "v1.30"`, which the 1.6 server rejects.
+- `rabbitmq`: the default `resources_preset` moves from `t1.nano` to `u1.nano`. The attribute is optional-with-default, so the old value sits in existing state: after upgrading the provider, a `cozystack_rabbitmq` that never set it explicitly plans `t1.nano` → `u1.nano`, which updates the cluster and rolls its pods. Set `resources_preset = "t1.nano"` explicitly to keep the previous sizing.
 
 ### New resources
 

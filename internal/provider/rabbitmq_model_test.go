@@ -24,7 +24,7 @@ func fullRabbitmqModel() rabbitmqModel {
 		Namespace:       types.StringValue("tenant-root"),
 		Replicas:        types.Int64Value(3),
 		Resources:       types.ObjectNull(resourcesObjectType()),
-		ResourcesPreset: types.StringValue("t1.nano"),
+		ResourcesPreset: types.StringValue("u1.nano"),
 		Size:            types.StringValue("10Gi"),
 		StorageClass:    types.StringValue(""),
 		External:        types.BoolValue(false),
@@ -46,6 +46,9 @@ func TestRabbitmqExpand_UsersAndVhosts(t *testing.T) {
 	got, diags := model.expand(context.Background())
 	if diags.HasError() {
 		t.Fatalf("expand diagnostics: %v", diags)
+	}
+	if got.Spec[specResourcesPreset] != "u1.nano" {
+		t.Errorf("resourcesPreset = %v, want u1.nano", got.Spec[specResourcesPreset])
 	}
 
 	users, _ := got.Spec["users"].(map[string]any)
@@ -72,7 +75,7 @@ func TestRabbitmqFlatten_RoundTrip(t *testing.T) {
 		Namespace: "tenant-root",
 		Spec: map[string]any{
 			"replicas":        int64(3),
-			"resourcesPreset": "t1.nano",
+			"resourcesPreset": "u1.nano",
 			"size":            "10Gi",
 			"storageClass":    "",
 			"external":        false,
@@ -93,8 +96,26 @@ func TestRabbitmqFlatten_RoundTrip(t *testing.T) {
 	if model.Version.ValueString() != "v4.1" {
 		t.Errorf("version = %q, want v4.1", model.Version.ValueString())
 	}
+	if model.ResourcesPreset.ValueString() != "u1.nano" {
+		t.Errorf("resourcesPreset = %q, want u1.nano", model.ResourcesPreset.ValueString())
+	}
 	if _, ok := model.Vhosts.Elements()["v"]; !ok {
 		t.Errorf("vhosts missing v")
+	}
+}
+
+func TestRabbitmqExpand_ExplicitLegacyPreset(t *testing.T) {
+	t.Parallel()
+
+	model := fullRabbitmqModel()
+	model.ResourcesPreset = types.StringValue("t1.nano")
+
+	got, diags := model.expand(context.Background())
+	if diags.HasError() {
+		t.Fatalf("expand diagnostics: %v", diags)
+	}
+	if got.Spec[specResourcesPreset] != "t1.nano" {
+		t.Errorf("resourcesPreset = %v, want t1.nano", got.Spec[specResourcesPreset])
 	}
 }
 
