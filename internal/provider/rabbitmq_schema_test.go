@@ -25,7 +25,7 @@ func TestRabbitmqSchemaResourcesPresetDefault(t *testing.T) {
 	if response.Diagnostics.HasError() {
 		t.Fatalf("%s default diagnostics: %v", attrResourcesPreset, response.Diagnostics)
 	}
-	if got, want := response.PlanValue.ValueString(), "u1.nano"; got != want {
+	if got, want := response.PlanValue.ValueString(), "s1.nano"; got != want {
 		t.Errorf("%s default = %q, want %q", attrResourcesPreset, got, want)
 	}
 }

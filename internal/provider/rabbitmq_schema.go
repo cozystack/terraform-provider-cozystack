@@ -21,7 +21,7 @@ func rabbitmqSchema() rschema.Schema {
 			MarkdownDescription: "Number of RabbitMQ replicas.",
 		},
 		attrResources:       resourcesResourceAttribute(),
-		attrResourcesPreset: presetAttribute("u1.nano"),
+		attrResourcesPreset: presetAttribute("s1.nano"),
 		attrSize: rschema.StringAttribute{
 			Optional: true, Computed: true,
 			Default:             stringdefault.StaticString("10Gi"),

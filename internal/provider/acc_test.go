@@ -524,7 +524,7 @@ resource "cozystack_rabbitmq" "test" {
 				Config: base,
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("cozystack_rabbitmq.test", "id", "tenant-root/tfaccrabbit"),
-					resource.TestCheckResourceAttr("cozystack_rabbitmq.test", "resources_preset", "u1.nano"),
+					resource.TestCheckResourceAttr("cozystack_rabbitmq.test", "resources_preset", "s1.nano"),
 					resource.TestCheckResourceAttr("cozystack_rabbitmq.test", "users.app.password", "pw-123"),
 					resource.TestCheckResourceAttr("cozystack_rabbitmq.test", "vhosts.main.roles.admin.0", "app"),
 				),
