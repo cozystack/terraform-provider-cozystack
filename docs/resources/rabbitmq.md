@@ -48,8 +48,8 @@ resource "cozystack_rabbitmq" "broker" {
 - `users` (Attributes Map) RabbitMQ users keyed by user name. (see [below for nested schema](#nestedatt--users))
 - `version` (String) RabbitMQ major version (`v4.2`, `v4.1`, `v4.0`, `v3.13`).
 - `vhosts` (Attributes Map) Virtual hosts keyed by name, each with admin/readonly user roles. (see [below for nested schema](#nestedatt--vhosts))
-- `wait_for_ready` (Boolean) Block on create/update until the tenant's `Ready` condition is true.
-- `wait_timeout` (String) Maximum time to wait when `wait_for_ready` is set (Go duration, e.g. `10m`).
+- `wait_for_ready` (Boolean) Block on create/update until the `Ready` condition is true and any server-generated outputs the resource exposes are readable.
+- `wait_timeout` (String) Maximum time to wait when `wait_for_ready` is set (Go duration, e.g. `10m`). Readiness and outputs share this budget; outputs that never appear leave a warning and their attributes stay null until the next refresh.
 
 ### Read-Only
 

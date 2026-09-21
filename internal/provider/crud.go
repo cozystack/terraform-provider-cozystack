@@ -15,6 +15,16 @@ import (
 // defaultWaitTimeout bounds how long Create/Update block on readiness.
 const defaultWaitTimeout = 10 * time.Minute
 
+// outputsPollInterval sets how often Create/Update re-read outputs that have not
+// materialised yet.
+const outputsPollInterval = 2 * time.Second
+
+// outputsReadAttempts bounds consecutive failing reads while polling. A single
+// API hiccup on a converging cluster should not fail an apply whose object is
+// already created, but a read that keeps failing is reported rather than sat on
+// until the deadline.
+const outputsReadAttempts = 3
+
 // readModel is the behaviour a data source model provides to the shared read
 // helper: it can be flattened from an Application and report its identity.
 type readModel interface {
@@ -35,15 +45,104 @@ type planModel interface {
 // outputs (connection details, credentials, addresses) materialised outside the
 // aggregated API reads them from the related Secrets/Services/status here. It is
 // invoked after flatten, once identity is populated. A missing artifact is not
-// an error — outputs are asynchronous, so the model leaves the field null.
+// an error — outputs are asynchronous, so the model leaves the field null and
+// reports outputsPending, which is what lets create and update wait for it.
 type outputsReader interface {
 	readOutputs(ctx context.Context, api *client.Client) diag.Diagnostics
+	outputsPending() bool
 }
 
 // readModelOutputs invokes the optional outputs hook when the model implements it.
 func readModelOutputs(ctx context.Context, model any, api *client.Client, diags *diag.Diagnostics) {
 	if reader, ok := model.(outputsReader); ok {
 		diags.Append(reader.readOutputs(ctx, api)...)
+	}
+}
+
+// readOutputsAfterPersist reads a model's outputs once created or updated. When
+// the practitioner asked to wait for readiness, outputs that are still missing
+// are polled until the shared deadline, which the readiness wait has already
+// consumed part of.
+//
+// Update polls as well: adding a bucket user materialises a new artifact the
+// same way creating the object does, and returning outputs that grew is legal
+// because a plan that changes the object marks every Computed attribute with a
+// null config value unknown, prior state notwithstanding (fwserver's
+// MarkComputedNilsAsUnknown).
+func readOutputsAfterPersist(
+	ctx context.Context,
+	model any,
+	api *client.Client,
+	wait bool,
+	deadline time.Time,
+	diags *diag.Diagnostics,
+) {
+	reader, ok := model.(outputsReader)
+	if !ok {
+		return
+	}
+
+	if !wait {
+		diags.Append(reader.readOutputs(ctx, api)...)
+
+		return
+	}
+
+	diags.Append(pollOutputs(ctx, reader, api, deadline, outputsPollInterval)...)
+}
+
+// pollOutputs re-reads outputs until they appear, the deadline passes, or the
+// read fails. Outputs that never appear are a warning, not an error: the object
+// itself is already created and the next refresh picks them up.
+func pollOutputs(
+	ctx context.Context,
+	reader outputsReader,
+	api *client.Client,
+	deadline time.Time,
+	interval time.Duration,
+) diag.Diagnostics {
+	failures := 0
+
+	for {
+		diags := reader.readOutputs(ctx, api)
+
+		switch {
+		case diags.HasError():
+			failures++
+			if failures >= outputsReadAttempts {
+				return diags
+			}
+		case !reader.outputsPending():
+			return diags
+		default:
+			failures = 0
+		}
+
+		remaining := time.Until(deadline)
+		if remaining <= 0 {
+			var timedOut diag.Diagnostics
+
+			timedOut.AddWarning(
+				"Timed out waiting for generated outputs",
+				"The object is ready, but the Secrets, Services, or addresses carrying its outputs "+
+					"have not appeared within wait_timeout. The attributes are null for now and are "+
+					"populated by the next refresh.",
+			)
+
+			// A read that failed within its retry budget still explains the
+			// timeout better than the timeout does.
+			for _, failed := range diags.Errors() {
+				timedOut.AddWarning(failed.Summary(), failed.Detail())
+			}
+
+			return timedOut
+		}
+
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-time.After(min(interval, remaining)):
+		}
 	}
 }
 
@@ -88,13 +187,24 @@ func createOrUpdate[M any, PM planModelPtr[M]](
 
 	waitFor, timeout := pm.waitConfig()
 
-	result, ok := persistApplication(ctx, api, res, create, app, waitFor, timeout, diags)
+	wait := waitFor.ValueBool()
+
+	duration, parseDiags := waitDuration(wait, timeout)
+	diags.Append(parseDiags...)
+
+	if diags.HasError() {
+		return
+	}
+
+	deadline := time.Now().Add(duration)
+
+	result, ok := persistApplication(ctx, api, res, create, app, wait, duration, diags)
 	if !ok {
 		return
 	}
 
 	diags.Append(pm.flatten(&result)...)
-	readModelOutputs(ctx, pm, api, diags)
+	readOutputsAfterPersist(ctx, pm, api, wait, deadline, diags)
 	diags.Append(state.Set(ctx, &model)...)
 }
 
@@ -205,8 +315,8 @@ func persistApplication(
 	res client.Resource,
 	create bool,
 	app *client.Application,
-	waitFor types.Bool,
-	timeout types.String,
+	wait bool,
+	timeout time.Duration,
 	diags *diag.Diagnostics,
 ) (client.Application, bool) {
 	action := "update"
@@ -224,11 +334,11 @@ func persistApplication(
 		return client.Application{}, false
 	}
 
-	if waitFor.ValueBool() {
-		ready, waitDiags := waitForApplicationReady(ctx, api, res, &result, timeout)
-		diags.Append(waitDiags...)
+	if wait {
+		ready, waitErr := api.WaitForReady(ctx, res, result.Namespace, result.Name, timeout)
+		if waitErr != nil {
+			diags.AddError("Timed out waiting for "+res.Kind+" to become ready", waitErr.Error())
 
-		if diags.HasError() {
 			return client.Application{}, false
 		}
 
@@ -238,32 +348,15 @@ func persistApplication(
 	return result, true
 }
 
-// waitForApplicationReady blocks until the application reports a Ready condition
-// or the configured timeout elapses.
-func waitForApplicationReady(
-	ctx context.Context,
-	api *client.Client,
-	res client.Resource,
-	app *client.Application,
-	timeout types.String,
-) (client.Application, diag.Diagnostics) {
-	var diags diag.Diagnostics
-
-	duration, parseDiags := parseWaitTimeout(timeout)
-	diags.Append(parseDiags...)
-
-	if diags.HasError() {
-		return client.Application{}, diags
+// waitDuration parses the wait_timeout attribute as a Go duration. It is parsed
+// only when the practitioner asked to wait, so an unused malformed value stays
+// as harmless as it was before.
+func waitDuration(wait bool, timeout types.String) (time.Duration, diag.Diagnostics) {
+	if !wait {
+		return 0, nil
 	}
 
-	ready, err := api.WaitForReady(ctx, res, app.Namespace, app.Name, duration)
-	if err != nil {
-		diags.AddError("Timed out waiting for "+res.Kind+" to become ready", err.Error())
-
-		return client.Application{}, diags
-	}
-
-	return ready, diags
+	return parseWaitTimeout(timeout)
 }
 
 // parseWaitTimeout parses the wait_timeout attribute as a Go duration.

@@ -33,6 +33,10 @@ resource "cozystack_postgres" "app" {
       roles      = { admin = ["app"] }
     }
   }
+
+  # The connection endpoints are published asynchronously, so without waiting
+  # they are only readable from the apply after the one that created the cluster.
+  wait_for_ready = true
 }
 ```
 
@@ -57,13 +61,13 @@ resource "cozystack_postgres" "app" {
 - `tls` (Attributes) TLS configuration. This only controls whether the external hostname is added to the operator-managed server certificate; CNPG keeps TLS on the wire either way, and turning PostgreSQL TLS off entirely is a server-parameter matter. Omit the block to follow `external`. (see [below for nested schema](#nestedatt--tls))
 - `users` (Attributes Map) PostgreSQL users keyed by user name. (see [below for nested schema](#nestedatt--users))
 - `version` (String) PostgreSQL major version (`v18`…`v13`).
-- `wait_for_ready` (Boolean) Block on create/update until the tenant's `Ready` condition is true.
-- `wait_timeout` (String) Maximum time to wait when `wait_for_ready` is set (Go duration, e.g. `10m`).
+- `wait_for_ready` (Boolean) Block on create/update until the `Ready` condition is true and any server-generated outputs the resource exposes are readable.
+- `wait_timeout` (String) Maximum time to wait when `wait_for_ready` is set (Go duration, e.g. `10m`). Readiness and outputs share this budget; outputs that never appear leave a warning and their attributes stay null until the next refresh.
 
 ### Read-Only
 
 - `chart_version` (String) Deployed chart version (`status.version`).
-- `endpoints` (Attributes) Connection endpoints (from the CNPG `<name>-rw`/`<name>-ro` Services). Populated once the instance is ready. (see [below for nested schema](#nestedatt--endpoints))
+- `endpoints` (Attributes) Connection endpoints (from the CNPG `postgres-<name>-rw`/`postgres-<name>-ro` Services). Populated once the instance is ready. (see [below for nested schema](#nestedatt--endpoints))
 - `id` (String) Synthetic identifier in the form `namespace/name`.
 - `ready` (Boolean) Whether the application's `Ready` condition is true.
 - `uid` (String) Server-assigned object UID (`metadata.uid`). Stable across updates; changes on recreate.

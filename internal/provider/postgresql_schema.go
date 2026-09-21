@@ -97,7 +97,7 @@ func postgresSchema() rschema.Schema {
 		"databases": pgDatabasesResourceAttribute(),
 		"endpoints": rschema.SingleNestedAttribute{
 			Computed: true,
-			MarkdownDescription: "Connection endpoints (from the CNPG `<name>-rw`/`<name>-ro` Services). " +
+			MarkdownDescription: "Connection endpoints (from the CNPG `postgres-<name>-rw`/`postgres-<name>-ro` Services). " +
 				"Populated once the instance is ready.",
 			Attributes: map[string]rschema.Attribute{
 				"host":      rschema.StringAttribute{Computed: true, MarkdownDescription: "Primary (read-write) service host."},

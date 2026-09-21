@@ -21,6 +21,10 @@ resource "cozystack_bucket" "assets" {
     app    = { readonly = false }
     backup = { readonly = true }
   }
+
+  # S3 credentials are published asynchronously, so without waiting they are
+  # only readable from the apply after the one that created the bucket.
+  wait_for_ready = true
 }
 ```
 
@@ -37,13 +41,13 @@ resource "cozystack_bucket" "assets" {
 - `locking` (Boolean) Provision the bucket with object lock enabled.
 - `storage_pool` (String) Selects a specific BucketClass by storage pool name.
 - `users` (Attributes Map) Bucket users keyed by user name. (see [below for nested schema](#nestedatt--users))
-- `wait_for_ready` (Boolean) Block on create/update until the tenant's `Ready` condition is true.
-- `wait_timeout` (String) Maximum time to wait when `wait_for_ready` is set (Go duration, e.g. `10m`).
+- `wait_for_ready` (Boolean) Block on create/update until the `Ready` condition is true and any server-generated outputs the resource exposes are readable.
+- `wait_timeout` (String) Maximum time to wait when `wait_for_ready` is set (Go duration, e.g. `10m`). Readiness and outputs share this budget; outputs that never appear leave a warning and their attributes stay null until the next refresh.
 
 ### Read-Only
 
 - `chart_version` (String) Deployed chart version (`status.version`).
-- `credentials` (Attributes Map, Sensitive) S3 credentials per user (from the `<name>-<user>` Secret). Populated once the bucket claim is bound. (see [below for nested schema](#nestedatt--credentials))
+- `credentials` (Attributes Map, Sensitive) S3 credentials per user (from the `bucket-<name>-<user>` Secret). Populated once the bucket claim is bound. (see [below for nested schema](#nestedatt--credentials))
 - `id` (String) Synthetic identifier in the form `namespace/name`.
 - `ready` (Boolean) Whether the bucket's `Ready` condition is true.
 - `uid` (String) Server-assigned object UID (`metadata.uid`).

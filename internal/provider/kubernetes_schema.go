@@ -454,7 +454,7 @@ func kubernetesSchema() rschema.Schema {
 			Computed:  true,
 			Sensitive: true,
 			MarkdownDescription: "Admin kubeconfig for the provisioned cluster (from the " +
-				"`<name>-admin-kubeconfig` Secret). Populated once the cluster is ready — " +
+				"`kubernetes-<name>-admin-kubeconfig` Secret). Populated once the cluster is ready — " +
 				"set `wait_for_ready = true` to have it available on first apply.",
 		},
 	})

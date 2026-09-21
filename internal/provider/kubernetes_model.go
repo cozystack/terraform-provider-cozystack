@@ -396,6 +396,11 @@ func (m *kubernetesModel) readOutputs(ctx context.Context, api *client.Client) d
 	return diags
 }
 
+// outputsPending reports whether the admin kubeconfig Secret is still absent.
+func (m *kubernetesModel) outputsPending() bool {
+	return m.Kubeconfig.IsNull()
+}
+
 // expandBlocks renders the optional nested blocks into spec. Each block is
 // written only when the practitioner set it, so an unset block leaves the key
 // out and the server's own default stands.

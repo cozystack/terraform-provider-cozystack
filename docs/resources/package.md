@@ -37,8 +37,8 @@ resource "cozystack_package" "monitoring" {
 - `components` (String) Per-component overrides as a JSON object keyed by release name (`{"<release>": {"enabled": false, "values": {…}}}`).
 - `ignore_dependencies` (List of String) Package source dependencies to skip installing.
 - `variant` (String) Variant to use from the PackageSource.
-- `wait_for_ready` (Boolean) Block on create/update until the tenant's `Ready` condition is true.
-- `wait_timeout` (String) Maximum time to wait when `wait_for_ready` is set (Go duration, e.g. `10m`).
+- `wait_for_ready` (Boolean) Block on create/update until the `Ready` condition is true and any server-generated outputs the resource exposes are readable.
+- `wait_timeout` (String) Maximum time to wait when `wait_for_ready` is set (Go duration, e.g. `10m`). Readiness and outputs share this budget; outputs that never appear leave a warning and their attributes stay null until the next refresh.
 
 ### Read-Only
 

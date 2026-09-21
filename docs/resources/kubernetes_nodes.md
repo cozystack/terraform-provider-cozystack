@@ -86,8 +86,8 @@ resource "cozystack_kubernetes_nodes" "gpu" {
 - `storage_class` (String) StorageClass for the worker node system disks. Worker VMs live-migrate, so the class must serve ReadWriteMany volumes — prefer a replicated, DRBD-backed class. Changing a configured value replaces the pool: an existing volume is never migrated to another class.
 - `talos` (Attributes) Talos worker image configuration, kept in sync with the parent cluster's Talos settings. Every field follows the chart when unset. (see [below for nested schema](#nestedatt--talos))
 - `version` (String) Kubernetes major.minor version the pool joins. Must match the parent cluster's version and satisfy the Talos/Kubernetes support matrix against `talos.version`.
-- `wait_for_ready` (Boolean) Block on create/update until the tenant's `Ready` condition is true.
-- `wait_timeout` (String) Maximum time to wait when `wait_for_ready` is set (Go duration, e.g. `10m`).
+- `wait_for_ready` (Boolean) Block on create/update until the `Ready` condition is true and any server-generated outputs the resource exposes are readable.
+- `wait_timeout` (String) Maximum time to wait when `wait_for_ready` is set (Go duration, e.g. `10m`). Readiness and outputs share this budget; outputs that never appear leave a warning and their attributes stay null until the next refresh.
 
 ### Read-Only
 

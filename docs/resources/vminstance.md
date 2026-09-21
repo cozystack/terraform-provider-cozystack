@@ -41,6 +41,11 @@ resource "cozystack_vminstance" "vm" {
     packages:
       - qemu-guest-agent
   EOT
+
+  # Addresses appear only once the guest is up, so without waiting they are only
+  # readable from the apply after the one that created the VM. A guest that exits
+  # before its address is read keeps the apply waiting until wait_timeout.
+  wait_for_ready = true
 }
 ```
 
@@ -67,10 +72,10 @@ resource "cozystack_vminstance" "vm" {
 - `instance_type` (String) Virtual machine instance type.
 - `networks` (Attributes List) Networks to attach the VM to. (see [below for nested schema](#nestedatt--networks))
 - `resources` (Attributes) Explicit CPU, memory, and socket configuration. (see [below for nested schema](#nestedatt--resources))
-- `run_strategy` (String) Requested running state of the VM instance.
+- `run_strategy` (String) Requested running state of the VM instance. `wait_for_ready` waits for an address under the strategies that start a guest themselves (`Always`, `RerunOnFailure`, `Once`); a guest that exits before its address is read keeps the wait going until `wait_timeout`.
 - `ssh_keys` (List of String) SSH public keys for authentication.
-- `wait_for_ready` (Boolean) Block on create/update until the tenant's `Ready` condition is true.
-- `wait_timeout` (String) Maximum time to wait when `wait_for_ready` is set (Go duration, e.g. `10m`).
+- `wait_for_ready` (Boolean) Block on create/update until the `Ready` condition is true and any server-generated outputs the resource exposes are readable.
+- `wait_timeout` (String) Maximum time to wait when `wait_for_ready` is set (Go duration, e.g. `10m`). Readiness and outputs share this budget; outputs that never appear leave a warning and their attributes stay null until the next refresh.
 
 ### Read-Only
 

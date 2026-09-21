@@ -130,7 +130,7 @@ func bucketCredentialsResourceAttribute() schema.MapNestedAttribute {
 	return schema.MapNestedAttribute{
 		Computed:  true,
 		Sensitive: true,
-		MarkdownDescription: "S3 credentials per user (from the `<name>-<user>` Secret). " +
+		MarkdownDescription: "S3 credentials per user (from the `bucket-<name>-<user>` Secret). " +
 			"Populated once the bucket claim is bound.",
 		NestedObject: schema.NestedAttributeObject{
 			Attributes: map[string]schema.Attribute{

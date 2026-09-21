@@ -264,6 +264,21 @@ func (m *vminstanceModel) readOutputs(ctx context.Context, api *client.Client) d
 	return diags
 }
 
+// outputsPending reports whether an address is still expected. Always,
+// RerunOnFailure and Once each start a guest when the object is created, so a
+// missing address means "not booted yet"; Manual and Halted start none, so it
+// means "not running". A Once or RerunOnFailure guest that exits before its
+// address is read leaves no VirtualMachineInstance behind, and the wait then
+// runs to the timeout and warns.
+func (m *vminstanceModel) outputsPending() bool {
+	switch m.RunStrategy.ValueString() {
+	case "Always", "RerunOnFailure", "Once":
+		return m.IPAddress.IsNull()
+	default:
+		return false
+	}
+}
+
 func vmNameValue(entry map[string]any) map[string]attr.Value {
 	name, _ := entry["name"].(string)
 

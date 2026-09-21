@@ -46,8 +46,8 @@ resource "cozystack_opensearch" "search" {
 - `topology_spread_policy` (String) Pod topology spread policy (`soft` or `hard`).
 - `users` (Attributes Map) OpenSearch users keyed by user name. (see [below for nested schema](#nestedatt--users))
 - `version` (String) OpenSearch major version (`v3`, `v2`, `v1`).
-- `wait_for_ready` (Boolean) Block on create/update until the tenant's `Ready` condition is true.
-- `wait_timeout` (String) Maximum time to wait when `wait_for_ready` is set (Go duration, e.g. `10m`).
+- `wait_for_ready` (Boolean) Block on create/update until the `Ready` condition is true and any server-generated outputs the resource exposes are readable.
+- `wait_timeout` (String) Maximum time to wait when `wait_for_ready` is set (Go duration, e.g. `10m`). Readiness and outputs share this budget; outputs that never appear leave a warning and their attributes stay null until the next refresh.
 
 ### Read-Only
 

@@ -66,8 +66,8 @@ resource "cozystack_tenant" "team_c" {
 - `resource_quotas` (Map of String) Resource quotas for the tenant, as quantity strings (for example `{cpu = "4"}`).
 - `scheduling_class` (String) Name of a SchedulingClass CR applied to the tenant's workloads.
 - `seaweedfs` (Boolean) Deploy a dedicated SeaweedFS instance for the tenant.
-- `wait_for_ready` (Boolean) Block on create/update until the tenant's `Ready` condition is true.
-- `wait_timeout` (String) Maximum time to wait when `wait_for_ready` is set (Go duration, e.g. `10m`).
+- `wait_for_ready` (Boolean) Block on create/update until the `Ready` condition is true and any server-generated outputs the resource exposes are readable.
+- `wait_timeout` (String) Maximum time to wait when `wait_for_ready` is set (Go duration, e.g. `10m`). Readiness and outputs share this budget; outputs that never appear leave a warning and their attributes stay null until the next refresh.
 
 ### Read-Only
 
