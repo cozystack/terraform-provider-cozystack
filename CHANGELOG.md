@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.6.2
+
+### Fixes
+
+- `wait_for_ready` now also waits for the server-generated outputs — bucket credentials, the cluster kubeconfig, PostgreSQL endpoints, and VM addresses. They were read once, right after the write, so the attributes stayed null until the next refresh and a bucket's S3 credentials were only readable one apply late. Reads that keep failing are still reported, but a couple of failing ones in a row are retried, and outputs that never appear leave a warning rather than failing an apply whose object exists.
+- A readiness timeout no longer leaves the created object out of state. The object existed in Cozystack while Terraform knew nothing about it, so the next apply hit `AlreadyExists` and the object had to be imported or deleted by hand.
+- Schema descriptions name the Secrets and Services the charts actually create: `bucket-<name>-<user>`, `kubernetes-<name>-admin-kubeconfig`, and `postgres-<name>-rw`/`postgres-<name>-ro`.
+
 ## v1.6.1
 
 Tracks the Cozystack API at v1.6.1 (`apps.cozystack.io`), jumping straight from the 1.4 line; the 1.5 line is skipped.
