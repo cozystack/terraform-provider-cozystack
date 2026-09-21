@@ -4,9 +4,13 @@ linters:
   default: all
   disable:
     - depguard
+    # Renamed in golangci-lint v2.13; `default: all` enables the deprecated
+    # original alongside the *_v5 rename, so both spellings have to be listed.
     - exhaustruct
-    - gochecknoinits
+    - exhaustruct_v5
     - wsl
+    - wsl_v5
+    - gochecknoinits
     - lll
     - errchkjson
     - ireturn
