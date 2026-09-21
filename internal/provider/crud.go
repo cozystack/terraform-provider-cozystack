@@ -139,6 +139,8 @@ func pollOutputs(
 		}
 
 		select {
+		// A cancelled apply reports nothing: the last read's failure, if any,
+		// describes the cluster, not the cancellation the practitioner asked for.
 		case <-ctx.Done():
 			return nil
 		case <-time.After(min(interval, remaining)):
@@ -204,7 +206,10 @@ func createOrUpdate[M any, PM planModelPtr[M]](
 	}
 
 	diags.Append(pm.flatten(&result)...)
-	readOutputsAfterPersist(ctx, pm, api, wait, deadline, diags)
+
+	// An object that never became ready has no outputs to wait for, and the
+	// timeout warning would contradict the readiness error already raised.
+	readOutputsAfterPersist(ctx, pm, api, wait && !diags.HasError(), deadline, diags)
 	diags.Append(state.Set(ctx, &model)...)
 }
 
@@ -307,8 +312,10 @@ func readDataSource[M any, PM readModelPtr[M]](
 }
 
 // persistApplication creates or updates an application and, when requested,
-// blocks until it is Ready. It reports false (with diagnostics appended) on
-// failure so callers can return early.
+// blocks until it is Ready. It reports false only when nothing was written; a
+// readiness timeout reports true with the last observation and an error
+// diagnostic, so the caller still records the object that does exist instead of
+// leaving it behind with no state.
 func persistApplication(
 	ctx context.Context,
 	api *client.Client,
@@ -336,13 +343,13 @@ func persistApplication(
 
 	if wait {
 		ready, waitErr := api.WaitForReady(ctx, res, result.Namespace, result.Name, timeout)
-		if waitErr != nil {
-			diags.AddError("Timed out waiting for "+res.Kind+" to become ready", waitErr.Error())
-
-			return client.Application{}, false
+		if ready.Name != "" {
+			result = ready
 		}
 
-		result = ready
+		if waitErr != nil {
+			diags.AddError("Timed out waiting for "+res.Kind+" to become ready", waitErr.Error())
+		}
 	}
 
 	return result, true

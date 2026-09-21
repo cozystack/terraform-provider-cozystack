@@ -15,6 +15,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	dynamicfake "k8s.io/client-go/dynamic/fake"
 	k8stesting "k8s.io/client-go/testing"
 )
 
@@ -421,5 +422,36 @@ func TestWaitDuration(t *testing.T) {
 				t.Errorf("waitDuration() = %s, want %s", got, tt.want)
 			}
 		})
+	}
+}
+
+// A cluster slower than wait_timeout used to leave the object in Cozystack with
+// no state at all, so the next apply hit AlreadyExists.
+func TestPersistApplication_ReadinessTimeoutKeepsTheObject(t *testing.T) {
+	t.Parallel()
+
+	gvr := schema.GroupVersionResource{Group: "apps.cozystack.io", Version: "v1alpha1", Resource: "buckets"}
+	dyn := dynamicfake.NewSimpleDynamicClientWithCustomListKinds(
+		runtime.NewScheme(), map[schema.GroupVersionResource]string{gvr: "BucketList"},
+	)
+
+	var diags diag.Diagnostics
+
+	app := &client.Application{Name: "assets", Namespace: "tenant-root", Spec: map[string]any{}}
+
+	result, ok := persistApplication(
+		context.Background(), client.New(dyn), client.BucketResource(), true, app, true, 50*time.Millisecond, &diags,
+	)
+
+	if !ok {
+		t.Fatal("persistApplication() ok = false, want the created object reported back")
+	}
+
+	if result.Name != "assets" || result.Namespace != "tenant-root" {
+		t.Errorf("result = %s/%s, want tenant-root/assets", result.Namespace, result.Name)
+	}
+
+	if !diags.HasError() {
+		t.Error("diagnostics = none, want the readiness timeout reported")
 	}
 }
