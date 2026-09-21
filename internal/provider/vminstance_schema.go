@@ -56,7 +56,9 @@ func vminstanceAccessAttributes() map[string]rschema.Attribute {
 			Validators: []validator.String{
 				stringvalidator.OneOf("Always", "Halted", "Manual", "RerunOnFailure", "Once"),
 			},
-			MarkdownDescription: "Requested running state of the VM instance.",
+			MarkdownDescription: "Requested running state of the VM instance. `wait_for_ready` waits for an " +
+				"address under the strategies that start a guest themselves (`Always`, `RerunOnFailure`, `Once`); " +
+				"a guest that exits before its address is read keeps the wait going until `wait_timeout`.",
 		},
 	}
 }

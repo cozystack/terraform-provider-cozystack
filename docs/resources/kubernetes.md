@@ -34,6 +34,10 @@ resource "cozystack_kubernetes" "cluster" {
       roles         = ["ingress-nginx"]
     }
   }
+
+  # The admin kubeconfig is published asynchronously, so without waiting it is
+  # only readable from the apply after the one that created the cluster.
+  wait_for_ready = true
 }
 
 # Every block below is optional and follows the platform default while unset,
@@ -157,14 +161,14 @@ resource "cozystack_kubernetes" "byo_identity" {
 - `storage_class` (String) StorageClass used to store the data. Follows the platform default (`replicated`) while unset. Changing a configured value replaces the cluster: a PersistentVolumeClaim's class is fixed when it is created, so an in-place change would be recorded in state while every existing volume stayed on the old class.
 - `talos` (Attributes) Talos worker OS image coordinates. Every field follows the platform default while unset; set one only to pin it. (see [below for nested schema](#nestedatt--talos))
 - `version` (String) Kubernetes major.minor version to deploy.
-- `wait_for_ready` (Boolean) Block on create/update until the tenant's `Ready` condition is true.
-- `wait_timeout` (String) Maximum time to wait when `wait_for_ready` is set (Go duration, e.g. `10m`).
+- `wait_for_ready` (Boolean) Block on create/update until the `Ready` condition is true and any server-generated outputs the resource exposes are readable.
+- `wait_timeout` (String) Maximum time to wait when `wait_for_ready` is set (Go duration, e.g. `10m`). Readiness and outputs share this budget; outputs that never appear leave a warning and their attributes stay null until the next refresh.
 
 ### Read-Only
 
 - `chart_version` (String) Deployed chart version (`status.version`).
 - `id` (String) Synthetic identifier in the form `namespace/name`.
-- `kubeconfig` (String, Sensitive) Admin kubeconfig for the provisioned cluster (from the `<name>-admin-kubeconfig` Secret). Populated once the cluster is ready — set `wait_for_ready = true` to have it available on first apply.
+- `kubeconfig` (String, Sensitive) Admin kubeconfig for the provisioned cluster (from the `kubernetes-<name>-admin-kubeconfig` Secret). Populated once the cluster is ready — set `wait_for_ready = true` to have it available on first apply.
 - `ready` (Boolean) Whether the application's `Ready` condition is true.
 - `uid` (String) Server-assigned object UID (`metadata.uid`). Stable across updates; changes on recreate.
 

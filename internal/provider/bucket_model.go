@@ -73,12 +73,13 @@ func (m *bucketModel) readOutputs(ctx context.Context, api *client.Client) diag.
 			return diags
 		}
 
-		if !found {
+		blob, hasBlob := data["BucketInfo"]
+		if !found || !hasBlob {
 			continue
 		}
 
 		var info bucketInfo
-		if jsonErr := json.Unmarshal(data["BucketInfo"], &info); jsonErr != nil {
+		if jsonErr := json.Unmarshal(blob, &info); jsonErr != nil {
 			diags.AddError("Unable to parse bucket credentials", jsonErr.Error())
 
 			return diags
@@ -98,6 +99,16 @@ func (m *bucketModel) readOutputs(ctx context.Context, api *client.Client) diag.
 	}
 
 	return diags
+}
+
+// outputsPending reports whether any declared user is still without the Secret
+// that carries its credentials.
+func (m *bucketModel) outputsPending() bool {
+	if m.Users.IsNull() || m.Users.IsUnknown() {
+		return false
+	}
+
+	return len(m.Credentials.Elements()) < len(m.Users.Elements())
 }
 
 type bucketUserModel struct {

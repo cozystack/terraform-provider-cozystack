@@ -46,8 +46,8 @@ resource "cozystack_tenant_gateway" "example" {
 ### Optional
 
 - `spec` (String) Full TenantGateway spec as JSON (`apex`, `certMode`, `issuerName`, `dns01`, `wildcardSecretRef`, `attachedNamespaces`, `tlsPassthroughServices`, `gatewayClassName`).
-- `wait_for_ready` (Boolean) Block on create/update until the tenant's `Ready` condition is true.
-- `wait_timeout` (String) Maximum time to wait when `wait_for_ready` is set (Go duration, e.g. `10m`).
+- `wait_for_ready` (Boolean) Block on create/update until the `Ready` condition is true and any server-generated outputs the resource exposes are readable.
+- `wait_timeout` (String) Maximum time to wait when `wait_for_ready` is set (Go duration, e.g. `10m`). Readiness and outputs share this budget; outputs that never appear leave a warning and their attributes stay null until the next refresh.
 
 ### Read-Only
 

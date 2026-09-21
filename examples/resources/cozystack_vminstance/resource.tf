@@ -26,4 +26,9 @@ resource "cozystack_vminstance" "vm" {
     packages:
       - qemu-guest-agent
   EOT
+
+  # Addresses appear only once the guest is up, so without waiting they are only
+  # readable from the apply after the one that created the VM. A guest that exits
+  # before its address is read keeps the apply waiting until wait_timeout.
+  wait_for_ready = true
 }

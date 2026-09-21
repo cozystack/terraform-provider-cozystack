@@ -44,8 +44,8 @@ resource "cozystack_kafka" "events" {
 - `kafka` (Attributes) Kafka broker configuration. (see [below for nested schema](#nestedatt--kafka))
 - `tls` (Attributes) TLS configuration for the external listener on port 9094. The internal listener on 9093 is always TLS, and Strimzi manages the cluster PKI itself. Omit the block to follow `external`; disabling TLS while `external` is true publishes Kafka in plaintext on a public address. (see [below for nested schema](#nestedatt--tls))
 - `topics` (Attributes List) Topics to provision. (see [below for nested schema](#nestedatt--topics))
-- `wait_for_ready` (Boolean) Block on create/update until the tenant's `Ready` condition is true.
-- `wait_timeout` (String) Maximum time to wait when `wait_for_ready` is set (Go duration, e.g. `10m`).
+- `wait_for_ready` (Boolean) Block on create/update until the `Ready` condition is true and any server-generated outputs the resource exposes are readable.
+- `wait_timeout` (String) Maximum time to wait when `wait_for_ready` is set (Go duration, e.g. `10m`). Readiness and outputs share this budget; outputs that never appear leave a warning and their attributes stay null until the next refresh.
 - `zookeeper` (Attributes) ZooKeeper configuration. (see [below for nested schema](#nestedatt--zookeeper))
 
 ### Read-Only

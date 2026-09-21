@@ -38,8 +38,8 @@ resource "cozystack_vmdisk" "ubuntu" {
 - `optical` (Boolean) Whether the disk should be considered optical.
 - `storage` (String) Disk size allocated for the virtual machine (quantity, e.g. `5Gi`).
 - `storage_class` (String) StorageClass used to store the data. Changing a value set here replaces the object, because an existing volume is never migrated to another class. Removing the attribute from the configuration does not: the object keeps its volumes and the recorded class reverts to the default.
-- `wait_for_ready` (Boolean) Block on create/update until the tenant's `Ready` condition is true.
-- `wait_timeout` (String) Maximum time to wait when `wait_for_ready` is set (Go duration, e.g. `10m`).
+- `wait_for_ready` (Boolean) Block on create/update until the `Ready` condition is true and any server-generated outputs the resource exposes are readable.
+- `wait_timeout` (String) Maximum time to wait when `wait_for_ready` is set (Go duration, e.g. `10m`). Readiness and outputs share this budget; outputs that never appear leave a warning and their attributes stay null until the next refresh.
 
 ### Read-Only
 

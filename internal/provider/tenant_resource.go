@@ -201,25 +201,6 @@ func tenantSpecAttributes() map[string]schema.Attribute {
 	}
 }
 
-// waitBehaviorAttributes returns the optional create/update wait attributes
-// shared by every resource kind.
-func waitBehaviorAttributes() map[string]schema.Attribute {
-	return map[string]schema.Attribute{
-		"wait_for_ready": schema.BoolAttribute{
-			Optional:            true,
-			Computed:            true,
-			Default:             booldefault.StaticBool(false),
-			MarkdownDescription: "Block on create/update until the tenant's `Ready` condition is true.",
-		},
-		"wait_timeout": schema.StringAttribute{
-			Optional:            true,
-			Computed:            true,
-			Default:             stringdefault.StaticString("10m"),
-			MarkdownDescription: "Maximum time to wait when `wait_for_ready` is set (Go duration, e.g. `10m`).",
-		},
-	}
-}
-
 func tenantStatusAttributes() map[string]schema.Attribute {
 	return map[string]schema.Attribute{
 		"status_namespace": schema.StringAttribute{

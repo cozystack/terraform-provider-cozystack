@@ -258,6 +258,11 @@ func (m *postgresqlModel) readOutputs(ctx context.Context, api *client.Client) d
 	return diags
 }
 
+// outputsPending reports whether the primary Service is still absent.
+func (m *postgresqlModel) outputsPending() bool {
+	return m.Endpoints.IsNull()
+}
+
 func (m *postgresqlModel) flatten(app *client.Application) diag.Diagnostics {
 	var diags diag.Diagnostics
 

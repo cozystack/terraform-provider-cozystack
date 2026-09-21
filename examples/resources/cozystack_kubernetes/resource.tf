@@ -16,6 +16,10 @@ resource "cozystack_kubernetes" "cluster" {
       roles         = ["ingress-nginx"]
     }
   }
+
+  # The admin kubeconfig is published asynchronously, so without waiting it is
+  # only readable from the apply after the one that created the cluster.
+  wait_for_ready = true
 }
 
 # Every block below is optional and follows the platform default while unset,

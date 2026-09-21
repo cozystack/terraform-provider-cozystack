@@ -323,3 +323,25 @@ func rolesMapDataSourceAttribute(description string) dsschema.MapNestedAttribute
 		},
 	}
 }
+
+// waitBehaviorAttributes returns the create/update wait knobs shared by every
+// Kind that supports waiting.
+func waitBehaviorAttributes() map[string]rschema.Attribute {
+	return map[string]rschema.Attribute{
+		"wait_for_ready": rschema.BoolAttribute{
+			Optional: true,
+			Computed: true,
+			Default:  booldefault.StaticBool(false),
+			MarkdownDescription: "Block on create/update until the `Ready` condition is true and any " +
+				"server-generated outputs the resource exposes are readable.",
+		},
+		"wait_timeout": rschema.StringAttribute{
+			Optional: true,
+			Computed: true,
+			Default:  stringdefault.StaticString("10m"),
+			MarkdownDescription: "Maximum time to wait when `wait_for_ready` is set (Go duration, e.g. `10m`). " +
+				"Readiness and outputs share this budget; outputs that never appear leave a warning and their " +
+				"attributes stay null until the next refresh.",
+		},
+	}
+}

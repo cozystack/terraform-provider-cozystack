@@ -18,4 +18,8 @@ resource "cozystack_postgres" "app" {
       roles      = { admin = ["app"] }
     }
   }
+
+  # The connection endpoints are published asynchronously, so without waiting
+  # they are only readable from the apply after the one that created the cluster.
+  wait_for_ready = true
 }

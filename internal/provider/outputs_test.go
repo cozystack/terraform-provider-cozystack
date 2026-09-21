@@ -14,9 +14,9 @@ import (
 	dynamicfake "k8s.io/client-go/dynamic/fake"
 )
 
-// fakeOutputsClient builds a client backed by a fake dynamic client that serves
-// Secrets, Services, and VirtualMachineInstances for outputs tests.
-func fakeOutputsClient(objects ...runtime.Object) *client.Client {
+// fakeOutputsDynamic builds a fake dynamic client that serves Secrets, Services,
+// and VirtualMachineInstances for outputs tests.
+func fakeOutputsDynamic(objects ...runtime.Object) *dynamicfake.FakeDynamicClient {
 	scheme := runtime.NewScheme()
 	gvrToListKind := map[schema.GroupVersionResource]string{
 		{Group: "", Version: "v1", Resource: "secrets"}:                            "SecretList",
@@ -24,7 +24,12 @@ func fakeOutputsClient(objects ...runtime.Object) *client.Client {
 		{Group: "kubevirt.io", Version: "v1", Resource: "virtualmachineinstances"}: "VirtualMachineInstanceList",
 	}
 
-	return client.New(dynamicfake.NewSimpleDynamicClientWithCustomListKinds(scheme, gvrToListKind, objects...))
+	return dynamicfake.NewSimpleDynamicClientWithCustomListKinds(scheme, gvrToListKind, objects...)
+}
+
+// fakeOutputsClient wraps fakeOutputsDynamic in the provider client.
+func fakeOutputsClient(objects ...runtime.Object) *client.Client {
+	return client.New(fakeOutputsDynamic(objects...))
 }
 
 func fakeSecret(namespace, name string, data map[string]string) *unstructured.Unstructured {
@@ -194,5 +199,33 @@ func TestBucketReadOutputs_Credentials(t *testing.T) {
 
 	if attrs["secret_key"].(types.String).ValueString() != "shhh" {
 		t.Errorf("secret_key = %v, want shhh", attrs["secret_key"])
+	}
+}
+
+// COSI creates the Secret before it writes BucketInfo into it, so a Secret
+// without the key is a transient state, not a parse failure.
+func TestBucketReadOutputs_SecretWithoutBucketInfo(t *testing.T) {
+	t.Parallel()
+
+	api := fakeOutputsClient(fakeSecret("tenant-root", "bucket-assets-reader", map[string]string{}))
+
+	model := bucketModel{
+		Name:      types.StringValue("assets"),
+		Namespace: types.StringValue("tenant-root"),
+		Users: types.MapValueMust(types.ObjectType{AttrTypes: bucketUserObjectType()}, map[string]attr.Value{
+			"reader": types.ObjectValueMust(bucketUserObjectType(), map[string]attr.Value{"readonly": types.BoolValue(true)}),
+		}),
+	}
+
+	if diags := model.readOutputs(context.Background(), api); diags.HasError() {
+		t.Fatalf("readOutputs diagnostics: %v", diags)
+	}
+
+	if !model.Credentials.IsNull() {
+		t.Errorf("credentials = %v, want null until BucketInfo lands", model.Credentials)
+	}
+
+	if !model.outputsPending() {
+		t.Error("outputsPending() = false, want the half-written Secret still reported as pending")
 	}
 }
