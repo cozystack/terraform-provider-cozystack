@@ -3,11 +3,15 @@ package provider
 import (
 	"maps"
 
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	dsschema "github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	rschema "github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64default"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 )
 
 func clickhouseUsersResourceAttribute() rschema.MapNestedAttribute {
@@ -62,6 +66,20 @@ func clickhouseSchema() rschema.Schema {
 			Default:             int64default.StaticInt64(15),
 			MarkdownDescription: "Log retention in days.",
 		},
+		attrVersion: rschema.StringAttribute{
+			Optional: true, Computed: true,
+			// No provider-side default: the server default is the oldest
+			// release in the enum, so a default would plan a downgrade for any
+			// upgraded instance whose configuration drops the attribute. An
+			// unset version keeps the running one instead.
+			PlanModifiers: []planmodifier.String{stringplanmodifier.UseNonNullStateForUnknown()},
+			Validators:    []validator.String{stringvalidator.OneOf("v25.8", "v25.3", "v24.9")},
+			MarkdownDescription: "ClickHouse major.minor version (`v25.8`, `v25.3`, `v24.9`), applied to both the " +
+				"server and Keeper images. Follows the platform default (`v24.9`) on create while unset; " +
+				"removing the attribute later keeps the running version. Only increase it: a downgrade is " +
+				"unsafe, because an older server cannot read data written by a newer one and Keeper " +
+				"snapshots are not backward compatible.",
+		},
 		specBackup: backupResourceAttribute(
 			"Backup configuration. Only the system-bucket opt-in is managed here — the per-release S3 " +
 				"settings are deprecated upstream in favour of the platform-managed backup class and are " +
@@ -94,6 +112,7 @@ func clickhouseDataSourceSchema() dsschema.Schema {
 		attrStorageClass:    dsschema.StringAttribute{Computed: true, MarkdownDescription: "StorageClass used to store the data."},
 		"log_storage_size":  dsschema.StringAttribute{Computed: true, MarkdownDescription: "Persistent volume size for logs."},
 		"log_ttl":           dsschema.Int64Attribute{Computed: true, MarkdownDescription: "Log retention in days."},
+		attrVersion:         dsschema.StringAttribute{Computed: true, MarkdownDescription: "ClickHouse major.minor version."},
 		specBackup:          backupDataSourceAttribute("Backup configuration, limited to the system-bucket opt-in."),
 		"users": dsschema.MapNestedAttribute{
 			Computed:            true,

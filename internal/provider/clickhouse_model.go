@@ -25,6 +25,7 @@ type clickhouseModel struct {
 	StorageClass    types.String `tfsdk:"storage_class"`
 	LogStorageSize  types.String `tfsdk:"log_storage_size"`
 	LogTTL          types.Int64  `tfsdk:"log_ttl"`
+	Version         types.String `tfsdk:"version"`
 	Backup          types.Object `tfsdk:"backup"`
 	Users           types.Map    `tfsdk:"users"`
 	Ready           types.Bool   `tfsdk:"ready"`
@@ -124,6 +125,7 @@ func (m *clickhouseModel) expand(ctx context.Context) (*client.Application, diag
 		"users":             users,
 	}
 
+	setOptionalString(spec, attrVersion, m.Version)
 	setOptionalBackup(spec, m.Backup)
 
 	return &client.Application{
@@ -146,6 +148,7 @@ func (m *clickhouseModel) flatten(app *client.Application) diag.Diagnostics {
 	m.StorageClass = types.StringValue(specString(app.Spec, specStorageClass))
 	m.LogStorageSize = types.StringValue(specString(app.Spec, "logStorageSize"))
 	m.LogTTL = types.Int64Value(specInt64(app.Spec, "logTTL"))
+	m.Version = specStringOrNull(app.Spec, attrVersion)
 	m.Backup = flattenBackup(app.Spec[specBackup])
 
 	resources, rDiags := flattenResources(app.Spec[attrResources])
