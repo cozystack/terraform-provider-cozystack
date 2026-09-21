@@ -43,6 +43,7 @@ data "cozystack_clickhouse" "analytics" {
 - `storage_class` (String) StorageClass used to store the data.
 - `uid` (String) Server-assigned object UID (`metadata.uid`).
 - `users` (Attributes Map) ClickHouse users keyed by user name. (see [below for nested schema](#nestedatt--users))
+- `version` (String) ClickHouse major.minor version.
 
 <a id="nestedatt--backup"></a>
 ### Nested Schema for `backup`

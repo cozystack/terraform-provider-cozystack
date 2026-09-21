@@ -20,6 +20,7 @@ resource "cozystack_clickhouse" "analytics" {
   replicas = 2
   shards   = 2
   size     = "50Gi"
+  version  = "v25.8"
 
   backup = { use_system_bucket = true }
 
@@ -49,6 +50,7 @@ resource "cozystack_clickhouse" "analytics" {
 - `size` (String) Persistent volume size for data (quantity, e.g. `10Gi`).
 - `storage_class` (String) StorageClass used to store the data. Changing a value set here replaces the object, because an existing volume is never migrated to another class. Removing the attribute from the configuration does not: the object keeps its volumes and the recorded class reverts to the default.
 - `users` (Attributes Map) ClickHouse users keyed by user name. (see [below for nested schema](#nestedatt--users))
+- `version` (String) ClickHouse major.minor version (`v25.8`, `v25.3`, `v24.9`), applied to both the server and Keeper images. Follows the platform default (`v24.9`) on create while unset; removing the attribute later keeps the running version. Only increase it: a downgrade is unsafe, because an older server cannot read data written by a newer one and Keeper snapshots are not backward compatible.
 - `wait_for_ready` (Boolean) Block on create/update until the `Ready` condition is true and any server-generated outputs the resource exposes are readable.
 - `wait_timeout` (String) Maximum time to wait when `wait_for_ready` is set (Go duration, e.g. `10m`). Readiness and outputs share this budget; outputs that never appear leave a warning and their attributes stay null until the next refresh.
 

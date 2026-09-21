@@ -1,6 +1,12 @@
 # Changelog
 
-## v1.6.2
+## v1.6.3
+
+Tracks the Cozystack API at v1.6.3 (`apps.cozystack.io`).
+
+### Features
+
+- `clickhouse`: new `version` attribute (`v25.8`, `v25.3`, `v24.9`), applied to both the server and the Keeper images. It carries no provider-side default: an unset version follows the platform default (`v24.9`) on create, and removing the attribute later keeps the running version instead of planning a downgrade. Only raise it: a downgrade is unsafe, because an older server cannot read data written by a newer one and Keeper snapshots are not backward compatible. An explicit downgrade is still accepted; only the description warns against it.
 
 ### Fixes
 

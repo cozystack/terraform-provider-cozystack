@@ -5,6 +5,7 @@ resource "cozystack_clickhouse" "analytics" {
   replicas = 2
   shards   = 2
   size     = "50Gi"
+  version  = "v25.8"
 
   backup = { use_system_bucket = true }
 
