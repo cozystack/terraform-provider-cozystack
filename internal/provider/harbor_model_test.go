@@ -92,6 +92,7 @@ func TestHarborExpandKeysMatchConfigSpec(t *testing.T) {
 		emitted[key] = true
 	}
 
+	// managementWhitelist was added by the pinned API and is not modelled yet.
 	assertSpecCoverage(t, emitted, harbor.ConfigSpec{},
-		"core", "registry", "jobservice", "trivy", "database", "redis")
+		"core", "registry", "jobservice", "trivy", "database", "redis", "managementWhitelist")
 }

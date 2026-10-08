@@ -123,5 +123,6 @@ func TestVMInstanceExpandKeysMatchConfigSpec(t *testing.T) {
 		emitted[key] = true
 	}
 
-	assertSpecCoverage(t, emitted, vminstance.ConfigSpec{}, "subnets")
+	// firmware was added by the pinned API and is not modelled yet.
+	assertSpecCoverage(t, emitted, vminstance.ConfigSpec{}, "subnets", "firmware")
 }

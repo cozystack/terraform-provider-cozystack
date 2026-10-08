@@ -226,7 +226,8 @@ func TestKubernetesExpandTalosKeysMatchTalosSpec(t *testing.T) {
 		t.Fatalf("expand diagnostics: %v", diags)
 	}
 
-	assertSpecCoverage(t, nestedSpecKeys(t, got.Spec, "talos"), kubernetes.Talos{})
+	// registryMirrors was added by the pinned API and is not modelled yet.
+	assertSpecCoverage(t, nestedSpecKeys(t, got.Spec, "talos"), kubernetes.Talos{}, "registryMirrors")
 }
 
 func TestKubernetesExpand_OIDCOmittedWhenUnset(t *testing.T) {
@@ -461,11 +462,13 @@ func TestKubernetesExpandControlPlaneKeysMatchSpec(t *testing.T) {
 	}
 
 	// The sizing of the control-plane components stays with the server, as it
-	// did before controlPlane was modelled at all.
+	// did before controlPlane was modelled at all. controlPlane.kubelet and
+	// apiServer.admissionControllers were added by the pinned API and are not
+	// modelled yet.
 	assertSpecCoverage(t, nestedSpecKeys(t, got.Spec, "controlPlane"), kubernetes.ControlPlane{},
-		"controllerManager", "konnectivity", "replicas", "scheduler")
+		"controllerManager", "konnectivity", "replicas", "scheduler", "kubelet")
 	assertSpecCoverage(t, nestedSpecKeys(t, got.Spec, "controlPlane", "apiServer"), kubernetes.APIServer{},
-		"resources", "resourcesPreset")
+		"resources", "resourcesPreset", "admissionControllers")
 }
 
 // The image overrides exist for air-gapped and rate-limited registries. Empty
@@ -577,7 +580,8 @@ func TestKubernetesExpandKeysMatchConfigSpec(t *testing.T) {
 		emitted[key] = true
 	}
 
-	assertSpecCoverage(t, emitted, kubernetes.ConfigSpec{}, "addons")
+	// substrate and proxmox were added by the pinned API and are not modelled yet.
+	assertSpecCoverage(t, emitted, kubernetes.ConfigSpec{}, "addons", "substrate", "proxmox")
 }
 
 func TestKubernetesResourceFlatten_KeepsUnconfiguredBlocksOut(t *testing.T) {

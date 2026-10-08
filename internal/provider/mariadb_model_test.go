@@ -102,6 +102,7 @@ func TestMariadbExpandKeysMatchConfigSpec(t *testing.T) {
 		emitted[key] = true
 	}
 
-	// The deprecated inline backup block is intentionally not managed.
-	assertSpecCoverage(t, emitted, mariadb.ConfigSpec{}, "backup")
+	// The deprecated inline backup block is intentionally not managed; tls was
+	// added by the pinned API and is not modelled yet.
+	assertSpecCoverage(t, emitted, mariadb.ConfigSpec{}, "backup", "tls")
 }

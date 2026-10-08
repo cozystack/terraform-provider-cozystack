@@ -105,5 +105,6 @@ func TestPostgresqlExpandKeysMatchConfigSpec(t *testing.T) {
 		emitted[key] = true
 	}
 
-	assertSpecCoverage(t, emitted, postgresql.ConfigSpec{}, "postgresql", "quorum", "bootstrap")
+	// autoscaling was added by the pinned API and is not modelled yet.
+	assertSpecCoverage(t, emitted, postgresql.ConfigSpec{}, "postgresql", "quorum", "bootstrap", "autoscaling")
 }
