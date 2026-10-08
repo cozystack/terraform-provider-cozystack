@@ -31,3 +31,14 @@ resource "cozystack_tenant" "team_c" {
   host    = "team-c.example.com"
   gateway = true
 }
+
+# Keep the tenant's traces in the shared store in tenant-root rather than in a
+# store of its own. It needs the tenant's own monitoring, and tenant-root must
+# host the store.
+resource "cozystack_tenant" "team_d" {
+  name      = "team-d"
+  namespace = "tenant-root"
+
+  monitoring      = true
+  tracing_central = true
+}

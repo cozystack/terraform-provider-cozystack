@@ -19,6 +19,7 @@ func fullModel() tenantModel {
 		Host:            types.StringValue("dev.example.test"),
 		Etcd:            types.BoolValue(true),
 		Monitoring:      types.BoolValue(true),
+		TracingCentral:  types.BoolValue(true),
 		Ingress:         types.BoolValue(false),
 		Gateway:         types.BoolValue(true),
 		Seaweedfs:       types.BoolValue(false),
@@ -51,6 +52,9 @@ func TestExpand_CoreFields(t *testing.T) {
 	}
 	if got.Spec["ingress"] != false {
 		t.Errorf("spec.ingress = %v, want false", got.Spec["ingress"])
+	}
+	if got.Spec["tracingCentral"] != true {
+		t.Errorf("spec.tracingCentral = %v, want true", got.Spec["tracingCentral"])
 	}
 	if got.Spec["schedulingClass"] != "default" {
 		t.Errorf("spec.schedulingClass = %v, want default", got.Spec["schedulingClass"])
@@ -172,6 +176,7 @@ func TestFlatten_RoundTrip(t *testing.T) {
 			"host":            "dev.example.test",
 			"etcd":            true,
 			"monitoring":      false,
+			"tracingCentral":  true,
 			"ingress":         true,
 			"seaweedfs":       false,
 			"schedulingClass": "default",
@@ -199,6 +204,9 @@ func TestFlatten_RoundTrip(t *testing.T) {
 	}
 	if !model.Etcd.ValueBool() || model.Monitoring.ValueBool() {
 		t.Errorf("etcd/monitoring = %v/%v, want true/false", model.Etcd.ValueBool(), model.Monitoring.ValueBool())
+	}
+	if !model.TracingCentral.ValueBool() {
+		t.Errorf("tracing_central = false, want true")
 	}
 	if !model.Ready.ValueBool() {
 		t.Errorf("ready = false, want true")
@@ -231,7 +239,7 @@ func TestFlatten_MissingBoolDefaultsFalse(t *testing.T) {
 		t.Fatalf("flatten diagnostics: %v", diags)
 	}
 
-	if model.Etcd.ValueBool() || model.Monitoring.ValueBool() {
+	if model.Etcd.ValueBool() || model.Monitoring.ValueBool() || model.TracingCentral.ValueBool() {
 		t.Errorf("missing bools should default to false")
 	}
 	if model.Host.ValueString() != "" {

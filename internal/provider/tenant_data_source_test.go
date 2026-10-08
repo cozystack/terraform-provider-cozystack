@@ -44,7 +44,7 @@ func TestTenantDataSourceSchema(t *testing.T) {
 	}
 
 	computed := []string{
-		"id", "host", "etcd", "monitoring", "ingress", "seaweedfs",
+		"id", "host", "etcd", "monitoring", "tracing_central", "ingress", "seaweedfs",
 		"scheduling_class", "resource_quotas", "status_namespace", "ready", "version",
 	}
 
