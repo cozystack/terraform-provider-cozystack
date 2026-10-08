@@ -45,8 +45,6 @@ output "cluster_oidc_mode" {
 - `id` (String) Synthetic identifier `namespace/name`.
 - `images` (Attributes) Image overrides for air-gapped or rate-limited registries. (see [below for nested schema](#nestedatt--images))
 - `kubeconfig` (String, Sensitive) Admin kubeconfig for the cluster.
-- `node_groups` (Attributes Map) Worker node groups keyed by name. (see [below for nested schema](#nestedatt--node_groups))
-- `node_health_check` (Attributes) MachineHealthCheck tuning applied to every worker node group. (see [below for nested schema](#nestedatt--node_health_check))
 - `oidc` (Attributes) OIDC authentication and per-user RBAC for the tenant kube-apiserver. (see [below for nested schema](#nestedatt--oidc))
 - `ready` (Boolean) Whether the application's `Ready` condition is true.
 - `storage_class` (String) StorageClass used to store the data.
@@ -80,40 +78,6 @@ Read-Only:
 - `kubectl` (String) Bootstrap-token Job image.
 - `talos_csr_signer` (String) talos-csr-signer sidecar image.
 - `wait_for_kubeconfig` (String) wait-for-kubeconfig init container image.
-
-
-<a id="nestedatt--node_groups"></a>
-### Nested Schema for `node_groups`
-
-Read-Only:
-
-- `disk_size` (String) Persistent disk size.
-- `instance_type` (String) Instance type.
-- `max_replicas` (Number) Maximum replicas.
-- `max_unhealthy` (String) Per-group unhealthy-node tolerance.
-- `min_replicas` (Number) Minimum replicas.
-- `node_startup_timeout` (String) Per-group machine startup timeout.
-- `resources` (Attributes) Explicit CPU and memory per replica, when set. (see [below for nested schema](#nestedatt--node_groups--resources))
-- `roles` (List of String) Node roles.
-- `storage_class` (String) Worker node StorageClass.
-
-<a id="nestedatt--node_groups--resources"></a>
-### Nested Schema for `node_groups.resources`
-
-Read-Only:
-
-- `cpu` (String) CPU available to each replica.
-- `memory` (String) Memory available to each replica.
-
-
-
-<a id="nestedatt--node_health_check"></a>
-### Nested Schema for `node_health_check`
-
-Read-Only:
-
-- `max_unhealthy` (String) Unhealthy nodes tolerated per node group.
-- `node_startup_timeout` (String) Machine startup timeout before remediation.
 
 
 <a id="nestedatt--oidc"></a>

@@ -3,15 +3,15 @@
 page_title: "cozystack_kubernetes Resource - cozystack"
 subcategory: ""
 description: |-
-  A Cozystack managed Kubernetes cluster, deployed inside a tenant namespace. The addons block, the control-plane component sizing, and per-node-group GPU and kubelet tuning use server defaults.
-  In the talos, node_health_check, oidc, control_plane, and images blocks this resource tracks only what the configuration sets. A field left unset stays out of every request and out of state, so the platform's own default applies and keeps moving with the platform instead of being pinned at apply time; a field that is set refreshes normally, so drift against it is still planned away. Read the effective values — including the ones nobody configured — through the cozystack_kubernetes data source. The flip side is that the provider replaces the whole spec on every update: a value set out of band inside one of those blocks — by kubectl, or by an import that never made it into the configuration — is dropped on the next apply unless the configuration names it.
+  A Cozystack managed Kubernetes cluster, deployed inside a tenant namespace. The addons block and the control-plane component sizing use server defaults. Worker pools are separate cozystack_kubernetes_nodes resources.
+  In the talos, oidc, control_plane, and images blocks this resource tracks only what the configuration sets. A field left unset stays out of every request and out of state, so the platform's own default applies and keeps moving with the platform instead of being pinned at apply time; a field that is set refreshes normally, so drift against it is still planned away. Read the effective values — including the ones nobody configured — through the cozystack_kubernetes data source. The flip side is that the provider replaces the whole spec on every update: a value set out of band inside one of those blocks — by kubectl, or by an import that never made it into the configuration — is dropped on the next apply unless the configuration names it.
 ---
 
 # cozystack_kubernetes (Resource)
 
-A Cozystack managed Kubernetes cluster, deployed inside a tenant namespace. The addons block, the control-plane component sizing, and per-node-group GPU and kubelet tuning use server defaults.
+A Cozystack managed Kubernetes cluster, deployed inside a tenant namespace. The addons block and the control-plane component sizing use server defaults. Worker pools are separate `cozystack_kubernetes_nodes` resources.
 
-In the `talos`, `node_health_check`, `oidc`, `control_plane`, and `images` blocks this resource tracks only what the configuration sets. A field left unset stays out of every request and out of state, so the platform's own default applies and keeps moving with the platform instead of being pinned at apply time; a field that is set refreshes normally, so drift against it is still planned away. Read the effective values — including the ones nobody configured — through the `cozystack_kubernetes` data source. The flip side is that the provider replaces the whole spec on every update: a value set out of band inside one of those blocks — by `kubectl`, or by an import that never made it into the configuration — is dropped on the next apply unless the configuration names it.
+In the `talos`, `oidc`, `control_plane`, and `images` blocks this resource tracks only what the configuration sets. A field left unset stays out of every request and out of state, so the platform's own default applies and keeps moving with the platform instead of being pinned at apply time; a field that is set refreshes normally, so drift against it is still planned away. Read the effective values — including the ones nobody configured — through the `cozystack_kubernetes` data source. The flip side is that the provider replaces the whole spec on every update: a value set out of band inside one of those blocks — by `kubectl`, or by an import that never made it into the configuration — is dropped on the next apply unless the configuration names it.
 
 ## Example Usage
 
@@ -25,20 +25,12 @@ resource "cozystack_kubernetes" "cluster" {
 
   version = "v1.35"
 
-  node_groups = {
-    md0 = {
-      instance_type = "u1.medium"
-      disk_size     = "20Gi"
-      min_replicas  = 1
-      max_replicas  = 10
-      roles         = ["ingress-nginx"]
-    }
-  }
-
   # The admin kubeconfig is published asynchronously, so without waiting it is
   # only readable from the apply after the one that created the cluster.
   wait_for_ready = true
 }
+
+# Worker nodes are a separate resource: see cozystack_kubernetes_nodes.
 
 # Every block below is optional and follows the platform default while unset,
 # so pin only what you actually need to control.
@@ -48,39 +40,11 @@ resource "cozystack_kubernetes" "tuned" {
 
   version = "v1.35"
 
-  node_groups = {
-    # Sized explicitly instead of by instance_type: cpu and memory go together.
-    workers = {
-      min_replicas = 2
-      max_replicas = 6
-
-      resources = {
-        cpu    = "4"
-        memory = "8Gi"
-      }
-    }
-
-    # A GPU pool boots slower, so it overrides the cluster-wide remediation
-    # timeout without changing it for every other group.
-    gpu = {
-      instance_type        = "u1.xlarge"
-      min_replicas         = 0
-      max_replicas         = 4
-      node_startup_timeout = "30m"
-      max_unhealthy        = "0%"
-    }
-  }
-
   # Worker OS images pulled from a self-hosted image factory. The Talos release
   # and schematic stay unset, so they keep following the platform.
   talos = {
     image_factory_url    = "https://factory.example.test"
     installer_repository = "registry.example.test/installer"
-  }
-
-  node_health_check = {
-    max_unhealthy        = "50%"
-    node_startup_timeout = "15m"
   }
 
   # Platform identity, plus the bindings created inside the tenant cluster.
@@ -100,8 +64,6 @@ resource "cozystack_kubernetes" "tuned" {
 resource "cozystack_kubernetes" "byo_identity" {
   name      = "byo-identity"
   namespace = "tenant-root"
-
-  node_groups = {}
 
   oidc = {
     mode = "CustomConfig"
@@ -149,14 +111,12 @@ resource "cozystack_kubernetes" "byo_identity" {
 
 - `name` (String) Kubernetes cluster name (`metadata.name`). Immutable.
 - `namespace` (String) Tenant namespace the application is created in. Immutable.
-- `node_groups` (Attributes Map) Worker node groups keyed by name. (see [below for nested schema](#nestedatt--node_groups))
 
 ### Optional
 
 - `control_plane` (Attributes) Tenant control-plane configuration. Only the API-server passthrough is managed here; component sizing, the replica count, konnectivity and the scheduler follow the platform. They are not preserved across an apply either way — the provider replaces the whole spec on every update, so anything set out of band under `controlPlane` returns to its platform default whether or not this block is configured. (see [below for nested schema](#nestedatt--control_plane))
 - `host` (String) External hostname for the cluster. Defaults to `<cluster-name>.<tenant-host>`.
 - `images` (Attributes) Image overrides for air-gapped or rate-limited registries. Each unset field follows the tag pinned by the deployed chart. (see [below for nested schema](#nestedatt--images))
-- `node_health_check` (Attributes) MachineHealthCheck tuning applied to every worker node group. Follows the platform defaults while unset. (see [below for nested schema](#nestedatt--node_health_check))
 - `oidc` (Attributes) OIDC authentication and per-user RBAC for the tenant kube-apiserver. Follows the platform default (identity off, static admin kubeconfig only) while unset. (see [below for nested schema](#nestedatt--oidc))
 - `storage_class` (String) StorageClass used to store the data. Follows the platform default (`replicated`) while unset. Changing a configured value replaces the cluster: a PersistentVolumeClaim's class is fixed when it is created, so an in-place change would be recorded in state while every existing volume stayed on the old class.
 - `talos` (Attributes) Talos worker OS image coordinates. Every field follows the platform default while unset; set one only to pin it. (see [below for nested schema](#nestedatt--talos))
@@ -171,31 +131,6 @@ resource "cozystack_kubernetes" "byo_identity" {
 - `kubeconfig` (String, Sensitive) Admin kubeconfig for the provisioned cluster (from the `kubernetes-<name>-admin-kubeconfig` Secret). Populated once the cluster is ready — set `wait_for_ready = true` to have it available on first apply.
 - `ready` (Boolean) Whether the application's `Ready` condition is true.
 - `uid` (String) Server-assigned object UID (`metadata.uid`). Stable across updates; changes on recreate.
-
-<a id="nestedatt--node_groups"></a>
-### Nested Schema for `node_groups`
-
-Optional:
-
-- `disk_size` (String) Persistent disk size for kubelet and containerd data.
-- `instance_type` (String) Virtual machine instance type.
-- `max_replicas` (Number) Maximum number of replicas.
-- `max_unhealthy` (String) Per-group override for `node_health_check.max_unhealthy`, as a bare integer (`"1"`) or a percentage (`"0%"`). Inherits the cluster-wide value while unset.
-- `min_replicas` (Number) Minimum number of replicas.
-- `node_startup_timeout` (String) Per-group override for `node_health_check.node_startup_timeout` (duration, e.g. `20m`). Inherits the cluster-wide value while unset.
-- `resources` (Attributes) Explicit CPU and memory for each worker node, replacing `instance_type` sizing. Set both `cpu` and `memory`, or neither. (see [below for nested schema](#nestedatt--node_groups--resources))
-- `roles` (List of String) Node roles (e.g. `ingress-nginx`).
-- `storage_class` (String) StorageClass for worker node persistent disks. Falls back to the cluster's `storage_class` when empty. Deliberately mutable upstream, unlike the cluster-level attribute.
-
-<a id="nestedatt--node_groups--resources"></a>
-### Nested Schema for `node_groups.resources`
-
-Optional:
-
-- `cpu` (String) CPU per worker node (quantity, e.g. `4`). Requires `memory`.
-- `memory` (String) Memory per worker node (quantity, e.g. `8Gi`). Requires `cpu`.
-
-
 
 <a id="nestedatt--control_plane"></a>
 ### Nested Schema for `control_plane`
@@ -223,15 +158,6 @@ Optional:
 - `kubectl` (String) Image for the bootstrap-token Job that runs inside the tenant.
 - `talos_csr_signer` (String) Image for the talos-csr-signer sidecar in the Kamaji control plane.
 - `wait_for_kubeconfig` (String) Image for the wait-for-kubeconfig init container.
-
-
-<a id="nestedatt--node_health_check"></a>
-### Nested Schema for `node_health_check`
-
-Optional:
-
-- `max_unhealthy` (String) Unhealthy nodes tolerated per node group before remediation pauses. The MachineHealthCheck admission webhook takes a bare integer (`"1"`) or a percentage (`"50%"`); a percentage is the safer form. Follows the platform default (`50%`) while unset.
-- `node_startup_timeout` (String) How long a Machine may take to reach Ready before it is remediated (duration, e.g. `20m`). Raise it for slow first boots — a Talos image fetch from the image factory, or a busy StorageClass. Follows the platform default (`10m`) while unset.
 
 
 <a id="nestedatt--oidc"></a>
