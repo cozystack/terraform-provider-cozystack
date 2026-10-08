@@ -6,6 +6,7 @@ To ship with the first Cozystack API pin that contains cozystack/cozystack#3936.
 
 ### Breaking changes
 
+- `cozystack_httpcache` (resource and data source) is removed, following Cozystack, which dropped the HTTPCache application and its ResourceDefinition: a cluster on this API no longer serves the kind. Remove the resource from your configuration and run `terraform state rm` for each instance before upgrading the provider.
 - `rabbitmq`: the default `resources_preset` moves from `t1.nano` to `s1.nano`. The attribute is optional-with-default, so the old value sits in existing state: after upgrading the provider, a `cozystack_rabbitmq` that never set it explicitly plans `t1.nano` → `s1.nano`, which updates the cluster and rolls its pods. Set `resources_preset = "t1.nano"` explicitly to keep the previous sizing.
 
 ## v1.6.3
