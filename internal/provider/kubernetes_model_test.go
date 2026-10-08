@@ -65,30 +65,13 @@ func fullControlPlaneObject() types.Object {
 }
 
 func fullKubernetesModel() kubernetesModel {
-	group := types.ObjectValueMust(k8sNodeGroupObjectType(), map[string]attr.Value{
-		"disk_size":            types.StringValue("20Gi"),
-		"instance_type":        types.StringValue("u1.medium"),
-		"min_replicas":         types.Int64Value(0),
-		"max_replicas":         types.Int64Value(3),
-		"roles":                types.ListValueMust(types.StringType, []attr.Value{types.StringValue("ingress-nginx")}),
-		"storage_class":        types.StringValue(""),
-		"resources":            types.ObjectNull(resourcesObjectType()),
-		"max_unhealthy":        types.StringValue("0%"),
-		"node_startup_timeout": types.StringValue("20m"),
-	})
-
 	return kubernetesModel{
 		Name:         types.StringValue("cluster"),
 		Namespace:    types.StringValue("tenant-root"),
 		StorageClass: types.StringValue("replicated"),
 		Version:      types.StringValue("v1.35"),
 		Host:         types.StringValue("cluster.example.com"),
-		NodeGroups:   types.MapValueMust(types.ObjectType{AttrTypes: k8sNodeGroupObjectType()}, map[string]attr.Value{"md0": group}),
 		Talos:        fullTalosObject(),
-		NodeHealthCheck: types.ObjectValueMust(k8sNodeHealthCheckObjectType(), map[string]attr.Value{
-			"max_unhealthy":        types.StringValue("50%"),
-			"node_startup_timeout": types.StringValue("10m"),
-		}),
 		OIDC:         fullOIDCObject(),
 		ControlPlane: fullControlPlaneObject(),
 		Images: types.ObjectValueMust(k8sImagesObjectType(), map[string]attr.Value{
@@ -130,97 +113,6 @@ func nestedSpecKeys(t *testing.T, spec map[string]any, path ...string) map[strin
 	}
 
 	return keys
-}
-
-func TestKubernetesExpand_NodeGroups(t *testing.T) {
-	t.Parallel()
-
-	model := fullKubernetesModel()
-
-	got, diags := model.expand(context.Background())
-	if diags.HasError() {
-		t.Fatalf("expand diagnostics: %v", diags)
-	}
-
-	groups, _ := got.Spec["nodeGroups"].(map[string]any)
-	md0, _ := groups["md0"].(map[string]any)
-	if md0["maxReplicas"] != int64(3) {
-		t.Errorf("md0.maxReplicas = %v, want 3", md0["maxReplicas"])
-	}
-
-	roles, _ := md0["roles"].([]any)
-	if len(roles) != 1 || roles[0] != "ingress-nginx" {
-		t.Errorf("md0.roles = %v, want [ingress-nginx]", roles)
-	}
-}
-
-// The per-group health-check overrides have no upstream default: an absent key
-// means "inherit the cluster-wide nodeHealthCheck", so they must not be written
-// as empty strings.
-func TestKubernetesExpand_NodeGroupHealthOverrides(t *testing.T) {
-	t.Parallel()
-
-	model := fullKubernetesModel()
-
-	got, diags := model.expand(context.Background())
-	if diags.HasError() {
-		t.Fatalf("expand diagnostics: %v", diags)
-	}
-
-	md0 := nestedSpecKeys(t, got.Spec, "nodeGroups", "md0")
-	if !md0["maxUnhealthy"] || !md0["nodeStartupTimeout"] {
-		t.Errorf("node group keys = %v, want the health-check overrides emitted", md0)
-	}
-
-	bare := types.ObjectValueMust(k8sNodeGroupObjectType(), map[string]attr.Value{
-		"disk_size":            types.StringValue("20Gi"),
-		"instance_type":        types.StringValue("u1.medium"),
-		"min_replicas":         types.Int64Value(0),
-		"max_replicas":         types.Int64Value(3),
-		"roles":                types.ListNull(types.StringType),
-		"storage_class":        types.StringValue(""),
-		"resources":            types.ObjectNull(resourcesObjectType()),
-		"max_unhealthy":        types.StringNull(),
-		"node_startup_timeout": types.StringNull(),
-	})
-
-	model.NodeGroups = types.MapValueMust(
-		types.ObjectType{AttrTypes: k8sNodeGroupObjectType()},
-		map[string]attr.Value{"md0": bare},
-	)
-
-	got, diags = model.expand(context.Background())
-	if diags.HasError() {
-		t.Fatalf("expand diagnostics: %v", diags)
-	}
-
-	md0 = nestedSpecKeys(t, got.Spec, "nodeGroups", "md0")
-	if md0["maxUnhealthy"] || md0["nodeStartupTimeout"] {
-		t.Errorf("node group keys = %v, want the unset health-check overrides omitted", md0)
-	}
-}
-
-func TestKubernetesFlatten_NodeGroupHealthOverrides(t *testing.T) {
-	t.Parallel()
-
-	groups, diags := flattenNodeGroups(map[string]any{
-		"md0": map[string]any{"maxUnhealthy": "1"},
-	})
-	if diags.HasError() {
-		t.Fatalf("flatten diagnostics: %v", diags)
-	}
-
-	md0, _ := groups.Elements()["md0"].(types.Object)
-
-	maxUnhealthy, _ := md0.Attributes()["max_unhealthy"].(types.String)
-	if maxUnhealthy.ValueString() != "1" {
-		t.Errorf("max_unhealthy = %q, want 1", maxUnhealthy.ValueString())
-	}
-
-	timeout, _ := md0.Attributes()["node_startup_timeout"].(types.String)
-	if !timeout.IsNull() {
-		t.Errorf("node_startup_timeout = %v for an absent key, want null", timeout)
-	}
 }
 
 func TestKubernetesExpand_OmitsEmptyHost(t *testing.T) {
@@ -335,67 +227,6 @@ func TestKubernetesExpandTalosKeysMatchTalosSpec(t *testing.T) {
 	}
 
 	assertSpecCoverage(t, nestedSpecKeys(t, got.Spec, "talos"), kubernetes.Talos{})
-}
-
-// nodeHealthCheck tunes MachineHealthCheck remediation. An unset block must
-// stay out of the spec so the platform's own tuning applies.
-func TestKubernetesExpand_NodeHealthCheck(t *testing.T) {
-	t.Parallel()
-
-	model := fullKubernetesModel()
-	model.NodeHealthCheck = types.ObjectNull(k8sNodeHealthCheckObjectType())
-
-	got, diags := model.expand(context.Background())
-	if diags.HasError() {
-		t.Fatalf("expand diagnostics: %v", diags)
-	}
-
-	if _, ok := got.Spec["nodeHealthCheck"]; ok {
-		t.Fatalf("nodeHealthCheck key present for an unset block, want omitted")
-	}
-
-	model = fullKubernetesModel()
-
-	got, diags = model.expand(context.Background())
-	if diags.HasError() {
-		t.Fatalf("expand diagnostics: %v", diags)
-	}
-
-	check, _ := got.Spec["nodeHealthCheck"].(map[string]any)
-	if check["maxUnhealthy"] != "50%" || check["nodeStartupTimeout"] != "10m" {
-		t.Errorf("nodeHealthCheck = %v, want maxUnhealthy=50%% nodeStartupTimeout=10m", check)
-	}
-}
-
-func TestKubernetesFlatten_NodeHealthCheck(t *testing.T) {
-	t.Parallel()
-
-	if got := flattenNodeHealthCheck(nil); !got.IsNull() {
-		t.Errorf("nodeHealthCheck = %v for an absent key, want null", got)
-	}
-
-	got := flattenNodeHealthCheck(map[string]any{"maxUnhealthy": "0%", "nodeStartupTimeout": "20m"})
-	if got.IsNull() {
-		t.Fatalf("nodeHealthCheck is null for a populated block")
-	}
-
-	timeout, _ := got.Attributes()["node_startup_timeout"].(types.String)
-	if timeout.ValueString() != "20m" {
-		t.Errorf("node_startup_timeout = %q, want 20m", timeout.ValueString())
-	}
-}
-
-func TestKubernetesExpandNodeHealthCheckKeysMatchSpec(t *testing.T) {
-	t.Parallel()
-
-	model := fullKubernetesModel()
-
-	got, diags := model.expand(context.Background())
-	if diags.HasError() {
-		t.Fatalf("expand diagnostics: %v", diags)
-	}
-
-	assertSpecCoverage(t, nestedSpecKeys(t, got.Spec, "nodeHealthCheck"), kubernetes.NodeHealthCheck{})
 }
 
 func TestKubernetesExpand_OIDCOmittedWhenUnset(t *testing.T) {
@@ -716,13 +547,6 @@ func TestKubernetesFlatten_RoundTrip(t *testing.T) {
 			"storageClass": "replicated",
 			"version":      "v1.34",
 			"host":         "cluster.example.com",
-			"nodeGroups": map[string]any{
-				"md0": map[string]any{
-					"diskSize": "20Gi", "instanceType": "u1.large", "minReplicas": int64(1),
-					"maxReplicas": int64(5), "roles": []any{"ingress-nginx"}, "storageClass": "",
-					"resources": map[string]any{},
-				},
-			},
 		},
 		Status: client.ApplicationStatus{Version: "1.0.0", Ready: true},
 	}
@@ -735,11 +559,6 @@ func TestKubernetesFlatten_RoundTrip(t *testing.T) {
 
 	if model.Version.ValueString() != "v1.34" {
 		t.Errorf("version = %q, want v1.34", model.Version.ValueString())
-	}
-
-	groups := model.NodeGroups.Elements()
-	if _, ok := groups["md0"]; !ok {
-		t.Errorf("node_groups missing md0")
 	}
 }
 
@@ -761,41 +580,6 @@ func TestKubernetesExpandKeysMatchConfigSpec(t *testing.T) {
 	assertSpecCoverage(t, emitted, kubernetes.ConfigSpec{}, "addons")
 }
 
-// The node-group spec is a second schema surface the top-level ConfigSpec guard
-// does not reach, since it only reflects one level of json tags. Guarding it
-// separately means a node-group field added upstream surfaces as a failing test
-// naming the field, rather than silently going unmodelled.
-func TestKubernetesExpandNodeGroupKeysMatchNodeGroupSpec(t *testing.T) {
-	t.Parallel()
-
-	model := fullKubernetesModel()
-
-	got, diags := model.expand(context.Background())
-	if diags.HasError() {
-		t.Fatalf("expand diagnostics: %v", diags)
-	}
-
-	groups, _ := got.Spec["nodeGroups"].(map[string]any)
-
-	md0, ok := groups["md0"].(map[string]any)
-	if !ok {
-		t.Fatalf("nodeGroups.md0 missing from the emitted spec")
-	}
-
-	emitted := make(map[string]bool, len(md0))
-	for key := range md0 {
-		emitted[key] = true
-	}
-
-	assertSpecCoverage(t, emitted, kubernetes.NodeGroup{}, "gpus", "kubelet")
-}
-
-// The managed resource must not absorb blocks the configuration never wrote.
-// The aggregated apiserver materialises this Kind's schema defaults on every
-// read, so a resource that stored them would carry them into the plan and, on
-// the next update, write them into the release as explicit values — freezing the
-// cluster on the Talos release and schematic that were current that day. The
-// data source keeps reporting everything; only the resource trims.
 func TestKubernetesResourceFlatten_KeepsUnconfiguredBlocksOut(t *testing.T) {
 	t.Parallel()
 
@@ -805,7 +589,6 @@ func TestKubernetesResourceFlatten_KeepsUnconfiguredBlocksOut(t *testing.T) {
 		Spec: map[string]any{
 			"storageClass": "replicated",
 			"version":      "v1.35",
-			"nodeGroups":   map[string]any{},
 			// The whole surface the server materialises for a cluster whose
 			// configuration pinned none of it.
 			"talos": map[string]any{
@@ -814,10 +597,9 @@ func TestKubernetesResourceFlatten_KeepsUnconfiguredBlocksOut(t *testing.T) {
 				"schematicID":         "ce4c980550dd2ab1b17bbf2b08801c7eb59418eafe8f279833297925d67c7515",
 				"version":             "v1.13.6",
 			},
-			"nodeHealthCheck": map[string]any{"maxUnhealthy": "50%", "nodeStartupTimeout": "10m"},
-			"oidc":            map[string]any{"mode": "None", "users": []any{}},
-			"images":          map[string]any{"kubectl": "", "talosCsrSigner": "", "waitForKubeconfig": ""},
-			"controlPlane":    map[string]any{"apiServer": map[string]any{"extraArgs": []any{}}},
+			"oidc":         map[string]any{"mode": "None", "users": []any{}},
+			"images":       map[string]any{"kubectl": "", "talosCsrSigner": "", "waitForKubeconfig": ""},
+			"controlPlane": map[string]any{"apiServer": map[string]any{"extraArgs": []any{}}},
 		},
 	}
 
@@ -828,11 +610,10 @@ func TestKubernetesResourceFlatten_KeepsUnconfiguredBlocksOut(t *testing.T) {
 	}
 
 	for name, value := range map[string]types.Object{
-		"talos":             resourceModel.Talos,
-		"node_health_check": resourceModel.NodeHealthCheck,
-		"oidc":              resourceModel.OIDC,
-		"control_plane":     resourceModel.ControlPlane,
-		"images":            resourceModel.Images,
+		"talos":         resourceModel.Talos,
+		"oidc":          resourceModel.OIDC,
+		"control_plane": resourceModel.ControlPlane,
+		"images":        resourceModel.Images,
 	} {
 		if !value.IsNull() {
 			t.Errorf("%s = %v after a read of an unconfigured cluster, want null", name, value)
@@ -871,7 +652,6 @@ func TestKubernetesResourceFlatten_RefreshesConfiguredFieldsOnly(t *testing.T) {
 		Name:      "cluster",
 		Namespace: "tenant-root",
 		Spec: map[string]any{
-			"nodeGroups": map[string]any{},
 			"talos": map[string]any{
 				"imageFactoryURL": "https://factory.talos.dev",
 				"schematicID":     "ce4c980550dd2ab1b17bbf2b08801c7eb59418eafe8f279833297925d67c7515",
@@ -919,7 +699,6 @@ func TestKubernetesResourceFlatten_TrimsNestedObjects(t *testing.T) {
 		Name:      "cluster",
 		Namespace: "tenant-root",
 		Spec: map[string]any{
-			"nodeGroups": map[string]any{},
 			"oidc": map[string]any{
 				"mode":  "CustomConfig",
 				"users": []any{},
@@ -986,102 +765,6 @@ func TestKubernetesExpand_StorageClassOmittedWhenUnset(t *testing.T) {
 	}
 }
 
-// `roles = []` reaches the cluster the same way an absent key does — the chart
-// just ranges over the list. It matters on the Terraform side: collapsing the
-// empty list to an absent key made the server return nothing, the state read
-// back null against a plan holding an empty list, and the apply fail on a valid
-// configuration.
-func TestKubernetesExpand_NodeGroupRolesThreeStates(t *testing.T) {
-	t.Parallel()
-
-	group := func(roles types.List) types.Map {
-		return types.MapValueMust(
-			types.ObjectType{AttrTypes: k8sNodeGroupObjectType()},
-			map[string]attr.Value{"md0": types.ObjectValueMust(k8sNodeGroupObjectType(), map[string]attr.Value{
-				"disk_size":            types.StringValue("20Gi"),
-				"instance_type":        types.StringValue("u1.medium"),
-				"min_replicas":         types.Int64Value(0),
-				"max_replicas":         types.Int64Value(1),
-				"roles":                roles,
-				"storage_class":        types.StringValue(""),
-				"resources":            types.ObjectNull(resourcesObjectType()),
-				"max_unhealthy":        types.StringNull(),
-				"node_startup_timeout": types.StringNull(),
-			})},
-		)
-	}
-
-	tests := []struct {
-		name    string
-		roles   types.List
-		present bool
-		length  int
-	}{
-		{name: "null omits the key", roles: types.ListNull(types.StringType)},
-		{
-			name:    "empty writes an empty list",
-			roles:   types.ListValueMust(types.StringType, []attr.Value{}),
-			present: true,
-		},
-		{
-			name:    "populated writes the roles",
-			roles:   types.ListValueMust(types.StringType, []attr.Value{types.StringValue("ingress-nginx")}),
-			present: true,
-			length:  1,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			model := fullKubernetesModel()
-			model.NodeGroups = group(tt.roles)
-
-			got, diags := model.expand(context.Background())
-			if diags.HasError() {
-				t.Fatalf("expand diagnostics: %v", diags)
-			}
-
-			md0 := nestedSpec(t, got.Spec, "nodeGroups", "md0")
-
-			raw, ok := md0["roles"]
-			if ok != tt.present {
-				t.Fatalf("roles present = %v, want %v", ok, tt.present)
-			}
-
-			if !tt.present {
-				return
-			}
-
-			items, _ := raw.([]any)
-			if len(items) != tt.length {
-				t.Errorf("roles has %d entries, want %d", len(items), tt.length)
-			}
-		})
-	}
-}
-
-func TestKubernetesFlatten_NodeGroupRolesKeepEmptyList(t *testing.T) {
-	t.Parallel()
-
-	groups, diags := flattenNodeGroups(map[string]any{"md0": map[string]any{"roles": []any{}}})
-	if diags.HasError() {
-		t.Fatalf("flatten diagnostics: %v", diags)
-	}
-
-	md0, _ := groups.Elements()["md0"].(types.Object)
-
-	roles, _ := md0.Attributes()["roles"].(types.List)
-	if roles.IsNull() {
-		t.Errorf("roles = null for a stored empty list, want an empty list")
-	}
-}
-
-// expand is guarded against the upstream json tags, but flatten's keys are
-// hand-written on both sides — in the code and in the tests — so a matched typo
-// would pass every other test in this file. Sending the full model through both
-// directions makes the agreement transitive instead of eyeballed.
 func TestKubernetesExpandFlatten_RoundTripsEveryBlock(t *testing.T) {
 	t.Parallel()
 
@@ -1099,12 +782,10 @@ func TestKubernetesExpandFlatten_RoundTripsEveryBlock(t *testing.T) {
 	}
 
 	blocks := map[string][2]attr.Value{
-		"talos":             {want.Talos, got.Talos},
-		"node_health_check": {want.NodeHealthCheck, got.NodeHealthCheck},
-		"oidc":              {want.OIDC, got.OIDC},
-		"control_plane":     {want.ControlPlane, got.ControlPlane},
-		"images":            {want.Images, got.Images},
-		"node_groups":       {want.NodeGroups, got.NodeGroups},
+		"talos":         {want.Talos, got.Talos},
+		"oidc":          {want.OIDC, got.OIDC},
+		"control_plane": {want.ControlPlane, got.ControlPlane},
+		"images":        {want.Images, got.Images},
 	}
 
 	for name, pair := range blocks {
@@ -1119,42 +800,6 @@ func TestKubernetesExpandFlatten_RoundTripsEveryBlock(t *testing.T) {
 	}
 }
 
-// `node_groups = {}` is what upstream defaults to and documents — the chart
-// renders a single md0 that provisions nothing until the autoscaler reacts. The
-// attribute is Required, so the plan holds an empty map and the read has to
-// return one; collapsing it to null fails the apply on a configuration the
-// platform explicitly supports, and the provider's own example uses it.
-func TestKubernetesFlatten_EmptyNodeGroupsStayEmpty(t *testing.T) {
-	t.Parallel()
-
-	groups, diags := flattenNodeGroups(map[string]any{})
-	if diags.HasError() {
-		t.Fatalf("flatten diagnostics: %v", diags)
-	}
-
-	if groups.IsNull() {
-		t.Fatalf("node_groups = null for a cluster that declares none, want an empty map")
-	}
-
-	if len(groups.Elements()) != 0 {
-		t.Errorf("node_groups has %d entries, want 0", len(groups.Elements()))
-	}
-
-	// An absent key is still absent: that is a server that did not report the
-	// field at all, not a cluster with no groups.
-	absent, diags := flattenNodeGroups(nil)
-	if diags.HasError() {
-		t.Fatalf("flatten diagnostics: %v", diags)
-	}
-
-	if !absent.IsNull() {
-		t.Errorf("node_groups = %v for an absent key, want null", absent)
-	}
-}
-
-// keepConfiguredAttributes builds a null for anything the server leaves out, so
-// it has to work off the attribute's own type rather than the string/list/object
-// shapes these blocks happen to use today.
 func TestKeepConfiguredAttributes_NullsMatchTheAttributeType(t *testing.T) {
 	t.Parallel()
 

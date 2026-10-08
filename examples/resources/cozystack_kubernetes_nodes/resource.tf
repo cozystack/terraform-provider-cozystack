@@ -3,18 +3,9 @@ resource "cozystack_kubernetes" "cluster" {
   namespace = "tenant-root"
 
   version = "v1.35"
-
-  node_groups = {
-    md0 = {
-      instance_type = "u1.medium"
-      min_replicas  = 1
-      max_replicas  = 3
-    }
-  }
 }
 
-# A standalone pool is named "<cluster>-<pool>". The pool part must not collide
-# with a node group the parent cluster still manages, such as md0 above.
+# A pool is named "<cluster>-<pool>".
 resource "cozystack_kubernetes_nodes" "gpu" {
   name      = "${cozystack_kubernetes.cluster.name}-gpu"
   namespace = cozystack_kubernetes.cluster.namespace

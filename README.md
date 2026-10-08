@@ -104,7 +104,6 @@ To avoid persisting secrets in state, the provider offers modern Terraform secre
 resource "cozystack_kubernetes" "app" {
   name           = "app"
   namespace      = "tenant-root"
-  node_groups    = { md0 = { min_replicas = 1, max_replicas = 3 } }
   wait_for_ready = true
 }
 

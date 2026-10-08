@@ -4,7 +4,6 @@ import (
 	"context"
 	"testing"
 
-	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	rschema "github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
@@ -47,98 +46,6 @@ func kubernetesConfig(ctx context.Context, t *testing.T, model kubernetesModel) 
 	return tfsdk.Config{Schema: kubernetesSchema(), Raw: kubernetesRaw(ctx, t, model)}
 }
 
-// nodeGroupWithResources rebuilds the fixture's md0 group with an explicit
-// resources object.
-func nodeGroupWithResources(t *testing.T, model kubernetesModel, resources types.Object) kubernetesModel {
-	t.Helper()
-
-	group, _ := model.NodeGroups.Elements()["md0"].(types.Object)
-
-	attributes := map[string]attr.Value{}
-	for name, value := range group.Attributes() {
-		attributes[name] = value
-	}
-
-	attributes["resources"] = resources
-
-	model.NodeGroups = types.MapValueMust(
-		types.ObjectType{AttrTypes: k8sNodeGroupObjectType()},
-		map[string]attr.Value{"md0": types.ObjectValueMust(k8sNodeGroupObjectType(), attributes)},
-	)
-
-	return model
-}
-
-// validateNodeGroupCPU runs the validators declared on
-// node_groups[*].resources.cpu against a config, the way the framework does.
-func validateNodeGroupCPU(ctx context.Context, t *testing.T, config tfsdk.Config, value types.String) bool {
-	t.Helper()
-
-	cpuPath := path.Root("node_groups").AtMapKey("md0").AtName("resources").AtName(attrCPU)
-
-	attribute, diags := config.Schema.AttributeAtPath(ctx, cpuPath)
-	if diags.HasError() {
-		t.Fatalf("AttributeAtPath: %v", diags)
-	}
-
-	stringAttribute, ok := attribute.(rschema.StringAttribute)
-	if !ok {
-		t.Fatalf("cpu attribute is %T, want a string attribute", attribute)
-	}
-
-	request := validator.StringRequest{
-		Path:           cpuPath,
-		PathExpression: cpuPath.Expression(),
-		Config:         config,
-		ConfigValue:    value,
-	}
-
-	failed := false
-
-	for _, check := range stringAttribute.Validators {
-		response := &validator.StringResponse{}
-		check.ValidateString(ctx, request, response)
-
-		if response.Diagnostics.HasError() {
-			failed = true
-		}
-	}
-
-	return failed
-}
-
-// Upstream sizes a node group by instance_type unless both cpu and memory are
-// given, and fails the chart render on a half-filled block. The schema binds the
-// two so that surfaces at plan time instead.
-func TestKubernetesNodeGroupResourcesRequireBothOrNeither(t *testing.T) {
-	t.Parallel()
-
-	cpuOnly := types.ObjectValueMust(resourcesObjectType(), map[string]attr.Value{
-		attrCPU:    types.StringValue("4"),
-		attrMemory: types.StringNull(),
-	})
-
-	ctx := context.Background()
-
-	config := kubernetesConfig(ctx, t, nodeGroupWithResources(t, fullKubernetesModel(), cpuOnly))
-	if !validateNodeGroupCPU(ctx, t, config, types.StringValue("4")) {
-		t.Errorf("cpu without memory validated cleanly, want an error")
-	}
-
-	both := types.ObjectValueMust(resourcesObjectType(), map[string]attr.Value{
-		attrCPU:    types.StringValue("4"),
-		attrMemory: types.StringValue("8Gi"),
-	})
-
-	config = kubernetesConfig(ctx, t, nodeGroupWithResources(t, fullKubernetesModel(), both))
-	if validateNodeGroupCPU(ctx, t, config, types.StringValue("4")) {
-		t.Errorf("cpu with memory produced an error, want it accepted")
-	}
-}
-
-// The model binds to the schema by tfsdk tag; a tag that names no attribute (or
-// an attribute with no tag) is a runtime failure the expand/flatten tests never
-// reach. Round-tripping the full fixture through the schema catches it.
 func TestKubernetesResourceModelRoundTrip(t *testing.T) {
 	t.Parallel()
 
@@ -172,16 +79,8 @@ func TestKubernetesResourceModelRoundTrip(t *testing.T) {
 		t.Fatalf("state.Get: %v", diags)
 	}
 
-	if out.Talos.IsNull() || out.OIDC.IsNull() || out.NodeHealthCheck.IsNull() {
-		t.Errorf("nested blocks lost in the round trip: talos=%v oidc=%v node_health_check=%v",
-			out.Talos, out.OIDC, out.NodeHealthCheck)
-	}
-
-	group, _ := out.NodeGroups.Elements()["md0"].(types.Object)
-
-	timeout, _ := group.Attributes()["node_startup_timeout"].(types.String)
-	if timeout.ValueString() != "20m" {
-		t.Errorf("node group startup timeout = %q, want 20m", timeout.ValueString())
+	if out.Talos.IsNull() || out.OIDC.IsNull() {
+		t.Errorf("nested blocks lost in the round trip: talos=%v oidc=%v", out.Talos, out.OIDC)
 	}
 }
 
@@ -345,8 +244,8 @@ func TestKubernetesDataSourceModelRoundTrip(t *testing.T) {
 		t.Errorf("oidc.mode = %q, want System", oidc.ValueString())
 	}
 
-	if out.ControlPlane.IsNull() || out.Images.IsNull() || out.NodeHealthCheck.IsNull() {
-		t.Errorf("blocks lost through the data-source schema: control_plane=%v images=%v node_health_check=%v",
-			out.ControlPlane, out.Images, out.NodeHealthCheck)
+	if out.ControlPlane.IsNull() || out.Images.IsNull() {
+		t.Errorf("blocks lost through the data-source schema: control_plane=%v images=%v",
+			out.ControlPlane, out.Images)
 	}
 }

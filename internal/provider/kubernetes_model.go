@@ -20,28 +20,22 @@ const (
 	attrImages = "images"
 )
 
-// Attribute names of the blocks whose spec key is the camelCase form.
-const (
-	attrNodeHealthCheck = "node_health_check"
-	attrControlPlane    = "control_plane"
-)
+// Attribute name of the block whose spec key is the camelCase form.
+const attrControlPlane = "control_plane"
 
 // Spec keys of the cozystack_kubernetes blocks whose camelCase form differs
 // from the snake_case attribute name.
 const (
-	specNodeGroups         = "nodeGroups"
-	specNodeHealthCheck    = "nodeHealthCheck"
-	specMaxUnhealthy       = "maxUnhealthy"
-	specNodeStartupTimeout = "nodeStartupTimeout"
-	specCustomConfig       = "customConfig"
-	specSecretRef          = "secretRef"
-	specControlPlane       = "controlPlane"
-	specAPIServer          = "apiServer"
+	specCustomConfig = "customConfig"
+	specSecretRef    = "secretRef"
+	specControlPlane = "controlPlane"
+	specAPIServer    = "apiServer"
 )
 
 // kubernetesModel maps the cozystack_kubernetes schema to Go types. The addons
-// block, the control-plane component sizing, and per-node-group GPU and kubelet
-// tuning are not managed (they use server defaults).
+// block and the control-plane component sizing are not managed (they use server
+// defaults). Worker pools are not part of this Kind: they are
+// cozystack_kubernetes_nodes resources.
 //
 // Blocks whose upstream defaults roll with each Cozystack release (talos,
 // images) are modelled without provider-side defaults: an unset block is left
@@ -56,13 +50,11 @@ type kubernetesModel struct {
 	StorageClass types.String `tfsdk:"storage_class"`
 	Version      types.String `tfsdk:"version"`
 	Host         types.String `tfsdk:"host"`
-	NodeGroups   types.Map    `tfsdk:"node_groups"`
 
-	Talos           types.Object `tfsdk:"talos"`
-	NodeHealthCheck types.Object `tfsdk:"node_health_check"`
-	OIDC            types.Object `tfsdk:"oidc"`
-	ControlPlane    types.Object `tfsdk:"control_plane"`
-	Images          types.Object `tfsdk:"images"`
+	Talos        types.Object `tfsdk:"talos"`
+	OIDC         types.Object `tfsdk:"oidc"`
+	ControlPlane types.Object `tfsdk:"control_plane"`
+	Images       types.Object `tfsdk:"images"`
 
 	Ready        types.Bool   `tfsdk:"ready"`
 	ChartVersion types.String `tfsdk:"chart_version"`
@@ -86,7 +78,7 @@ func (m *kubernetesResourceModel) waitConfig() (types.Bool, types.String) {
 //
 // The aggregated apiserver materialises this Kind's schema defaults on every
 // read, so the plain model flatten — the one the data source wants — reports the
-// whole talos, nodeHealthCheck, oidc, controlPlane and images surface whether or
+// whole talos, oidc, controlPlane and images surface whether or
 // not anybody configured it. Letting that into a managed resource's state makes
 // Terraform's own rules work against the practitioner: the value becomes the
 // prior state, the prior state becomes the plan wherever the configuration is
@@ -112,7 +104,6 @@ func (m *kubernetesResourceModel) flatten(app *client.Application) diag.Diagnost
 		target     *types.Object
 	}{
 		{configured: m.Talos, target: &m.Talos},
-		{configured: m.NodeHealthCheck, target: &m.NodeHealthCheck},
 		{configured: m.OIDC, target: &m.OIDC},
 		{configured: m.ControlPlane, target: &m.ControlPlane},
 		{configured: m.Images, target: &m.Images},
@@ -216,45 +207,11 @@ func (m *kubernetesModel) identity() (string, string) {
 	return m.Namespace.ValueString(), m.Name.ValueString()
 }
 
-func k8sNodeGroupObjectType() map[string]attr.Type {
-	return map[string]attr.Type{
-		"disk_size":            types.StringType,
-		"instance_type":        types.StringType,
-		"min_replicas":         types.Int64Type,
-		"max_replicas":         types.Int64Type,
-		"roles":                types.ListType{ElemType: types.StringType},
-		"storage_class":        types.StringType,
-		"resources":            types.ObjectType{AttrTypes: resourcesObjectType()},
-		"max_unhealthy":        types.StringType,
-		"node_startup_timeout": types.StringType,
-	}
-}
-
-type k8sNodeGroupData struct {
-	DiskSize           types.String `tfsdk:"disk_size"`
-	InstanceType       types.String `tfsdk:"instance_type"`
-	MinReplicas        types.Int64  `tfsdk:"min_replicas"`
-	MaxReplicas        types.Int64  `tfsdk:"max_replicas"`
-	Roles              types.List   `tfsdk:"roles"`
-	StorageClass       types.String `tfsdk:"storage_class"`
-	Resources          types.Object `tfsdk:"resources"`
-	MaxUnhealthy       types.String `tfsdk:"max_unhealthy"`
-	NodeStartupTimeout types.String `tfsdk:"node_startup_timeout"`
-}
-
 func (m *kubernetesModel) expand(ctx context.Context) (*client.Application, diag.Diagnostics) {
 	var diags diag.Diagnostics
 
-	nodeGroups, ngDiags := expandNodeGroups(ctx, m.NodeGroups)
-	diags.Append(ngDiags...)
-
-	if diags.HasError() {
-		return nil, diags
-	}
-
 	spec := map[string]any{
-		attrVersion:    m.Version.ValueString(),
-		specNodeGroups: nodeGroups,
+		attrVersion: m.Version.ValueString(),
 	}
 
 	// storageClass carries no provider-side default, so a create that does not
@@ -285,56 +242,6 @@ func (m *kubernetesModel) expand(ctx context.Context) (*client.Application, diag
 	}, diags
 }
 
-func expandNodeGroups(ctx context.Context, value types.Map) (map[string]any, diag.Diagnostics) {
-	var diags diag.Diagnostics
-
-	out := map[string]any{}
-
-	if value.IsNull() || value.IsUnknown() {
-		return out, diags
-	}
-
-	elements := map[string]k8sNodeGroupData{}
-	diags.Append(value.ElementsAs(ctx, &elements, false)...)
-
-	if diags.HasError() {
-		return out, diags
-	}
-
-	for name := range elements {
-		group := elements[name]
-
-		resources, rDiags := expandResources(ctx, group.Resources)
-		diags.Append(rDiags...)
-
-		entry := map[string]any{
-			"diskSize":       group.DiskSize.ValueString(),
-			"instanceType":   group.InstanceType.ValueString(),
-			"minReplicas":    group.MinReplicas.ValueInt64(),
-			"maxReplicas":    group.MaxReplicas.ValueInt64(),
-			specStorageClass: group.StorageClass.ValueString(),
-			attrResources:    resources,
-		}
-
-		// The chart ranges over roles, so an empty list and an absent key mean
-		// the same thing to it; writing the list as configured keeps the request
-		// a faithful copy of the configuration, and keeps an empty list from
-		// reading back as null against a plan that holds one.
-		diags.Append(setOptionalStringList(ctx, entry, "roles", group.Roles)...)
-
-		// These two are the group's genuinely presence-sensitive keys: the chart
-		// reads them with hasKey, and falls back to the cluster-wide
-		// nodeHealthCheck when they are absent. An empty string is not the same
-		// as absent here.
-		setOptionalString(entry, specMaxUnhealthy, group.MaxUnhealthy)
-		setOptionalString(entry, specNodeStartupTimeout, group.NodeStartupTimeout)
-
-		out[name] = entry
-	}
-
-	return out, diags
-}
-
 func (m *kubernetesModel) flatten(app *client.Application) diag.Diagnostics {
 	var diags diag.Diagnostics
 
@@ -345,12 +252,7 @@ func (m *kubernetesModel) flatten(app *client.Application) diag.Diagnostics {
 	m.Version = types.StringValue(specString(app.Spec, attrVersion))
 	m.Host = types.StringValue(specString(app.Spec, attrHost))
 
-	nodeGroups, ngDiags := flattenNodeGroups(app.Spec[specNodeGroups])
-	diags.Append(ngDiags...)
-
-	m.NodeGroups = nodeGroups
 	m.Talos = flattenTalos(app.Spec[attrTalos])
-	m.NodeHealthCheck = flattenNodeHealthCheck(app.Spec[specNodeHealthCheck])
 
 	oidc, oidcDiags := flattenOIDC(app.Spec[attrOIDC])
 	diags.Append(oidcDiags...)
@@ -413,7 +315,6 @@ func (m *kubernetesModel) expandBlocks(ctx context.Context, spec map[string]any)
 		expand func(context.Context, types.Object) (map[string]any, diag.Diagnostics)
 	}{
 		{key: attrTalos, value: m.Talos, expand: expandTalos},
-		{key: specNodeHealthCheck, value: m.NodeHealthCheck, expand: expandNodeHealthCheck},
 		{key: attrOIDC, value: m.OIDC, expand: expandOIDC},
 		{key: specControlPlane, value: m.ControlPlane, expand: expandControlPlane},
 		{key: attrImages, value: m.Images, expand: expandImages},
@@ -491,56 +392,6 @@ func flattenTalos(raw any) types.Object {
 		"installer_repository": specStringOrNull(talos, "installerRepository"),
 		"schematic_id":         specStringOrNull(talos, "schematicID"),
 		attrVersion:            specStringOrNull(talos, attrVersion),
-	})
-}
-
-func k8sNodeHealthCheckObjectType() map[string]attr.Type {
-	return map[string]attr.Type{
-		"max_unhealthy":        types.StringType,
-		"node_startup_timeout": types.StringType,
-	}
-}
-
-type k8sNodeHealthCheckData struct {
-	MaxUnhealthy       types.String `tfsdk:"max_unhealthy"`
-	NodeStartupTimeout types.String `tfsdk:"node_startup_timeout"`
-}
-
-// expandNodeHealthCheck renders the nodeHealthCheck block into a spec submap,
-// or nil when the block is unset.
-func expandNodeHealthCheck(ctx context.Context, obj types.Object) (map[string]any, diag.Diagnostics) {
-	var diags diag.Diagnostics
-
-	if obj.IsNull() || obj.IsUnknown() {
-		return nil, diags
-	}
-
-	var data k8sNodeHealthCheckData
-
-	diags.Append(obj.As(ctx, &data, basetypes.ObjectAsOptions{})...)
-
-	if diags.HasError() {
-		return nil, diags
-	}
-
-	out := map[string]any{}
-
-	setOptionalString(out, specMaxUnhealthy, data.MaxUnhealthy)
-	setOptionalString(out, specNodeStartupTimeout, data.NodeStartupTimeout)
-
-	return out, diags
-}
-
-// flattenNodeHealthCheck builds the nodeHealthCheck block from a spec submap.
-func flattenNodeHealthCheck(raw any) types.Object {
-	check, ok := raw.(map[string]any)
-	if !ok {
-		return types.ObjectNull(k8sNodeHealthCheckObjectType())
-	}
-
-	return types.ObjectValueMust(k8sNodeHealthCheckObjectType(), map[string]attr.Value{
-		"max_unhealthy":        specStringOrNull(check, specMaxUnhealthy),
-		"node_startup_timeout": specStringOrNull(check, specNodeStartupTimeout),
 	})
 }
 
@@ -910,43 +761,4 @@ func flattenAPIServer(raw any) (types.Object, diag.Diagnostics) {
 	diags.Append(valueDiags...)
 
 	return value, diags
-}
-
-// flattenNodeGroups builds the node-group map from a spec submap. `{}` is a
-// configuration upstream documents and defaults to — the chart renders a single
-// md0 that provisions nothing until the autoscaler reacts — so an empty map has
-// to come back as an empty map. The shared collapsing helper would return null
-// and fail the apply against a plan holding an empty map.
-func flattenNodeGroups(raw any) (types.Map, diag.Diagnostics) {
-	var diags diag.Diagnostics
-
-	elementType := types.ObjectType{AttrTypes: k8sNodeGroupObjectType()}
-
-	groups, ok := raw.(map[string]any)
-	if !ok {
-		return types.MapNull(elementType), diags
-	}
-
-	if len(groups) == 0 {
-		value, valueDiags := types.MapValue(elementType, map[string]attr.Value{})
-		diags.Append(valueDiags...)
-
-		return value, diags
-	}
-
-	return flattenObjectMap(raw, k8sNodeGroupObjectType(), func(group map[string]any) map[string]attr.Value {
-		resources, _ := flattenResources(group[attrResources])
-
-		return map[string]attr.Value{
-			"disk_size":            types.StringValue(specString(group, "diskSize")),
-			"instance_type":        types.StringValue(specString(group, "instanceType")),
-			"min_replicas":         types.Int64Value(anyToInt64(group["minReplicas"])),
-			"max_replicas":         types.Int64Value(anyToInt64(group["maxReplicas"])),
-			"roles":                specStringListOrNull(group["roles"]),
-			"storage_class":        types.StringValue(specString(group, specStorageClass)),
-			"resources":            resources,
-			"max_unhealthy":        specStringOrNull(group, specMaxUnhealthy),
-			"node_startup_timeout": specStringOrNull(group, specNodeStartupTimeout),
-		}
-	})
 }
