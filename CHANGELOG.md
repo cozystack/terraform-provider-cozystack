@@ -8,6 +8,7 @@ To ship with the first Cozystack API pin that contains cozystack/cozystack#3936.
 
 - `cozystack_httpcache` (resource and data source) is removed, following Cozystack, which dropped the HTTPCache application and its ResourceDefinition: a cluster on this API no longer serves the kind. Remove the resource from your configuration and run `terraform state rm` for each instance before upgrading the provider.
 - `cozystack_kubernetes`: `node_groups` and `node_health_check` are removed (resource and data source). Cozystack moved worker pools out of the Kubernetes application into KubernetesNodes, and its upgrade migrates every existing node group, the default `md0` included, into a KubernetesNodes object named `<cluster>-<pool>`. Drop both attributes from the configuration and bring each migrated pool under management with `terraform import cozystack_kubernetes_nodes.<name> <namespace>/<cluster>-<pool>`.
+- `cozystack_kafka`: `zookeeper` is removed (resource and data source). Cozystack runs Kafka in KRaft mode and migrates existing ZooKeeper clusters on upgrade, so the block has nothing left to configure. Drop it from the configuration.
 - `rabbitmq`: the default `resources_preset` moves from `t1.nano` to `s1.nano`. The attribute is optional-with-default, so the old value sits in existing state: after upgrading the provider, a `cozystack_rabbitmq` that never set it explicitly plans `t1.nano` → `s1.nano`, which updates the cluster and rolls its pods. Set `resources_preset = "t1.nano"` explicitly to keep the previous sizing.
 
 ## v1.6.3

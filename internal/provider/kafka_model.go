@@ -20,7 +20,6 @@ type kafkaModel struct {
 	TLS          types.Object `tfsdk:"tls"`
 	Topics       types.List   `tfsdk:"topics"`
 	Kafka        types.Object `tfsdk:"kafka"`
-	Zookeeper    types.Object `tfsdk:"zookeeper"`
 	Ready        types.Bool   `tfsdk:"ready"`
 	ChartVersion types.String `tfsdk:"chart_version"`
 	UID          types.String `tfsdk:"uid"`
@@ -88,9 +87,6 @@ func (m *kafkaModel) expand(ctx context.Context) (*client.Application, diag.Diag
 	kafka, kDiags := expandKafkaBroker(ctx, m.Kafka)
 	diags.Append(kDiags...)
 
-	zookeeper, zDiags := expandKafkaBroker(ctx, m.Zookeeper)
-	diags.Append(zDiags...)
-
 	if diags.HasError() {
 		return nil, diags
 	}
@@ -99,7 +95,6 @@ func (m *kafkaModel) expand(ctx context.Context) (*client.Application, diag.Diag
 		attrExternal: m.External.ValueBool(),
 		"topics":     topics,
 		"kafka":      kafka,
-		"zookeeper":  zookeeper,
 	}
 
 	setOptionalTLS(spec, m.TLS)
@@ -166,11 +161,6 @@ func (m *kafkaModel) flatten(app *client.Application) diag.Diagnostics {
 	diags.Append(kDiags...)
 
 	m.Kafka = kafka
-
-	zookeeper, zDiags := flattenKafkaBroker(app.Spec["zookeeper"])
-	diags.Append(zDiags...)
-
-	m.Zookeeper = zookeeper
 
 	m.Ready = types.BoolValue(app.Status.Ready)
 	m.ChartVersion = types.StringValue(app.Status.Version)

@@ -855,7 +855,6 @@ resource "cozystack_kafka" "test" {
   name      = "tfacckafka"
   namespace = "tenant-root"
   kafka     = { replicas = 1 }
-  zookeeper = { replicas = 1 }
   topics = [
     { name = "events", partitions = 1, replicas = 1 },
   ]

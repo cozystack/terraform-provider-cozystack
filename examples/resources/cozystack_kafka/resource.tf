@@ -5,8 +5,7 @@ resource "cozystack_kafka" "events" {
   external = true
   tls      = { enabled = true }
 
-  kafka     = { replicas = 3, size = "10Gi" }
-  zookeeper = { replicas = 3, size = "5Gi" }
+  kafka = { replicas = 3, size = "10Gi" }
 
   topics = [
     { name = "orders", partitions = 6, replicas = 3 },
