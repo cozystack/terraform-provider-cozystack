@@ -20,6 +20,13 @@ const (
 	attrSeaweedfs  = "seaweedfs"
 )
 
+// tracing_central is the one tenant toggle whose attribute name and spec key
+// differ.
+const (
+	attrTracingCentral = "tracing_central"
+	specTracingCentral = "tracingCentral"
+)
+
 // tenantModel maps the common cozystack_tenant attributes to Go types. The spec
 // attributes mirror the json tags of the pinned tenant.ConfigSpec one-to-one.
 // The resource embeds this model and adds its own behaviour attributes.
@@ -30,6 +37,7 @@ type tenantModel struct {
 	Host            types.String `tfsdk:"host"`
 	Etcd            types.Bool   `tfsdk:"etcd"`
 	Monitoring      types.Bool   `tfsdk:"monitoring"`
+	TracingCentral  types.Bool   `tfsdk:"tracing_central"`
 	Ingress         types.Bool   `tfsdk:"ingress"`
 	Gateway         types.Bool   `tfsdk:"gateway"`
 	Seaweedfs       types.Bool   `tfsdk:"seaweedfs"`
@@ -58,13 +66,14 @@ func (m *tenantModel) expand(ctx context.Context) (*client.Application, diag.Dia
 	}
 
 	spec := map[string]any{
-		attrHost:          m.Host.ValueString(),
-		attrEtcd:          m.Etcd.ValueBool(),
-		attrMonitoring:    m.Monitoring.ValueBool(),
-		attrIngress:       m.Ingress.ValueBool(),
-		attrSeaweedfs:     m.Seaweedfs.ValueBool(),
-		"schedulingClass": m.SchedulingClass.ValueString(),
-		"resourceQuotas":  quotas,
+		attrHost:           m.Host.ValueString(),
+		attrEtcd:           m.Etcd.ValueBool(),
+		attrMonitoring:     m.Monitoring.ValueBool(),
+		specTracingCentral: m.TracingCentral.ValueBool(),
+		attrIngress:        m.Ingress.ValueBool(),
+		attrSeaweedfs:      m.Seaweedfs.ValueBool(),
+		"schedulingClass":  m.SchedulingClass.ValueString(),
+		"resourceQuotas":   quotas,
 	}
 
 	// gateway is emitted only when the practitioner set it. The chart resolves
@@ -95,6 +104,7 @@ func (m *tenantModel) flatten(tenant *client.Application) diag.Diagnostics {
 	m.Host = types.StringValue(specString(tenant.Spec, attrHost))
 	m.Etcd = types.BoolValue(specBool(tenant.Spec, attrEtcd))
 	m.Monitoring = types.BoolValue(specBool(tenant.Spec, attrMonitoring))
+	m.TracingCentral = types.BoolValue(specBool(tenant.Spec, specTracingCentral))
 	m.Ingress = types.BoolValue(specBool(tenant.Spec, attrIngress))
 	m.Seaweedfs = types.BoolValue(specBool(tenant.Spec, attrSeaweedfs))
 

@@ -550,7 +550,7 @@ resource "cozystack_mariadb" "test" {
   name      = "tfaccmaria"
   namespace = "tenant-root"
   replicas  = 1
-  users     = { app = { password = "pw-123" } }
+  users     = { app = {} }
   databases = { appdb = { roles = { admin = ["app"] } } }
 }
 `
@@ -559,7 +559,7 @@ resource "cozystack_mariadb" "test" {
   name      = "tfaccmaria"
   namespace = "tenant-root"
   replicas  = 1
-  users     = { app = { password = "pw-123" }, ro = { password = "pw-456" } }
+  users     = { app = {}, ro = {} }
   databases = { appdb = { roles = { admin = ["app"], readonly = ["ro"] } } }
 }
 `
@@ -573,7 +573,7 @@ resource "cozystack_mariadb" "test" {
 				Config: base,
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("cozystack_mariadb.test", "id", "tenant-root/tfaccmaria"),
-					resource.TestCheckResourceAttr("cozystack_mariadb.test", "users.app.password", "pw-123"),
+					resource.TestCheckResourceAttr("cozystack_mariadb.test", "users.app.max_user_connections", "0"),
 					resource.TestCheckResourceAttr("cozystack_mariadb.test", "databases.appdb.roles.admin.0", "app"),
 				),
 			},
@@ -692,7 +692,7 @@ resource "cozystack_postgres" "test" {
   name      = "tfaccpg"
   namespace = "tenant-root"
   replicas  = 1
-  users     = { app = { password = "pw-123" } }
+  users     = { app = {} }
   databases = { appdb = { roles = { admin = ["app"] } } }
 }
 `
@@ -705,7 +705,7 @@ resource "cozystack_postgres" "test" {
 				Config: config,
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("cozystack_postgres.test", "id", "tenant-root/tfaccpg"),
-					resource.TestCheckResourceAttr("cozystack_postgres.test", "users.app.password", "pw-123"),
+					resource.TestCheckResourceAttr("cozystack_postgres.test", "users.app.replication", "false"),
 					resource.TestCheckResourceAttr("cozystack_postgres.test", "databases.appdb.roles.admin.0", "app"),
 				),
 			},
@@ -713,38 +713,6 @@ resource "cozystack_postgres" "test" {
 				ResourceName:            "cozystack_postgres.test",
 				ImportState:             true,
 				ImportStateId:           "tenant-root/tfaccpg",
-				ImportStateVerify:       true,
-				ImportStateVerifyIgnore: []string{"wait_for_ready", "wait_timeout", "ready", "chart_version"},
-			},
-		},
-	})
-}
-
-func TestAccHTTPCacheResource(t *testing.T) {
-	config := `
-resource "cozystack_httpcache" "test" {
-  name      = "tfacchc"
-  namespace = "tenant-root"
-  size      = "1Gi"
-  endpoints = ["192.0.2.10:80"]
-}
-`
-	resource.Test(t, resource.TestCase{
-		PreCheck:                 func() { testAccPreCheck(t) },
-		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-		CheckDestroy:             checkApplicationDestroy(client.HTTPCacheResource(), "cozystack_httpcache"),
-		Steps: []resource.TestStep{
-			{
-				Config: config,
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("cozystack_httpcache.test", "id", "tenant-root/tfacchc"),
-					resource.TestCheckResourceAttr("cozystack_httpcache.test", "endpoints.0", "192.0.2.10:80"),
-				),
-			},
-			{
-				ResourceName:            "cozystack_httpcache.test",
-				ImportState:             true,
-				ImportStateId:           "tenant-root/tfacchc",
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"wait_for_ready", "wait_timeout", "ready", "chart_version"},
 			},
@@ -887,7 +855,6 @@ resource "cozystack_kafka" "test" {
   name      = "tfacckafka"
   namespace = "tenant-root"
   kafka     = { replicas = 1 }
-  zookeeper = { replicas = 1 }
   topics = [
     { name = "events", partitions = 1, replicas = 1 },
   ]
@@ -1008,26 +975,19 @@ func checkSpecOmits(res client.Resource, namespace, name string, keys ...string)
 	}
 }
 
-func kubernetesAccConfig(maxReplicas int) string {
+func kubernetesAccConfig(host string) string {
 	return fmt.Sprintf(`
 resource "cozystack_kubernetes" "test" {
   name      = "tfacck8s"
   namespace = "tenant-root"
   version   = "v1.35"
-  node_groups = {
-    md0 = {
-      instance_type = "u1.medium"
-      min_replicas  = 0
-      max_replicas  = %[1]d
-      roles         = ["ingress-nginx"]
-    }
-  }
+  host      = %[1]q
 }
-`, maxReplicas)
+`, host)
 }
 
 func TestAccKubernetesResource(t *testing.T) {
-	config := kubernetesAccConfig(1)
+	config := kubernetesAccConfig("tfacck8s.example.test")
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
@@ -1037,19 +997,14 @@ func TestAccKubernetesResource(t *testing.T) {
 				Config: config,
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("cozystack_kubernetes.test", "id", "tenant-root/tfacck8s"),
-					resource.TestCheckResourceAttr("cozystack_kubernetes.test", "node_groups.md0.max_replicas", "1"),
-					resource.TestCheckResourceAttr("cozystack_kubernetes.test", "node_groups.md0.disk_size", "20Gi"),
+					resource.TestCheckResourceAttr("cozystack_kubernetes.test", "host", "tfacck8s.example.test"),
 					// The configuration pins none of the 1.6 blocks. The server
 					// materialises its schema defaults on every read, and the
 					// managed resource deliberately does not absorb them: storing
 					// them would put them in the plan, and the next update would
 					// write them into the release as explicit values.
 					resource.TestCheckNoResourceAttr("cozystack_kubernetes.test", "talos.version"),
-					resource.TestCheckNoResourceAttr("cozystack_kubernetes.test", "node_health_check.max_unhealthy"),
 					resource.TestCheckNoResourceAttr("cozystack_kubernetes.test", "oidc.mode"),
-					// Per-group health overrides are undefaulted upstream: unset
-					// stays unset rather than being echoed back as an empty string.
-					resource.TestCheckNoResourceAttr("cozystack_kubernetes.test", "node_groups.md0.max_unhealthy"),
 				),
 			},
 			{
@@ -1057,56 +1012,31 @@ func TestAccKubernetesResource(t *testing.T) {
 				// the defaults the previous read put in state, so this is the step
 				// that would write them into the release and pin the cluster to
 				// them; the spec must still come out without those keys.
-				Config: kubernetesAccConfig(2),
+				Config: kubernetesAccConfig("tfacck8s-updated.example.test"),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("cozystack_kubernetes.test", "node_groups.md0.max_replicas", "2"),
+					resource.TestCheckResourceAttr("cozystack_kubernetes.test", "host", "tfacck8s-updated.example.test"),
 					checkSpecOmits(client.KubernetesResource(), "tenant-root", "tfacck8s",
-						"talos", "oidc", "nodeHealthCheck", "images", "controlPlane"),
+						"talos", "oidc", "images", "controlPlane"),
 				),
 			},
 			{
-				// Explicitly empty lists at both levels. They mean the same to
-				// the chart as an absent key, but the provider sends them as
-				// configured, and only a real server says whether an empty list
-				// survives the round trip into state.
+				// An explicitly empty list. It means the same to the chart as an
+				// absent key, but the provider sends it as configured, and only a
+				// real server says whether an empty list survives the round trip
+				// into state.
 				Config: `
 resource "cozystack_kubernetes" "test" {
   name      = "tfacck8s"
   namespace = "tenant-root"
   version   = "v1.35"
-  node_groups = {
-    md0 = {
-      instance_type = "u1.medium"
-      min_replicas  = 0
-      max_replicas  = 2
-      roles         = []
-    }
-  }
+  host      = "tfacck8s-updated.example.test"
   oidc = {
     users = []
   }
 }
 `,
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("cozystack_kubernetes.test", "node_groups.md0.roles.#", "0"),
 					resource.TestCheckResourceAttr("cozystack_kubernetes.test", "oidc.users.#", "0"),
-				),
-			},
-			{
-				// A cluster that declares no node groups at all — the platform's
-				// own default, and the shape the provider's example uses. Same
-				// reasoning as the step above: an empty map is only a round trip
-				// once a server has echoed it.
-				Config: `
-resource "cozystack_kubernetes" "test" {
-  name        = "tfacck8s"
-  namespace   = "tenant-root"
-  version     = "v1.35"
-  node_groups = {}
-}
-`,
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("cozystack_kubernetes.test", "node_groups.%", "0"),
 				),
 			},
 			{

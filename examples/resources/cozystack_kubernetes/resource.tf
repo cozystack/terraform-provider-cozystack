@@ -7,20 +7,12 @@ resource "cozystack_kubernetes" "cluster" {
 
   version = "v1.35"
 
-  node_groups = {
-    md0 = {
-      instance_type = "u1.medium"
-      disk_size     = "20Gi"
-      min_replicas  = 1
-      max_replicas  = 10
-      roles         = ["ingress-nginx"]
-    }
-  }
-
   # The admin kubeconfig is published asynchronously, so without waiting it is
   # only readable from the apply after the one that created the cluster.
   wait_for_ready = true
 }
+
+# Worker nodes are a separate resource: see cozystack_kubernetes_nodes.
 
 # Every block below is optional and follows the platform default while unset,
 # so pin only what you actually need to control.
@@ -30,39 +22,11 @@ resource "cozystack_kubernetes" "tuned" {
 
   version = "v1.35"
 
-  node_groups = {
-    # Sized explicitly instead of by instance_type: cpu and memory go together.
-    workers = {
-      min_replicas = 2
-      max_replicas = 6
-
-      resources = {
-        cpu    = "4"
-        memory = "8Gi"
-      }
-    }
-
-    # A GPU pool boots slower, so it overrides the cluster-wide remediation
-    # timeout without changing it for every other group.
-    gpu = {
-      instance_type        = "u1.xlarge"
-      min_replicas         = 0
-      max_replicas         = 4
-      node_startup_timeout = "30m"
-      max_unhealthy        = "0%"
-    }
-  }
-
   # Worker OS images pulled from a self-hosted image factory. The Talos release
   # and schematic stay unset, so they keep following the platform.
   talos = {
     image_factory_url    = "https://factory.example.test"
     installer_repository = "registry.example.test/installer"
-  }
-
-  node_health_check = {
-    max_unhealthy        = "50%"
-    node_startup_timeout = "15m"
   }
 
   # Platform identity, plus the bindings created inside the tenant cluster.
@@ -82,8 +46,6 @@ resource "cozystack_kubernetes" "tuned" {
 resource "cozystack_kubernetes" "byo_identity" {
   name      = "byo-identity"
   namespace = "tenant-root"
-
-  node_groups = {}
 
   oidc = {
     mode = "CustomConfig"

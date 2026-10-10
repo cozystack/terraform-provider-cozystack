@@ -49,5 +49,6 @@ output "root_tenant_gateway" {
 - `scheduling_class` (String) Name of the applied SchedulingClass CR.
 - `seaweedfs` (Boolean) Whether a dedicated SeaweedFS instance is deployed.
 - `status_namespace` (String) Namespace created for the tenant.
+- `tracing_central` (Boolean) Whether the tenant's traces go to the shared store in `tenant-root`.
 - `uid` (String) Server-assigned object UID (`metadata.uid`).
 - `version` (String) Deployed chart version.

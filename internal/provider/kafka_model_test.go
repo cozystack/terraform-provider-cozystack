@@ -24,7 +24,6 @@ func fullKafkaModel() kafkaModel {
 		TLS:       tlsBlock(true),
 		Topics:    types.ListValueMust(types.ObjectType{AttrTypes: kafkaTopicObjectType()}, []attr.Value{topic}),
 		Kafka:     kafkaBrokerDefault("10Gi"),
-		Zookeeper: kafkaBrokerDefault("5Gi"),
 	}
 }
 
@@ -52,11 +51,6 @@ func TestKafkaExpand_TopicsAndBrokers(t *testing.T) {
 	if kafkaSpec["size"] != "10Gi" {
 		t.Errorf("kafka.size = %v, want 10Gi", kafkaSpec["size"])
 	}
-
-	zkSpec, _ := got.Spec["zookeeper"].(map[string]any)
-	if zkSpec["size"] != "5Gi" {
-		t.Errorf("zookeeper.size = %v, want 5Gi", zkSpec["size"])
-	}
 }
 
 func TestKafkaFlatten_RoundTrip(t *testing.T) {
@@ -70,9 +64,6 @@ func TestKafkaFlatten_RoundTrip(t *testing.T) {
 			"topics":   []any{map[string]any{"name": "events", "partitions": int64(3), "replicas": int64(2)}},
 			"kafka": map[string]any{
 				"replicas": int64(3), "resourcesPreset": "c1.small", "size": "10Gi", "storageClass": "", "resources": map[string]any{},
-			},
-			"zookeeper": map[string]any{
-				"replicas": int64(3), "resourcesPreset": "c1.small", "size": "5Gi", "storageClass": "", "resources": map[string]any{},
 			},
 		},
 		Status: client.ApplicationStatus{Version: "1.0.0", Ready: true},
@@ -113,5 +104,6 @@ func TestKafkaExpandKeysMatchConfigSpec(t *testing.T) {
 		emitted[key] = true
 	}
 
-	assertSpecCoverage(t, emitted, kafka.ConfigSpec{})
+	// Added by the pinned API and not modelled yet.
+	assertSpecCoverage(t, emitted, kafka.ConfigSpec{}, "version")
 }

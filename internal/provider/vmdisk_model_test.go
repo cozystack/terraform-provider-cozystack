@@ -100,5 +100,6 @@ func TestVMDiskExpandKeysMatchConfigSpec(t *testing.T) {
 		emitted[key] = true
 	}
 
-	assertSpecCoverage(t, emitted, vmdisk.ConfigSpec{})
+	// Added by the pinned API and not modelled yet.
+	assertSpecCoverage(t, emitted, vmdisk.ConfigSpec{}, "bindImmediately")
 }

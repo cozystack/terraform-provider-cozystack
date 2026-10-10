@@ -20,7 +20,7 @@ The provider talks to the Cozystack aggregated Kubernetes API (`apps.cozystack.i
 
 ## Conventions
 
-- The provider version tracks the Cozystack API version it builds against; the `github.com/cozystack/cozystack/api/apps/v1alpha1` module is pinned to a released tag (currently `v1.6.3`), never a pseudo-version.
+- The provider version tracks the Cozystack API version it builds against; the `github.com/cozystack/cozystack/api/apps/v1alpha1` module is pinned to a released tag. The one exception is temporary: it is currently pinned to the pseudo-version of cozystack main commit `11499c30e`, the first one carrying the Tenant `tracingCentral` field, because no API tag contains it yet. Go orders that pseudo-version below `v1.6.3`, so moving to any v1.6.x tag would silently drop the field. Replace the pin by hand with the first `api/apps/v1alpha1` v1.7 tag, and in the same change restore the Renovate rule for this module in `renovate.json` to disabling `digest` updates only.
 - Typed models are guarded against upstream spec drift by `assertSpecCoverage(t, emitted, ConfigSpec{}, omit...)`, which reflects emitted spec keys against the api-module's `ConfigSpec` json tags. For Kinds whose Go types live in the heavy root cozystack module, a small vendored guard struct stands in.
 - Adding a Kind: add the `client.Resource` constructor, register it in `provider.go`, choose typed vs rawspec vs marker, add a unit test (with the spec-coverage guard for typed models), add `examples/resources/` + `examples/data-sources/` entries, then run `make docs`. A model with server-generated outputs implements `outputsReader` (`readOutputs` + `outputsPending`), which is what `wait_for_ready` polls on.
 

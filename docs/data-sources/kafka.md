@@ -37,7 +37,6 @@ data "cozystack_kafka" "events" {
 - `tls` (Attributes) TLS configuration for the external listener. (see [below for nested schema](#nestedatt--tls))
 - `topics` (Attributes List) Provisioned topics. (see [below for nested schema](#nestedatt--topics))
 - `uid` (String) Server-assigned object UID (`metadata.uid`).
-- `zookeeper` (Attributes) ZooKeeper configuration. (see [below for nested schema](#nestedatt--zookeeper))
 
 <a id="nestedatt--kafka"></a>
 ### Nested Schema for `kafka`
@@ -76,23 +75,3 @@ Read-Only:
 - `name` (String) Topic name.
 - `partitions` (Number) Number of partitions.
 - `replicas` (Number) Number of replicas.
-
-
-<a id="nestedatt--zookeeper"></a>
-### Nested Schema for `zookeeper`
-
-Read-Only:
-
-- `replicas` (Number) Number of replicas.
-- `resources` (Attributes) Explicit CPU and memory per replica, when set. (see [below for nested schema](#nestedatt--zookeeper--resources))
-- `resources_preset` (String) Sizing preset.
-- `size` (String) Persistent volume size.
-- `storage_class` (String) StorageClass used to store the data.
-
-<a id="nestedatt--zookeeper--resources"></a>
-### Nested Schema for `zookeeper.resources`
-
-Read-Only:
-
-- `cpu` (String) CPU available to each replica.
-- `memory` (String) Memory available to each replica.

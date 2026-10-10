@@ -100,5 +100,6 @@ func TestOpensearchExpandKeysMatchConfigSpec(t *testing.T) {
 		emitted[key] = true
 	}
 
-	assertSpecCoverage(t, emitted, opensearch.ConfigSpec{}, "images", "nodeRoles", "dashboards")
+	// tls was added by the pinned API and is not modelled yet.
+	assertSpecCoverage(t, emitted, opensearch.ConfigSpec{}, "images", "nodeRoles", "dashboards", "tls")
 }

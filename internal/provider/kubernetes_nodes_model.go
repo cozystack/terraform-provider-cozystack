@@ -12,9 +12,8 @@ import (
 )
 
 // kubernetesNodesModel maps the cozystack_kubernetes_nodes schema to Go types.
-// A pool is a standalone worker node group: it carries the same sizing fields a
-// nodeGroup of cozystack_kubernetes carries, plus the kubelet, Talos image, and
-// image-override blocks that only the standalone kind exposes.
+// A pool is a worker node group of a cozystack_kubernetes cluster: its sizing
+// fields, plus the kubelet, Talos image, and image-override blocks.
 type kubernetesNodesModel struct {
 	ID                 types.String `tfsdk:"id"`
 	Name               types.String `tfsdk:"name"`

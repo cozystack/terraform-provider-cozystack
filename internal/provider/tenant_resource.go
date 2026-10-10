@@ -172,7 +172,11 @@ func tenantSpecAttributes() map[string]schema.Attribute {
 		},
 		attrEtcd:       boolToggle("Deploy a dedicated etcd cluster for the tenant."),
 		attrMonitoring: boolToggle("Deploy a dedicated monitoring stack for the tenant."),
-		attrIngress:    boolToggle("Deploy a dedicated ingress controller for the tenant."),
+		attrTracingCentral: boolToggle("Send the tenant's traces to the shared VictoriaTraces store in " +
+			"`tenant-root` instead of a per-tenant backend. Tenants sharing the store cannot read each " +
+			"other's traces. Requires `monitoring = true` on this tenant and `tenant-root` hosting the " +
+			"store; without them the tenant's monitoring fails to render."),
+		attrIngress: boolToggle("Deploy a dedicated ingress controller for the tenant."),
 		"gateway": schema.BoolAttribute{
 			Optional: true,
 			MarkdownDescription: "Give the tenant a Gateway API Gateway of its own, with its own Service, " +

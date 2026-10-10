@@ -60,7 +60,6 @@ func (m *postgresqlModel) identity() (string, string) {
 
 func pgUserObjectType() map[string]attr.Type {
 	return map[string]attr.Type{
-		"password":    types.StringType,
 		"replication": types.BoolType,
 	}
 }
@@ -73,8 +72,7 @@ func pgDatabaseObjectType() map[string]attr.Type {
 }
 
 type pgUserData struct {
-	Password    types.String `tfsdk:"password"`
-	Replication types.Bool   `tfsdk:"replication"`
+	Replication types.Bool `tfsdk:"replication"`
 }
 
 type pgDatabaseData struct {
@@ -99,12 +97,7 @@ func expandPgUsers(ctx context.Context, value types.Map) (map[string]any, diag.D
 	}
 
 	for name, user := range elements {
-		entry := map[string]any{"replication": user.Replication.ValueBool()}
-		if password := user.Password.ValueString(); password != "" {
-			entry["password"] = password
-		}
-
-		out[name] = entry
+		out[name] = map[string]any{"replication": user.Replication.ValueBool()}
 	}
 
 	return out, diags
@@ -112,11 +105,9 @@ func expandPgUsers(ctx context.Context, value types.Map) (map[string]any, diag.D
 
 func flattenPgUsers(raw any) (types.Map, diag.Diagnostics) {
 	return flattenObjectMap(raw, pgUserObjectType(), func(user map[string]any) map[string]attr.Value {
-		password, _ := user["password"].(string)
 		replication, _ := user["replication"].(bool)
 
 		return map[string]attr.Value{
-			"password":    types.StringValue(password),
 			"replication": types.BoolValue(replication),
 		}
 	})

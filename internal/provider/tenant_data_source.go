@@ -54,6 +54,7 @@ func (d *tenantDataSource) Schema(
 			attrHost:           schema.StringAttribute{Computed: true, MarkdownDescription: "Hostname used to access tenant services."},
 			attrEtcd:           schema.BoolAttribute{Computed: true, MarkdownDescription: "Whether a dedicated etcd cluster is deployed."},
 			attrMonitoring:     schema.BoolAttribute{Computed: true, MarkdownDescription: "Whether a dedicated monitoring stack is deployed."},
+			attrTracingCentral: schema.BoolAttribute{Computed: true, MarkdownDescription: "Whether the tenant's traces go to the shared store in `tenant-root`."},
 			attrIngress:        schema.BoolAttribute{Computed: true, MarkdownDescription: "Whether a dedicated ingress controller is deployed."},
 			"gateway":          schema.BoolAttribute{Computed: true, MarkdownDescription: "Whether the tenant has a Gateway of its own; null when it never asked."},
 			attrSeaweedfs:      schema.BoolAttribute{Computed: true, MarkdownDescription: "Whether a dedicated SeaweedFS instance is deployed."},

@@ -86,9 +86,8 @@ func kafkaSchema() rschema.Schema {
 				"always TLS, and Strimzi manages the cluster PKI itself. Omit the block to follow `external`; " +
 				"disabling TLS while `external` is true publishes Kafka in plaintext on a public address.",
 		),
-		"topics":    kafkaTopicsResourceAttribute(),
-		"kafka":     kafkaBrokerResourceAttribute("Kafka broker configuration.", "10Gi"),
-		"zookeeper": kafkaBrokerResourceAttribute("ZooKeeper configuration.", "5Gi"),
+		"topics": kafkaTopicsResourceAttribute(),
+		"kafka":  kafkaBrokerResourceAttribute("Kafka broker configuration.", "10Gi"),
 	})
 	maps.Copy(attributes, statusResourceAttributes())
 	maps.Copy(attributes, waitBehaviorAttributes())
@@ -131,8 +130,7 @@ func kafkaDataSourceSchema() dsschema.Schema {
 				},
 			},
 		},
-		"kafka":     kafkaBrokerDataSourceAttribute("Kafka broker configuration."),
-		"zookeeper": kafkaBrokerDataSourceAttribute("ZooKeeper configuration."),
+		"kafka": kafkaBrokerDataSourceAttribute("Kafka broker configuration."),
 	})
 	maps.Copy(attributes, statusDataSourceAttributes())
 

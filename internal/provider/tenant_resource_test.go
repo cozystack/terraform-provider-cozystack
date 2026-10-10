@@ -7,6 +7,8 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/defaults"
 	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-go/tftypes"
@@ -59,7 +61,9 @@ func TestTenantSchemaAttributes(t *testing.T) {
 		}
 	}
 
-	optionalComputed := []string{"host", "etcd", "monitoring", "ingress", "seaweedfs", "scheduling_class", "resource_quotas"}
+	optionalComputed := []string{
+		"host", "etcd", "monitoring", "tracing_central", "ingress", "seaweedfs", "scheduling_class", "resource_quotas",
+	}
 	for _, name := range optionalComputed {
 		attribute, ok := attributes[name]
 		if !ok {
@@ -201,5 +205,29 @@ func TestTenantResourceModelRoundTrip(t *testing.T) {
 	}
 	if !out.WaitForReady.ValueBool() || out.WaitTimeout.ValueString() != "5m" {
 		t.Errorf("wait attributes round-trip lost: %v/%q", out.WaitForReady.ValueBool(), out.WaitTimeout.ValueString())
+	}
+}
+
+// The provider restates the chart's default rather than leaving the key to the
+// server, so a default that drifts from the schema's false would be written
+// into every tenant that never set the attribute.
+func TestTenantSchema_TracingCentralDefaultsFalse(t *testing.T) {
+	t.Parallel()
+
+	attribute, ok := tenantSchema().Attributes["tracing_central"].(schema.BoolAttribute)
+	if !ok {
+		t.Fatalf("tracing_central is not a bool attribute")
+	}
+
+	if attribute.Default == nil {
+		t.Fatalf("tracing_central has no default")
+	}
+
+	var resp defaults.BoolResponse
+
+	attribute.Default.DefaultBool(context.Background(), defaults.BoolRequest{}, &resp)
+
+	if resp.PlanValue.IsNull() || resp.PlanValue.ValueBool() {
+		t.Errorf("tracing_central default = %v, want false", resp.PlanValue)
 	}
 }

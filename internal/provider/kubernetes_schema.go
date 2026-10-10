@@ -8,98 +8,12 @@ import (
 	dsschema "github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	rschema "github.com/hashicorp/terraform-plugin-framework/resource/schema"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64default"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
-
-func k8sNodeGroupsResourceAttribute() rschema.MapNestedAttribute {
-	return rschema.MapNestedAttribute{
-		Required:            true,
-		MarkdownDescription: "Worker node groups keyed by name.",
-		NestedObject: rschema.NestedAttributeObject{
-			Attributes: map[string]rschema.Attribute{
-				"disk_size": rschema.StringAttribute{
-					Optional: true, Computed: true,
-					Default:             stringdefault.StaticString("20Gi"),
-					MarkdownDescription: "Persistent disk size for kubelet and containerd data.",
-				},
-				"instance_type": rschema.StringAttribute{
-					Optional: true, Computed: true,
-					Default:             stringdefault.StaticString("u1.medium"),
-					MarkdownDescription: "Virtual machine instance type.",
-				},
-				"min_replicas": rschema.Int64Attribute{
-					Optional: true, Computed: true,
-					Default:             int64default.StaticInt64(0),
-					MarkdownDescription: "Minimum number of replicas.",
-				},
-				"max_replicas": rschema.Int64Attribute{
-					Optional: true, Computed: true,
-					Default:             int64default.StaticInt64(10),
-					MarkdownDescription: "Maximum number of replicas.",
-				},
-				"roles": rschema.ListAttribute{
-					Optional:            true,
-					ElementType:         types.StringType,
-					MarkdownDescription: "Node roles (e.g. `ingress-nginx`).",
-				},
-				"storage_class": rschema.StringAttribute{
-					Optional: true, Computed: true,
-					Default: stringdefault.StaticString(""),
-					MarkdownDescription: "StorageClass for worker node persistent disks. Falls back to the " +
-						"cluster's `storage_class` when empty. Deliberately mutable upstream, unlike the " +
-						"cluster-level attribute.",
-				},
-				"resources": k8sNodeGroupResourcesAttribute(),
-				"max_unhealthy": rschema.StringAttribute{
-					Optional: true,
-					MarkdownDescription: "Per-group override for `node_health_check.max_unhealthy`, as a bare " +
-						"integer (`\"1\"`) or a percentage (`\"0%\"`). Inherits the cluster-wide value while unset.",
-				},
-				"node_startup_timeout": rschema.StringAttribute{
-					Optional: true,
-					MarkdownDescription: "Per-group override for `node_health_check.node_startup_timeout` " +
-						"(duration, e.g. `20m`). Inherits the cluster-wide value while unset.",
-				},
-			},
-		},
-	}
-}
-
-// k8sNodeGroupResourcesAttribute returns the per-node-group resources block.
-// The node is sized by instance_type unless BOTH cpu and memory are set —
-// KubeVirt cannot override an instance type's CPU/memory, so the chart drops the
-// instance type only for a fully specified pair and rejects a half-filled block
-// at render time. Binding the two here turns that into a plan-time error.
-func k8sNodeGroupResourcesAttribute() rschema.SingleNestedAttribute {
-	alsoRequires := func(sibling string) []validator.String {
-		return []validator.String{
-			stringvalidator.AlsoRequires(path.MatchRelative().AtParent().AtName(sibling)),
-		}
-	}
-
-	return rschema.SingleNestedAttribute{
-		Optional: true,
-		MarkdownDescription: "Explicit CPU and memory for each worker node, replacing `instance_type` sizing. " +
-			"Set both `cpu` and `memory`, or neither.",
-		Attributes: map[string]rschema.Attribute{
-			attrCPU: rschema.StringAttribute{
-				Optional:            true,
-				Validators:          alsoRequires(attrMemory),
-				MarkdownDescription: "CPU per worker node (quantity, e.g. `4`). Requires `memory`.",
-			},
-			attrMemory: rschema.StringAttribute{
-				Optional:            true,
-				Validators:          alsoRequires(attrCPU),
-				MarkdownDescription: "Memory per worker node (quantity, e.g. `8Gi`). Requires `cpu`.",
-			},
-		},
-	}
-}
 
 // k8sTalosResourceAttribute returns the talos worker-image block. None of its
 // fields carries a provider-side default: upstream moves the Talos release and
@@ -150,41 +64,6 @@ func k8sTalosDataSourceAttribute() dsschema.SingleNestedAttribute {
 			"installer_repository": dsschema.StringAttribute{Computed: true, MarkdownDescription: "Talos installer OCI repository prefix."},
 			"schematic_id":         dsschema.StringAttribute{Computed: true, MarkdownDescription: "Talos image-factory schematic ID."},
 			attrVersion:            dsschema.StringAttribute{Computed: true, MarkdownDescription: "Talos release used for workers."},
-		},
-	}
-}
-
-// k8sNodeHealthCheckResourceAttribute returns the MachineHealthCheck tuning
-// block. Like every 1.6 block it is left to the platform while unset.
-func k8sNodeHealthCheckResourceAttribute() rschema.SingleNestedAttribute {
-	return rschema.SingleNestedAttribute{
-		Optional: true,
-		MarkdownDescription: "MachineHealthCheck tuning applied to every worker node group. " +
-			"Follows the platform defaults while unset.",
-		Attributes: map[string]rschema.Attribute{
-			"max_unhealthy": rschema.StringAttribute{
-				Optional: true,
-				MarkdownDescription: "Unhealthy nodes tolerated per node group before remediation pauses. " +
-					"The MachineHealthCheck admission webhook takes a bare integer (`\"1\"`) or a percentage " +
-					"(`\"50%\"`); a percentage is the safer form. Follows the platform default (`50%`) while unset.",
-			},
-			"node_startup_timeout": rschema.StringAttribute{
-				Optional: true,
-				MarkdownDescription: "How long a Machine may take to reach Ready before it is remediated " +
-					"(duration, e.g. `20m`). Raise it for slow first boots — a Talos image fetch from the " +
-					"image factory, or a busy StorageClass. Follows the platform default (`10m`) while unset.",
-			},
-		},
-	}
-}
-
-func k8sNodeHealthCheckDataSourceAttribute() dsschema.SingleNestedAttribute {
-	return dsschema.SingleNestedAttribute{
-		Computed:            true,
-		MarkdownDescription: "MachineHealthCheck tuning applied to every worker node group.",
-		Attributes: map[string]dsschema.Attribute{
-			"max_unhealthy":        dsschema.StringAttribute{Computed: true, MarkdownDescription: "Unhealthy nodes tolerated per node group."},
-			"node_startup_timeout": dsschema.StringAttribute{Computed: true, MarkdownDescription: "Machine startup timeout before remediation."},
 		},
 	}
 }
@@ -444,12 +323,10 @@ func kubernetesSchema() rschema.Schema {
 			MarkdownDescription: "External hostname for the cluster. " +
 				"Defaults to `<cluster-name>.<tenant-host>`.",
 		},
-		"node_groups":       k8sNodeGroupsResourceAttribute(),
-		attrTalos:           k8sTalosResourceAttribute(),
-		attrNodeHealthCheck: k8sNodeHealthCheckResourceAttribute(),
-		attrOIDC:            k8sOIDCResourceAttribute(),
-		attrControlPlane:    k8sControlPlaneResourceAttribute(),
-		attrImages:          k8sImagesResourceAttribute(),
+		attrTalos:        k8sTalosResourceAttribute(),
+		attrOIDC:         k8sOIDCResourceAttribute(),
+		attrControlPlane: k8sControlPlaneResourceAttribute(),
+		attrImages:       k8sImagesResourceAttribute(),
 		"kubeconfig": rschema.StringAttribute{
 			Computed:  true,
 			Sensitive: true,
@@ -463,9 +340,9 @@ func kubernetesSchema() rschema.Schema {
 
 	return rschema.Schema{
 		MarkdownDescription: "A Cozystack managed Kubernetes cluster, deployed inside a tenant namespace. " +
-			"The addons block, the control-plane component sizing, and per-node-group GPU and kubelet " +
-			"tuning use server defaults.\n\n" +
-			"In the `talos`, `node_health_check`, `oidc`, `control_plane`, and `images` blocks this " +
+			"The addons block and the control-plane component sizing use server defaults. Worker pools " +
+			"are separate `cozystack_kubernetes_nodes` resources.\n\n" +
+			"In the `talos`, `oidc`, `control_plane`, and `images` blocks this " +
 			"resource tracks only what the configuration sets. A field left unset stays out of every " +
 			"request and out of state, so the platform's own default applies and keeps moving with the " +
 			"platform instead of being pinned at apply time; a field that is set refreshes normally, so " +
@@ -485,28 +362,10 @@ func kubernetesDataSourceSchema() dsschema.Schema {
 		attrStorageClass: dsschema.StringAttribute{Computed: true, MarkdownDescription: "StorageClass used to store the data."},
 		attrVersion:      dsschema.StringAttribute{Computed: true, MarkdownDescription: "Kubernetes version."},
 		attrHost:         dsschema.StringAttribute{Computed: true, MarkdownDescription: "External hostname for the cluster."},
-		"node_groups": dsschema.MapNestedAttribute{
-			Computed:            true,
-			MarkdownDescription: "Worker node groups keyed by name.",
-			NestedObject: dsschema.NestedAttributeObject{
-				Attributes: map[string]dsschema.Attribute{
-					"disk_size":            dsschema.StringAttribute{Computed: true, MarkdownDescription: "Persistent disk size."},
-					"instance_type":        dsschema.StringAttribute{Computed: true, MarkdownDescription: "Instance type."},
-					"min_replicas":         dsschema.Int64Attribute{Computed: true, MarkdownDescription: "Minimum replicas."},
-					"max_replicas":         dsschema.Int64Attribute{Computed: true, MarkdownDescription: "Maximum replicas."},
-					"roles":                dsschema.ListAttribute{Computed: true, ElementType: types.StringType, MarkdownDescription: "Node roles."},
-					"storage_class":        dsschema.StringAttribute{Computed: true, MarkdownDescription: "Worker node StorageClass."},
-					"resources":            resourcesDataSourceAttribute(),
-					"max_unhealthy":        dsschema.StringAttribute{Computed: true, MarkdownDescription: "Per-group unhealthy-node tolerance."},
-					"node_startup_timeout": dsschema.StringAttribute{Computed: true, MarkdownDescription: "Per-group machine startup timeout."},
-				},
-			},
-		},
-		attrTalos:           k8sTalosDataSourceAttribute(),
-		attrNodeHealthCheck: k8sNodeHealthCheckDataSourceAttribute(),
-		attrOIDC:            k8sOIDCDataSourceAttribute(),
-		attrControlPlane:    k8sControlPlaneDataSourceAttribute(),
-		attrImages:          k8sImagesDataSourceAttribute(),
+		attrTalos:        k8sTalosDataSourceAttribute(),
+		attrOIDC:         k8sOIDCDataSourceAttribute(),
+		attrControlPlane: k8sControlPlaneDataSourceAttribute(),
+		attrImages:       k8sImagesDataSourceAttribute(),
 		"kubeconfig": dsschema.StringAttribute{
 			Computed:            true,
 			Sensitive:           true,

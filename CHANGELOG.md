@@ -2,10 +2,20 @@
 
 ## Unreleased
 
-To ship with the first Cozystack API pin that contains cozystack/cozystack#3936.
+Tracks the Cozystack API at main commit `11499c30e`, ahead of the first v1.7 tag: it is the first commit carrying the shared-central tracing field, and it already contains cozystack/cozystack#3936.
+
+The pinned API also adds a `Valkey` kind and optional fields on several existing kinds; the provider does not model them yet.
+
+### Features
+
+- `cozystack_tenant`: new `tracing_central` attribute (default `false`), also on the data source. It sends the tenant's traces to the shared VictoriaTraces store in `tenant-root` instead of a per-tenant backend, and needs `monitoring = true` on the tenant and `tenant-root` hosting the store.
 
 ### Breaking changes
 
+- `cozystack_httpcache` (resource and data source) is removed, following Cozystack, which dropped the HTTPCache application and its ResourceDefinition: a cluster on this API no longer serves the kind. Remove the resource from your configuration and run `terraform state rm` for each instance before upgrading the provider.
+- `cozystack_kubernetes`: `node_groups` and `node_health_check` are removed (resource and data source). Cozystack moved worker pools out of the Kubernetes application into KubernetesNodes, and its upgrade migrates every existing node group, the default `md0` included, into a KubernetesNodes object named `<cluster>-<pool>`. Drop both attributes from the configuration and bring each migrated pool under management with `terraform import cozystack_kubernetes_nodes.<name> <namespace>/<cluster>-<pool>`.
+- `cozystack_kafka`: `zookeeper` is removed (resource and data source). Cozystack runs Kafka in KRaft mode and migrates existing ZooKeeper clusters on upgrade, so the block has nothing left to configure. Drop it from the configuration.
+- `cozystack_postgres` and `cozystack_mariadb`: `users[].password` is removed (resources and data sources). Cozystack always generates user passwords now and ignores a password in the spec, so a configured one never took effect and state showed a password that was not the live one. Read the live password from the `postgres-<name>-credentials` or `mariadb-<name>-credentials` Secret. On a release upgraded from an older Cozystack, the password set before the removal stays in that Secret until it is rotated.
 - `rabbitmq`: the default `resources_preset` moves from `t1.nano` to `s1.nano`. The attribute is optional-with-default, so the old value sits in existing state: after upgrading the provider, a `cozystack_rabbitmq` that never set it explicitly plans `t1.nano` → `s1.nano`, which updates the cluster and rolls its pods. Set `resources_preset = "t1.nano"` explicitly to keep the previous sizing.
 
 ## v1.6.3

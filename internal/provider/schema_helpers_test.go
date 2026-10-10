@@ -13,14 +13,9 @@ import (
 )
 
 // storageClassReplaceExempt lists the storage class attributes this guard does
-// not cover, by resource type and dotted attribute path.
-//
-// The kubernetes node-group class is deliberately mutable upstream: the field is
-// optional and undefaulted there, so an immutability rule would block ever
-// setting it on an existing node group.
-var storageClassReplaceExempt = map[string]bool{
-	"cozystack_kubernetes.node_groups.storage_class": true,
-}
+// not cover, by resource type and dotted attribute path. An entry belongs here
+// only for a class upstream deliberately keeps mutable.
+var storageClassReplaceExempt = map[string]bool{}
 
 // TestStorageClassRequiresReplace checks that every storage_class attribute,
 // nested ones included, plans a replacement when a configured value changes. A

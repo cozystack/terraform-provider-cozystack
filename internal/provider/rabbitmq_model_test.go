@@ -165,17 +165,6 @@ func TestRabbitmqExpandKeysMatchConfigSpec(t *testing.T) {
 		emitted[key] = true
 	}
 
-	tags := configSpecJSONTags(rabbitmq.ConfigSpec{})
-
-	for key := range emitted {
-		if !tags[key] {
-			t.Errorf("expand emits %q, not a rabbitmq.ConfigSpec json tag", key)
-		}
-	}
-
-	for tag := range tags {
-		if !emitted[tag] {
-			t.Errorf("rabbitmq.ConfigSpec has %q but expand does not emit it", tag)
-		}
-	}
+	// Added by the pinned API and not modelled yet.
+	assertSpecCoverage(t, emitted, rabbitmq.ConfigSpec{}, "tls")
 }
