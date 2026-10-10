@@ -15,7 +15,7 @@ import (
 
 func pgUsersResourceAttribute() rschema.MapNestedAttribute {
 	return rschema.MapNestedAttribute{
-		Optional:            true,
+		Optional: true,
 		MarkdownDescription: "PostgreSQL users keyed by user name. The platform generates every user's password " +
 			"and keeps it in the `postgres-<name>-credentials` Secret; it cannot be set here.",
 		NestedObject: rschema.NestedAttributeObject{
