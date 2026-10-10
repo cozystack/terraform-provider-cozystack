@@ -75,4 +75,3 @@ Read-Only:
 Read-Only:
 
 - `max_user_connections` (Number) Maximum connections.
-- `password` (String, Sensitive) User password.

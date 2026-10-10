@@ -104,5 +104,4 @@ Read-Only:
 
 Read-Only:
 
-- `password` (String, Sensitive) User password.
 - `replication` (Boolean) Whether the user has replication privileges.
