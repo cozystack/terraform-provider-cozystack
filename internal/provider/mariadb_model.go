@@ -47,13 +47,11 @@ func (m *mariadbModel) identity() (string, string) {
 func mariadbUserObjectType() map[string]attr.Type {
 	return map[string]attr.Type{
 		"max_user_connections": types.Int64Type,
-		"password":             types.StringType,
 	}
 }
 
 type mariadbUserData struct {
-	MaxUserConnections types.Int64  `tfsdk:"max_user_connections"`
-	Password           types.String `tfsdk:"password"`
+	MaxUserConnections types.Int64 `tfsdk:"max_user_connections"`
 }
 
 func expandMariadbUsers(ctx context.Context, value types.Map) (map[string]any, diag.Diagnostics) {
@@ -73,12 +71,7 @@ func expandMariadbUsers(ctx context.Context, value types.Map) (map[string]any, d
 	}
 
 	for name, user := range elements {
-		entry := map[string]any{"maxUserConnections": user.MaxUserConnections.ValueInt64()}
-		if password := user.Password.ValueString(); password != "" {
-			entry["password"] = password
-		}
-
-		out[name] = entry
+		out[name] = map[string]any{"maxUserConnections": user.MaxUserConnections.ValueInt64()}
 	}
 
 	return out, diags
@@ -86,11 +79,8 @@ func expandMariadbUsers(ctx context.Context, value types.Map) (map[string]any, d
 
 func flattenMariadbUsers(raw any) (types.Map, diag.Diagnostics) {
 	return flattenObjectMap(raw, mariadbUserObjectType(), func(user map[string]any) map[string]attr.Value {
-		password, _ := user["password"].(string)
-
 		return map[string]attr.Value{
 			"max_user_connections": types.Int64Value(anyToInt64(user["maxUserConnections"])),
-			"password":             types.StringValue(password),
 		}
 	})
 }

@@ -26,7 +26,6 @@ func fullMariadbModel() mariadbModel {
 		Users: types.MapValueMust(usersType, map[string]attr.Value{
 			"app": types.ObjectValueMust(mariadbUserObjectType(), map[string]attr.Value{
 				"max_user_connections": types.Int64Value(10),
-				"password":             types.StringValue("pw"),
 			}),
 		}),
 		Databases: types.MapNull(types.ObjectType{AttrTypes: rolesEntryObjectType()}),
@@ -48,9 +47,21 @@ func TestMariadbExpand_Users(t *testing.T) {
 	if app["maxUserConnections"] != int64(10) {
 		t.Errorf("users.app.maxUserConnections = %v, want 10", app["maxUserConnections"])
 	}
-	if app["password"] != "pw" {
-		t.Errorf("users.app.password = %v, want pw", app["password"])
+}
+
+// The users map is not a top-level key, so the ConfigSpec guard cannot see a
+// field the API drops from a user entry.
+func TestMariadbExpandUserKeysMatchUserSpec(t *testing.T) {
+	t.Parallel()
+
+	model := fullMariadbModel()
+
+	got, diags := model.expand(context.Background())
+	if diags.HasError() {
+		t.Fatalf("expand diagnostics: %v", diags)
 	}
+
+	assertSpecCoverage(t, nestedSpecKeys(t, got.Spec, "users", "app"), mariadb.User{})
 }
 
 func TestMariadbFlatten_RoundTrip(t *testing.T) {
@@ -67,7 +78,7 @@ func TestMariadbFlatten_RoundTrip(t *testing.T) {
 			"external":        false,
 			"version":         "v10.11",
 			"resources":       map[string]any{},
-			"users":           map[string]any{"app": map[string]any{"maxUserConnections": int64(5), "password": "x"}},
+			"users":           map[string]any{"app": map[string]any{"maxUserConnections": int64(5)}},
 			"databases":       map[string]any{"appdb": map[string]any{"roles": map[string]any{"admin": []any{"app"}}}},
 		},
 		Status: client.ApplicationStatus{Version: "1.0.0", Ready: true},

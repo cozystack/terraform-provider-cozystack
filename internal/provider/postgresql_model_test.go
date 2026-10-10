@@ -27,7 +27,6 @@ func fullPostgresqlModel() postgresqlModel {
 		Version:         types.StringValue("v18"),
 		Users: types.MapValueMust(usersType, map[string]attr.Value{
 			"app": types.ObjectValueMust(pgUserObjectType(), map[string]attr.Value{
-				"password":    types.StringValue("pw"),
 				"replication": types.BoolValue(true),
 			}),
 		}),
@@ -47,9 +46,24 @@ func TestPostgresqlExpand_Users(t *testing.T) {
 
 	users, _ := got.Spec["users"].(map[string]any)
 	app, _ := users["app"].(map[string]any)
-	if app["replication"] != true || app["password"] != "pw" {
-		t.Errorf("users.app = %v, want {password:pw, replication:true}", app)
+	if app["replication"] != true {
+		t.Errorf("users.app = %v, want {replication:true}", app)
 	}
+}
+
+// The users map is not a top-level key, so the ConfigSpec guard cannot see a
+// field the API drops from a user entry.
+func TestPostgresqlExpandUserKeysMatchUserSpec(t *testing.T) {
+	t.Parallel()
+
+	model := fullPostgresqlModel()
+
+	got, diags := model.expand(context.Background())
+	if diags.HasError() {
+		t.Fatalf("expand diagnostics: %v", diags)
+	}
+
+	assertSpecCoverage(t, nestedSpecKeys(t, got.Spec, "users", "app"), postgresql.User{})
 }
 
 func TestPostgresqlFlatten_RoundTrip(t *testing.T) {
@@ -66,7 +80,7 @@ func TestPostgresqlFlatten_RoundTrip(t *testing.T) {
 			"external":        false,
 			"version":         "v16",
 			"resources":       map[string]any{},
-			"users":           map[string]any{"app": map[string]any{"password": "x", "replication": false}},
+			"users":           map[string]any{"app": map[string]any{"replication": false}},
 			"databases": map[string]any{
 				"appdb": map[string]any{"extensions": []any{"postgis"}, "roles": map[string]any{"admin": []any{"app"}}},
 			},

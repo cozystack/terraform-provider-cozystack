@@ -550,7 +550,7 @@ resource "cozystack_mariadb" "test" {
   name      = "tfaccmaria"
   namespace = "tenant-root"
   replicas  = 1
-  users     = { app = { password = "pw-123" } }
+  users     = { app = {} }
   databases = { appdb = { roles = { admin = ["app"] } } }
 }
 `
@@ -559,7 +559,7 @@ resource "cozystack_mariadb" "test" {
   name      = "tfaccmaria"
   namespace = "tenant-root"
   replicas  = 1
-  users     = { app = { password = "pw-123" }, ro = { password = "pw-456" } }
+  users     = { app = {}, ro = {} }
   databases = { appdb = { roles = { admin = ["app"], readonly = ["ro"] } } }
 }
 `
@@ -573,7 +573,7 @@ resource "cozystack_mariadb" "test" {
 				Config: base,
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("cozystack_mariadb.test", "id", "tenant-root/tfaccmaria"),
-					resource.TestCheckResourceAttr("cozystack_mariadb.test", "users.app.password", "pw-123"),
+					resource.TestCheckResourceAttr("cozystack_mariadb.test", "users.app.max_user_connections", "0"),
 					resource.TestCheckResourceAttr("cozystack_mariadb.test", "databases.appdb.roles.admin.0", "app"),
 				),
 			},
@@ -692,7 +692,7 @@ resource "cozystack_postgres" "test" {
   name      = "tfaccpg"
   namespace = "tenant-root"
   replicas  = 1
-  users     = { app = { password = "pw-123" } }
+  users     = { app = {} }
   databases = { appdb = { roles = { admin = ["app"] } } }
 }
 `
@@ -705,7 +705,7 @@ resource "cozystack_postgres" "test" {
 				Config: config,
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("cozystack_postgres.test", "id", "tenant-root/tfaccpg"),
-					resource.TestCheckResourceAttr("cozystack_postgres.test", "users.app.password", "pw-123"),
+					resource.TestCheckResourceAttr("cozystack_postgres.test", "users.app.replication", "false"),
 					resource.TestCheckResourceAttr("cozystack_postgres.test", "databases.appdb.roles.admin.0", "app"),
 				),
 			},
