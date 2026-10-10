@@ -49,15 +49,12 @@
       "rangeStrategy": "bump"
     },
     {
-      "description": "Keep the Cozystack API module pinned to a released tag, never a pseudo-version",
+      "description": "Temporarily no automatic updates of the Cozystack API module: it is pinned to a main pseudo-version that sorts below the v1.6.x tags, and any v1.6.x tag lacks fields the provider models. Replace it by hand with the first v1.7 tag, then limit this rule to digest updates again (see CLAUDE.md)",
       "matchManagers": [
         "gomod"
       ],
       "matchPackageNames": [
         "github.com/cozystack/cozystack/api/apps/v1alpha1"
-      ],
-      "matchUpdateTypes": [
-        "digest"
       ],
       "enabled": false
     }
