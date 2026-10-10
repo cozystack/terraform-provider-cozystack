@@ -4,6 +4,8 @@
 
 Tracks the Cozystack API at main commit `11499c30e`, ahead of the first v1.7 tag: it is the first commit carrying the shared-central tracing field, and it already contains cozystack/cozystack#3936.
 
+The pinned API also adds a `Valkey` kind and optional fields on several existing kinds; the provider does not model them yet.
+
 ### Features
 
 - `cozystack_tenant`: new `tracing_central` attribute (default `false`), also on the data source. It sends the tenant's traces to the shared VictoriaTraces store in `tenant-root` instead of a per-tenant backend, and needs `monitoring = true` on the tenant and `tenant-root` hosting the store.
