@@ -306,8 +306,11 @@ func TestWaitForReady_TimesOut(t *testing.T) {
 
 	c := client.New(newFake(seed))
 
-	_, err := c.WaitForReady(context.Background(), client.TenantResource(), "tenant-root", "dev", 50*time.Millisecond)
-	if err == nil {
-		t.Fatal("WaitForReady() error = nil, want timeout error")
+	got, err := c.WaitForReady(context.Background(), client.TenantResource(), "tenant-root", "dev", 50*time.Millisecond)
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("WaitForReady() error = %v, want timeout error", err)
+	}
+	if got.Name != "dev" || got.Namespace != "tenant-root" {
+		t.Errorf("last observation = %+v, want tenant-root/dev", got)
 	}
 }

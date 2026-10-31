@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -313,7 +314,7 @@ func readDataSource[M any, PM readModelPtr[M]](
 
 // persistApplication creates or updates an application and, when requested,
 // blocks until it is Ready. It reports false only when nothing was written; a
-// readiness timeout reports true with the last observation and an error
+// readiness failure reports true with the last observation and an error
 // diagnostic, so the caller still records the object that does exist instead of
 // leaving it behind with no state.
 func persistApplication(
@@ -348,7 +349,12 @@ func persistApplication(
 		}
 
 		if waitErr != nil {
-			diags.AddError("Timed out waiting for "+res.Kind+" to become ready", waitErr.Error())
+			summary := "Unable to wait for " + res.Kind + " to become ready"
+			if errors.Is(waitErr, context.DeadlineExceeded) {
+				summary = "Timed out waiting for " + res.Kind + " to become ready"
+			}
+
+			diags.AddError(summary, waitErr.Error())
 		}
 	}
 
