@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"time"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -211,6 +212,11 @@ func (c *Client) WaitForReady(
 // isRetryableReadError limits readiness retries to temporary API and transport
 // failures. Authorization, validation, and missing-object errors remain fatal.
 func isRetryableReadError(err error) bool {
+	var status apierrors.APIStatus
+	if errors.As(err, &status) && status.Status().Code == http.StatusBadGateway {
+		return true
+	}
+
 	return apierrors.IsServiceUnavailable(err) || apierrors.IsInternalError(err) ||
 		apierrors.IsTimeout(err) || apierrors.IsServerTimeout(err) || apierrors.IsTooManyRequests(err) ||
 		utilnet.IsTimeout(err) || utilnet.IsProbableEOF(err) || utilnet.IsConnectionReset(err) ||

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"net"
+	"net/http"
 	"strings"
 	"syscall"
 	"testing"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/cozystack/terraform-provider-cozystack/internal/client"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -27,6 +29,7 @@ func TestWaitForReady_RetriesTransientReadErrors(t *testing.T) {
 	}{
 		{name: "service unavailable", err: apierrors.NewServiceUnavailable("temporarily unavailable")},
 		{name: "internal error", err: apierrors.NewInternalError(errors.New("temporary failure"))},
+		{name: "bad gateway without reason", err: &apierrors.StatusError{ErrStatus: metav1.Status{Code: http.StatusBadGateway}}},
 		{name: "server timeout", err: apierrors.NewServerTimeout(schema.GroupResource{Resource: "tenants"}, "get", 1)},
 		{name: "timeout", err: apierrors.NewTimeoutError("request timed out", 1)},
 		{name: "too many requests", err: apierrors.NewTooManyRequests("try again", 1)},
