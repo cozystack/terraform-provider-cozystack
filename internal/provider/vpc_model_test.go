@@ -89,10 +89,5 @@ func TestVPCExpandKeysMatchConfigSpec(t *testing.T) {
 		t.Fatalf("expand diagnostics: %v", diags)
 	}
 
-	emitted := make(map[string]bool, len(got.Spec))
-	for key := range got.Spec {
-		emitted[key] = true
-	}
-
-	assertSpecCoverage(t, emitted, vpc.ConfigSpec{})
+	assertSpecCoverage(t, got.Spec, vpc.ConfigSpec{})
 }

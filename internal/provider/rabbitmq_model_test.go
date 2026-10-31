@@ -23,7 +23,7 @@ func fullRabbitmqModel() rabbitmqModel {
 		Name:            types.StringValue("queue"),
 		Namespace:       types.StringValue("tenant-root"),
 		Replicas:        types.Int64Value(3),
-		Resources:       types.ObjectNull(resourcesObjectType()),
+		Resources:       resourcesBlock(),
 		ResourcesPreset: types.StringValue("s1.nano"),
 		Size:            types.StringValue("10Gi"),
 		StorageClass:    types.StringValue(""),
@@ -160,11 +160,6 @@ func TestRabbitmqExpandKeysMatchConfigSpec(t *testing.T) {
 		t.Fatalf("expand diagnostics: %v", diags)
 	}
 
-	emitted := make(map[string]bool, len(got.Spec))
-	for key := range got.Spec {
-		emitted[key] = true
-	}
-
 	// Added by the pinned API and not modelled yet.
-	assertSpecCoverage(t, emitted, rabbitmq.ConfigSpec{}, "tls")
+	assertSpecCoverage(t, got.Spec, rabbitmq.ConfigSpec{}, "tls")
 }

@@ -126,22 +126,5 @@ func TestBucketExpandKeysMatchConfigSpec(t *testing.T) {
 		t.Fatalf("expand diagnostics: %v", diags)
 	}
 
-	emitted := make(map[string]bool, len(got.Spec))
-	for key := range got.Spec {
-		emitted[key] = true
-	}
-
-	tags := configSpecJSONTags(bucket.ConfigSpec{})
-
-	for key := range emitted {
-		if !tags[key] {
-			t.Errorf("expand emits %q, which is not a bucket.ConfigSpec json tag", key)
-		}
-	}
-
-	for tag := range tags {
-		if !emitted[tag] {
-			t.Errorf("bucket.ConfigSpec has %q but expand does not emit it", tag)
-		}
-	}
+	assertSpecCoverage(t, got.Spec, bucket.ConfigSpec{})
 }

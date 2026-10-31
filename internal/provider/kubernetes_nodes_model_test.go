@@ -59,10 +59,7 @@ func fullKubernetesNodesKubelet() types.Object {
 	})
 }
 
-// The top-level guard against the api module's ConfigSpec runs with no
-// omissions: every key of the pool spec is modelled, so a field added upstream
-// surfaces as a failing test naming it. The nested blocks get their own guards
-// below, since this one reflects a single level of json tags.
+// The guard covers struct blocks too; GPU slice entries are checked separately.
 func TestKubernetesNodesExpandKeysMatchConfigSpec(t *testing.T) {
 	t.Parallel()
 
@@ -73,21 +70,14 @@ func TestKubernetesNodesExpandKeysMatchConfigSpec(t *testing.T) {
 		t.Fatalf("expand diagnostics: %v", diags)
 	}
 
-	emitted := make(map[string]bool, len(got.Spec))
-	for key := range got.Spec {
-		emitted[key] = true
-	}
-
 	// Added by the pinned API and not modelled yet.
-	assertSpecCoverage(t, emitted, kubernetesnodes.ConfigSpec{},
+	assertSpecCoverage(t, got.Spec, kubernetesnodes.ConfigSpec{},
 		"substrate", "proxmox", "osImage", "kernelModules", "logSerialConsole", "podCpuLimit", "podCpuRequest",
-		"readyUnknownTimeout", "readyFalseTimeout", "maxNodeProvisionTime")
+		"readyUnknownTimeout", "readyFalseTimeout", "maxNodeProvisionTime", "talos.registryMirrors")
 }
 
-// The top-level guard reflects one level of json tags, so the talos, kubelet,
-// images, and gpu submaps are four more hand-mapped surfaces it does not reach.
-// Guarding each separately means a field added to one of them upstream surfaces
-// as a failing test naming the field rather than going silently unmodelled.
+// Keep explicit checks for block fixtures, including a GPU slice element that
+// the ConfigSpec guard deliberately treats as a leaf.
 func TestKubernetesNodesExpandNestedKeysMatchTheirSpecs(t *testing.T) {
 	t.Parallel()
 
@@ -125,12 +115,7 @@ func TestKubernetesNodesExpandNestedKeysMatchTheirSpecs(t *testing.T) {
 				t.Fatalf("%s = %#v, want a submap", tt.block, tt.raw)
 			}
 
-			emitted := make(map[string]bool, len(fields))
-			for key := range fields {
-				emitted[key] = true
-			}
-
-			assertSpecCoverage(t, emitted, tt.spec, tt.omit...)
+			assertSpecCoverage(t, fields, tt.spec, tt.omit...)
 		})
 	}
 }

@@ -100,21 +100,6 @@ func nestedSpec(t *testing.T, spec map[string]any, path ...string) map[string]an
 	return current
 }
 
-// nestedSpecKeys returns the keys of a nested block, so the coverage guard can
-// be pointed at a struct below the top level.
-func nestedSpecKeys(t *testing.T, spec map[string]any, path ...string) map[string]bool {
-	t.Helper()
-
-	block := nestedSpec(t, spec, path...)
-
-	keys := make(map[string]bool, len(block))
-	for key := range block {
-		keys[key] = true
-	}
-
-	return keys
-}
-
 func TestKubernetesExpand_OmitsEmptyHost(t *testing.T) {
 	t.Parallel()
 
@@ -227,7 +212,7 @@ func TestKubernetesExpandTalosKeysMatchTalosSpec(t *testing.T) {
 	}
 
 	// registryMirrors was added by the pinned API and is not modelled yet.
-	assertSpecCoverage(t, nestedSpecKeys(t, got.Spec, "talos"), kubernetes.Talos{}, "registryMirrors")
+	assertSpecCoverage(t, nestedSpec(t, got.Spec, "talos"), kubernetes.Talos{}, "registryMirrors")
 }
 
 func TestKubernetesExpand_OIDCOmittedWhenUnset(t *testing.T) {
@@ -353,20 +338,15 @@ func TestKubernetesExpandOIDCKeysMatchOIDCSpec(t *testing.T) {
 		t.Fatalf("expand diagnostics: %v", diags)
 	}
 
-	assertSpecCoverage(t, nestedSpecKeys(t, got.Spec, "oidc"), kubernetes.OIDC{})
-	assertSpecCoverage(t, nestedSpecKeys(t, got.Spec, "oidc", "customConfig"), kubernetes.OIDCCustomConfig{})
-	assertSpecCoverage(t, nestedSpecKeys(t, got.Spec, "oidc", "customConfig", "secretRef"), kubernetes.OIDCSecretRef{})
+	assertSpecCoverage(t, nestedSpec(t, got.Spec, "oidc"), kubernetes.OIDC{})
+	assertSpecCoverage(t, nestedSpec(t, got.Spec, "oidc", "customConfig"), kubernetes.OIDCCustomConfig{})
+	assertSpecCoverage(t, nestedSpec(t, got.Spec, "oidc", "customConfig", "secretRef"), kubernetes.OIDCSecretRef{})
 
 	oidc, _ := got.Spec["oidc"].(map[string]any)
 	users, _ := oidc["users"].([]any)
 	user, _ := users[0].(map[string]any)
 
-	emitted := make(map[string]bool, len(user))
-	for key := range user {
-		emitted[key] = true
-	}
-
-	assertSpecCoverage(t, emitted, kubernetes.OIDCUser{})
+	assertSpecCoverage(t, user, kubernetes.OIDCUser{})
 }
 
 // controlPlane is a passthrough to the KamajiControlPlane. Everything except
@@ -465,9 +445,10 @@ func TestKubernetesExpandControlPlaneKeysMatchSpec(t *testing.T) {
 	// did before controlPlane was modelled at all. controlPlane.kubelet and
 	// apiServer.admissionControllers were added by the pinned API and are not
 	// modelled yet.
-	assertSpecCoverage(t, nestedSpecKeys(t, got.Spec, "controlPlane"), kubernetes.ControlPlane{},
-		"controllerManager", "konnectivity", "replicas", "scheduler", "kubelet")
-	assertSpecCoverage(t, nestedSpecKeys(t, got.Spec, "controlPlane", "apiServer"), kubernetes.APIServer{},
+	assertSpecCoverage(t, nestedSpec(t, got.Spec, "controlPlane"), kubernetes.ControlPlane{},
+		"controllerManager", "konnectivity", "replicas", "scheduler", "kubelet",
+		"apiServer.resources", "apiServer.resourcesPreset", "apiServer.admissionControllers")
+	assertSpecCoverage(t, nestedSpec(t, got.Spec, "controlPlane", "apiServer"), kubernetes.APIServer{},
 		"resources", "resourcesPreset", "admissionControllers")
 }
 
@@ -537,7 +518,7 @@ func TestKubernetesExpandImagesKeysMatchSpec(t *testing.T) {
 		t.Fatalf("expand diagnostics: %v", diags)
 	}
 
-	assertSpecCoverage(t, nestedSpecKeys(t, got.Spec, "images"), kubernetes.Images{})
+	assertSpecCoverage(t, nestedSpec(t, got.Spec, "images"), kubernetes.Images{})
 }
 
 func TestKubernetesFlatten_RoundTrip(t *testing.T) {
@@ -575,13 +556,12 @@ func TestKubernetesExpandKeysMatchConfigSpec(t *testing.T) {
 		t.Fatalf("expand diagnostics: %v", diags)
 	}
 
-	emitted := make(map[string]bool, len(got.Spec))
-	for key := range got.Spec {
-		emitted[key] = true
-	}
-
 	// substrate and proxmox were added by the pinned API and are not modelled yet.
-	assertSpecCoverage(t, emitted, kubernetes.ConfigSpec{}, "addons", "substrate", "proxmox")
+	assertSpecCoverage(t, got.Spec, kubernetes.ConfigSpec{}, "addons", "substrate", "proxmox",
+		"talos.registryMirrors", "controlPlane.controllerManager", "controlPlane.konnectivity",
+		"controlPlane.replicas", "controlPlane.scheduler", "controlPlane.kubelet",
+		"controlPlane.apiServer.resources", "controlPlane.apiServer.resourcesPreset",
+		"controlPlane.apiServer.admissionControllers")
 }
 
 func TestKubernetesResourceFlatten_KeepsUnconfiguredBlocksOut(t *testing.T) {

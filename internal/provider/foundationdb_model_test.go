@@ -14,7 +14,7 @@ func fullFoundationDBModel() foundationdbModel {
 		Name:                  types.StringValue("fdb"),
 		Namespace:             types.StringValue("tenant-root"),
 		Storage:               fdbStorageDefault(),
-		Resources:             types.ObjectNull(resourcesObjectType()),
+		Resources:             resourcesBlock(),
 		ResourcesPreset:       types.StringValue("c1.small"),
 		CustomParameters:      types.ListNull(types.StringType),
 		ImageType:             types.StringValue("unified"),
@@ -89,11 +89,6 @@ func TestFoundationDBExpandKeysMatchConfigSpec(t *testing.T) {
 		t.Fatalf("expand diagnostics: %v", diags)
 	}
 
-	emitted := make(map[string]bool, len(got.Spec))
-	for key := range got.Spec {
-		emitted[key] = true
-	}
-
-	assertSpecCoverage(t, emitted, foundationdb.ConfigSpec{},
+	assertSpecCoverage(t, got.Spec, foundationdb.ConfigSpec{},
 		"cluster", "backup", "monitoring", "securityContext")
 }

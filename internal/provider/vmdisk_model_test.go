@@ -89,17 +89,21 @@ func TestVMDiskExpandKeysMatchConfigSpec(t *testing.T) {
 	t.Parallel()
 
 	model := fullVMDiskModel()
+	// Exercise every supported source alternative. Only expand is under test;
+	// a real disk configuration selects one source at a time.
+	source := model.Source.Attributes()
+	for _, name := range []string{"disk", "image"} {
+		source[name] = types.ObjectValueMust(vmdiskNameObjectType(), map[string]attr.Value{
+			"name": types.StringValue("base"),
+		})
+	}
+	model.Source = types.ObjectValueMust(vmdiskSourceObjectType(), source)
 
 	got, diags := model.expand(context.Background())
 	if diags.HasError() {
 		t.Fatalf("expand diagnostics: %v", diags)
 	}
 
-	emitted := make(map[string]bool, len(got.Spec))
-	for key := range got.Spec {
-		emitted[key] = true
-	}
-
-	// Added by the pinned API and not modelled yet.
-	assertSpecCoverage(t, emitted, vmdisk.ConfigSpec{}, "bindImmediately")
+	// bindImmediately is not modelled yet; interactive uploads are not managed.
+	assertSpecCoverage(t, got.Spec, vmdisk.ConfigSpec{}, "bindImmediately", "source.upload")
 }

@@ -85,12 +85,7 @@ func TestBackupPlanGuard(t *testing.T) {
 
 	got, _ := model.expand(context.Background())
 
-	emitted := map[string]bool{}
-	for key := range got.Spec {
-		emitted[key] = true
-	}
-
-	assertSpecCoverage(t, emitted, planSpecGuard{})
+	assertSpecCoverage(t, got.Spec, planSpecGuard{})
 }
 
 func TestRestoreJobExpandGuard(t *testing.T) {
@@ -114,10 +109,5 @@ func TestRestoreJobExpandGuard(t *testing.T) {
 		t.Errorf("backupRef.name = %v, want daily-20260602", backupRef["name"])
 	}
 
-	emitted := map[string]bool{}
-	for key := range got.Spec {
-		emitted[key] = true
-	}
-
-	assertSpecCoverage(t, emitted, restoreJobSpecGuard{})
+	assertSpecCoverage(t, got.Spec, restoreJobSpecGuard{})
 }

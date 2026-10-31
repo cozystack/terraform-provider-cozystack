@@ -17,7 +17,7 @@ func fullVPNModel() vpnModel {
 		Name:            types.StringValue("gw"),
 		Namespace:       types.StringValue("tenant-root"),
 		Replicas:        types.Int64Value(2),
-		Resources:       types.ObjectNull(resourcesObjectType()),
+		Resources:       resourcesBlock(),
 		ResourcesPreset: types.StringValue("t1.nano"),
 		External:        types.BoolValue(true),
 		Host:            types.StringValue("vpn.example.test"),
@@ -100,22 +100,5 @@ func TestVPNExpandKeysMatchConfigSpec(t *testing.T) {
 		t.Fatalf("expand diagnostics: %v", diags)
 	}
 
-	emitted := make(map[string]bool, len(got.Spec))
-	for key := range got.Spec {
-		emitted[key] = true
-	}
-
-	tags := configSpecJSONTags(vpn.ConfigSpec{})
-
-	for key := range emitted {
-		if !tags[key] {
-			t.Errorf("expand emits %q, not a vpn.ConfigSpec json tag", key)
-		}
-	}
-
-	for tag := range tags {
-		if !emitted[tag] {
-			t.Errorf("vpn.ConfigSpec has %q but expand does not emit it", tag)
-		}
-	}
+	assertSpecCoverage(t, got.Spec, vpn.ConfigSpec{})
 }

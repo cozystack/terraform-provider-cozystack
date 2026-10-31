@@ -87,12 +87,7 @@ func TestHarborExpandKeysMatchConfigSpec(t *testing.T) {
 		t.Fatalf("expand diagnostics: %v", diags)
 	}
 
-	emitted := make(map[string]bool, len(got.Spec))
-	for key := range got.Spec {
-		emitted[key] = true
-	}
-
 	// managementWhitelist was added by the pinned API and is not modelled yet.
-	assertSpecCoverage(t, emitted, harbor.ConfigSpec{},
+	assertSpecCoverage(t, got.Spec, harbor.ConfigSpec{},
 		"core", "registry", "jobservice", "trivy", "database", "redis", "managementWhitelist")
 }
