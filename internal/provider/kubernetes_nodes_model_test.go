@@ -59,7 +59,6 @@ func fullKubernetesNodesKubelet() types.Object {
 	})
 }
 
-// The guard covers struct blocks too; GPU slice entries are checked separately.
 func TestKubernetesNodesExpandKeysMatchConfigSpec(t *testing.T) {
 	t.Parallel()
 
