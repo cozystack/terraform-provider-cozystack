@@ -201,20 +201,6 @@ func TestKubernetesFlatten_Talos(t *testing.T) {
 	}
 }
 
-func TestKubernetesExpandTalosKeysMatchTalosSpec(t *testing.T) {
-	t.Parallel()
-
-	model := fullKubernetesModel()
-
-	got, diags := model.expand(context.Background())
-	if diags.HasError() {
-		t.Fatalf("expand diagnostics: %v", diags)
-	}
-
-	// registryMirrors was added by the pinned API and is not modelled yet.
-	assertSpecCoverage(t, nestedSpec(t, got.Spec, "talos"), kubernetes.Talos{}, "registryMirrors")
-}
-
 func TestKubernetesExpand_OIDCOmittedWhenUnset(t *testing.T) {
 	t.Parallel()
 
@@ -328,7 +314,7 @@ func TestKubernetesFlatten_OIDC(t *testing.T) {
 	}
 }
 
-func TestKubernetesExpandOIDCKeysMatchOIDCSpec(t *testing.T) {
+func TestKubernetesExpandOIDCUserKeysMatchUserSpec(t *testing.T) {
 	t.Parallel()
 
 	model := fullKubernetesModel()
@@ -337,10 +323,6 @@ func TestKubernetesExpandOIDCKeysMatchOIDCSpec(t *testing.T) {
 	if diags.HasError() {
 		t.Fatalf("expand diagnostics: %v", diags)
 	}
-
-	assertSpecCoverage(t, nestedSpec(t, got.Spec, "oidc"), kubernetes.OIDC{})
-	assertSpecCoverage(t, nestedSpec(t, got.Spec, "oidc", "customConfig"), kubernetes.OIDCCustomConfig{})
-	assertSpecCoverage(t, nestedSpec(t, got.Spec, "oidc", "customConfig", "secretRef"), kubernetes.OIDCSecretRef{})
 
 	oidc, _ := got.Spec["oidc"].(map[string]any)
 	users, _ := oidc["users"].([]any)
@@ -431,27 +413,6 @@ func TestKubernetesFlatten_ControlPlane(t *testing.T) {
 	}
 }
 
-func TestKubernetesExpandControlPlaneKeysMatchSpec(t *testing.T) {
-	t.Parallel()
-
-	model := fullKubernetesModel()
-
-	got, diags := model.expand(context.Background())
-	if diags.HasError() {
-		t.Fatalf("expand diagnostics: %v", diags)
-	}
-
-	// The sizing of the control-plane components stays with the server, as it
-	// did before controlPlane was modelled at all. controlPlane.kubelet and
-	// apiServer.admissionControllers were added by the pinned API and are not
-	// modelled yet.
-	assertSpecCoverage(t, nestedSpec(t, got.Spec, "controlPlane"), kubernetes.ControlPlane{},
-		"controllerManager", "konnectivity", "replicas", "scheduler", "kubelet",
-		"apiServer.resources", "apiServer.resourcesPreset", "apiServer.admissionControllers")
-	assertSpecCoverage(t, nestedSpec(t, got.Spec, "controlPlane", "apiServer"), kubernetes.APIServer{},
-		"resources", "resourcesPreset", "admissionControllers")
-}
-
 // The image overrides exist for air-gapped and rate-limited registries. Empty
 // means "use the chart's pinned tag", so an unset attribute must not be written
 // as an empty string either — the key simply stays out.
@@ -508,19 +469,6 @@ func TestKubernetesFlatten_Images(t *testing.T) {
 	}
 }
 
-func TestKubernetesExpandImagesKeysMatchSpec(t *testing.T) {
-	t.Parallel()
-
-	model := fullKubernetesModel()
-
-	got, diags := model.expand(context.Background())
-	if diags.HasError() {
-		t.Fatalf("expand diagnostics: %v", diags)
-	}
-
-	assertSpecCoverage(t, nestedSpec(t, got.Spec, "images"), kubernetes.Images{})
-}
-
 func TestKubernetesFlatten_RoundTrip(t *testing.T) {
 	t.Parallel()
 
@@ -556,7 +504,9 @@ func TestKubernetesExpandKeysMatchConfigSpec(t *testing.T) {
 		t.Fatalf("expand diagnostics: %v", diags)
 	}
 
-	// substrate and proxmox were added by the pinned API and are not modelled yet.
+	// Addons and control-plane component sizing stay server-managed. The pinned
+	// API's substrate, proxmox, talos.registryMirrors, controlPlane.kubelet, and
+	// controlPlane.apiServer.admissionControllers are not modelled yet.
 	assertSpecCoverage(t, got.Spec, kubernetes.ConfigSpec{}, "addons", "substrate", "proxmox",
 		"talos.registryMirrors", "controlPlane.controllerManager", "controlPlane.konnectivity",
 		"controlPlane.replicas", "controlPlane.scheduler", "controlPlane.kubelet",

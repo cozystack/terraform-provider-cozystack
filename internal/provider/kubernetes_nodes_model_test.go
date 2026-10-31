@@ -75,9 +75,8 @@ func TestKubernetesNodesExpandKeysMatchConfigSpec(t *testing.T) {
 		"readyUnknownTimeout", "readyFalseTimeout", "maxNodeProvisionTime", "talos.registryMirrors")
 }
 
-// Keep explicit checks for block fixtures, including a GPU slice element that
-// the ConfigSpec guard deliberately treats as a leaf.
-func TestKubernetesNodesExpandNestedKeysMatchTheirSpecs(t *testing.T) {
+// GPU slice elements need an explicit guard because ConfigSpec treats slices as leaves.
+func TestKubernetesNodesExpandGPUKeysMatchGPUSpec(t *testing.T) {
 	t.Parallel()
 
 	model := fullKubernetesNodesModel()
@@ -92,31 +91,12 @@ func TestKubernetesNodesExpandNestedKeysMatchTheirSpecs(t *testing.T) {
 		t.Fatalf("gpus has %d entries, want 1", len(gpus))
 	}
 
-	tests := []struct {
-		block string
-		raw   any
-		spec  any
-		omit  []string
-	}{
-		// registryMirrors was added by the pinned API and is not modelled yet.
-		{block: "talos", raw: got.Spec["talos"], spec: kubernetesnodes.Talos{}, omit: []string{"registryMirrors"}},
-		{block: "kubelet", raw: got.Spec["kubelet"], spec: kubernetesnodes.Kubelet{}},
-		{block: "images", raw: got.Spec["images"], spec: kubernetesnodes.Images{}},
-		{block: "gpus[0]", raw: gpus[0], spec: kubernetesnodes.GPU{}},
+	gpu, ok := gpus[0].(map[string]any)
+	if !ok {
+		t.Fatalf("gpus[0] = %#v, want a submap", gpus[0])
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.block, func(t *testing.T) {
-			t.Parallel()
-
-			fields, ok := tt.raw.(map[string]any)
-			if !ok {
-				t.Fatalf("%s = %#v, want a submap", tt.block, tt.raw)
-			}
-
-			assertSpecCoverage(t, fields, tt.spec, tt.omit...)
-		})
-	}
+	assertSpecCoverage(t, gpu, kubernetesnodes.GPU{})
 }
 
 func TestKubernetesNodesExpand_NestedBlocks(t *testing.T) {
