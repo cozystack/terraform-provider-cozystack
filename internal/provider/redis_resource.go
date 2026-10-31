@@ -195,6 +195,7 @@ func redisSpecAttributes() map[string]schema.Attribute {
 			Default:             booldefault.StaticBool(true),
 			MarkdownDescription: "Generate a password and require authentication.",
 		},
+		attrMaxmemoryPolicy: redisMaxmemoryPolicyAttribute(),
 		attrResourcesPreset: schema.StringAttribute{
 			Optional:            true,
 			Computed:            true,
@@ -216,6 +217,25 @@ func redisSpecAttributes() map[string]schema.Attribute {
 				},
 			},
 		},
+	}
+}
+
+func redisMaxmemoryPolicyAttribute() schema.StringAttribute {
+	return schema.StringAttribute{
+		Optional: true,
+		Computed: true,
+		Default:  stringdefault.StaticString(defaultMaxmemoryPolicy),
+		Validators: []validator.String{stringvalidator.OneOf(
+			"noeviction", "allkeys-lru", "allkeys-lfu", "volatile-lru", "volatile-lfu",
+			"allkeys-random", "volatile-random", "volatile-ttl",
+		)},
+		MarkdownDescription: "Redis eviction policy when a nonzero `maxmemory` limit is reached. " +
+			"Defaults to `noeviction`, which refuses writes rather than evicting keys. " +
+			"Allowed values: `noeviction`, `allkeys-lru`, `allkeys-lfu`, `volatile-lru`, " +
+			"`volatile-lfu`, `allkeys-random`, `volatile-random`, `volatile-ttl`. " +
+			"Requires a Cozystack Redis API and chart with `maxmemoryPolicy` support to change the policy; " +
+			"older charts may ignore the value even when the API accepts it. " +
+			"Removing this attribute resets the policy to `noeviction`.",
 	}
 }
 

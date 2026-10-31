@@ -8,8 +8,13 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
-// redisModel maps the cozystack_redis schema to Go types. The spec attributes
-// mirror the json tags of the pinned redis.ConfigSpec one-to-one.
+const (
+	attrMaxmemoryPolicy    = "maxmemory_policy"
+	specMaxmemoryPolicy    = "maxmemoryPolicy"
+	defaultMaxmemoryPolicy = "noeviction"
+)
+
+// redisModel maps the cozystack_redis schema to Go types.
 type redisModel struct {
 	ID              types.String `tfsdk:"id"`
 	Name            types.String `tfsdk:"name"`
@@ -20,6 +25,7 @@ type redisModel struct {
 	External        types.Bool   `tfsdk:"external"`
 	Version         types.String `tfsdk:"version"`
 	AuthEnabled     types.Bool   `tfsdk:"auth_enabled"`
+	MaxmemoryPolicy types.String `tfsdk:"maxmemory_policy"`
 	ResourcesPreset types.String `tfsdk:"resources_preset"`
 	Resources       types.Object `tfsdk:"resources"`
 	Ready           types.Bool   `tfsdk:"ready"`
@@ -54,6 +60,8 @@ func (m *redisModel) expand(ctx context.Context) (*client.Application, diag.Diag
 		attrResources:       resources,
 	}
 
+	setOptionalString(spec, specMaxmemoryPolicy, m.MaxmemoryPolicy)
+
 	return &client.Application{
 		Name:      m.Name.ValueString(),
 		Namespace: m.Namespace.ValueString(),
@@ -74,6 +82,10 @@ func (m *redisModel) flatten(app *client.Application) diag.Diagnostics {
 	m.External = types.BoolValue(specBool(app.Spec, attrExternal))
 	m.Version = types.StringValue(specString(app.Spec, attrVersion))
 	m.AuthEnabled = types.BoolValue(specBool(app.Spec, specAuthEnabled))
+	m.MaxmemoryPolicy = specStringOrNull(app.Spec, specMaxmemoryPolicy)
+	if m.MaxmemoryPolicy.IsNull() {
+		m.MaxmemoryPolicy = types.StringValue(defaultMaxmemoryPolicy)
+	}
 	m.ResourcesPreset = types.StringValue(specString(app.Spec, specResourcesPreset))
 
 	resources, rDiags := flattenResources(app.Spec[attrResources])

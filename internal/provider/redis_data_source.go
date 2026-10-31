@@ -56,6 +56,7 @@ func (d *redisDataSource) Schema(
 			attrExternal:        schema.BoolAttribute{Computed: true, MarkdownDescription: "Whether external access is enabled."},
 			attrVersion:         schema.StringAttribute{Computed: true, MarkdownDescription: "Redis major version."},
 			attrAuthEnabled:     schema.BoolAttribute{Computed: true, MarkdownDescription: "Whether authentication is enabled."},
+			attrMaxmemoryPolicy: schema.StringAttribute{Computed: true, MarkdownDescription: "Configured Redis eviction policy. Reports `noeviction` when the API omits `maxmemoryPolicy`, including on older clusters."},
 			attrResourcesPreset: schema.StringAttribute{Computed: true, MarkdownDescription: "Sizing preset."},
 			attrResources: schema.SingleNestedAttribute{
 				Computed:            true,

@@ -20,6 +20,7 @@ func fullRedisModel() redisModel {
 		External:        types.BoolValue(false),
 		Version:         types.StringValue("v8"),
 		AuthEnabled:     types.BoolValue(true),
+		MaxmemoryPolicy: types.StringValue("allkeys-lru"),
 		ResourcesPreset: types.StringValue("t1.small"),
 		Resources: types.ObjectValueMust(resourcesObjectType(), map[string]attr.Value{
 			"cpu":    types.StringValue("500m"),
@@ -178,6 +179,77 @@ func TestRedisExpandKeysMatchConfigSpec(t *testing.T) {
 		emitted[key] = true
 	}
 
+	// maxmemoryPolicy is newer than the pinned API; its wire key is checked separately.
+	if got.Spec["maxmemoryPolicy"] != "allkeys-lru" {
+		t.Errorf("spec.maxmemoryPolicy = %v, want allkeys-lru", got.Spec["maxmemoryPolicy"])
+	}
+	delete(emitted, "maxmemoryPolicy")
+
 	// Added by the pinned API and not modelled yet.
 	assertSpecCoverage(t, emitted, redis.ConfigSpec{}, "tls")
+}
+
+func TestRedisMaxmemoryPolicyRoundTrip(t *testing.T) {
+	t.Parallel()
+
+	for _, policy := range []string{
+		"noeviction", "allkeys-lru", "allkeys-lfu", "volatile-lru", "volatile-lfu",
+		"allkeys-random", "volatile-random", "volatile-ttl",
+	} {
+		t.Run(policy, func(t *testing.T) {
+			t.Parallel()
+
+			model := fullRedisModel()
+			model.MaxmemoryPolicy = types.StringValue(policy)
+			app, diags := model.expand(context.Background())
+			if diags.HasError() {
+				t.Fatalf("expand diagnostics: %v", diags)
+			}
+			if got := app.Spec["maxmemoryPolicy"]; got != policy {
+				t.Errorf("spec.maxmemoryPolicy = %v, want %s", got, policy)
+			}
+			var out redisModel
+			if diags := out.flatten(app); diags.HasError() {
+				t.Fatalf("flatten diagnostics: %v", diags)
+			}
+			if !out.MaxmemoryPolicy.Equal(model.MaxmemoryPolicy) {
+				t.Errorf("maxmemory_policy = %v, want %v", out.MaxmemoryPolicy, model.MaxmemoryPolicy)
+			}
+		})
+	}
+}
+
+func TestRedisMaxmemoryPolicyExpandUnset(t *testing.T) {
+	t.Parallel()
+
+	for _, value := range []types.String{types.StringNull(), types.StringUnknown()} {
+		t.Run(value.String(), func(t *testing.T) {
+			t.Parallel()
+
+			model := fullRedisModel()
+			model.MaxmemoryPolicy = value
+			app, diags := model.expand(context.Background())
+			if diags.HasError() {
+				t.Fatalf("expand diagnostics: %v", diags)
+			}
+			if _, present := app.Spec["maxmemoryPolicy"]; present {
+				t.Errorf("unset policy emitted %v, want key omitted", app.Spec["maxmemoryPolicy"])
+			}
+		})
+	}
+}
+
+func TestRedisMaxmemoryPolicyFlattenLegacy(t *testing.T) {
+	t.Parallel()
+
+	for _, spec := range []map[string]any{nil, {}, {"maxmemoryPolicy": nil}} {
+		model := fullRedisModel()
+		app := &client.Application{Name: "cache", Namespace: "tenant-root", Spec: spec}
+		if diags := model.flatten(app); diags.HasError() {
+			t.Fatalf("flatten diagnostics: %v", diags)
+		}
+		if got := model.MaxmemoryPolicy.ValueString(); got != "noeviction" {
+			t.Errorf("maxmemory_policy = %q, want noeviction, not prior configured allkeys-lru", got)
+		}
+	}
 }

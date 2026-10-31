@@ -8,6 +8,8 @@ The pinned API also adds a `Valkey` kind and optional fields on several existing
 
 ### Features
 
+- `cozystack_redis`: new `maxmemory_policy` attribute (default `noeviction`), also exposed by the data source. Changing the eviction policy requires a Cozystack Redis API and chart with `maxmemoryPolicy` support. Removing the attribute resets the policy to `noeviction`; older APIs that omit the field are read as `noeviction`.
+
 - `cozystack_tenant`: new `tracing_central` attribute (default `false`), also on the data source. It sends the tenant's traces to the shared VictoriaTraces store in `tenant-root` instead of a per-tenant backend, and needs `monitoring = true` on the tenant and `tenant-root` hosting the store.
 
 ### Breaking changes

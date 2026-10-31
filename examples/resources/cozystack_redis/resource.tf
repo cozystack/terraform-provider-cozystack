@@ -2,10 +2,11 @@ resource "cozystack_redis" "cache" {
   name      = "cache"
   namespace = "tenant-root"
 
-  replicas     = 2
-  size         = "2Gi"
-  version      = "v8"
-  auth_enabled = true
+  replicas         = 2
+  size             = "2Gi"
+  version          = "v8"
+  auth_enabled     = true
+  maxmemory_policy = "allkeys-lru"
 }
 
 # Size with an explicit request instead of a preset.
