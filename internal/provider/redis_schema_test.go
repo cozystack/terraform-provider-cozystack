@@ -15,6 +15,9 @@ import (
 	"github.com/hashicorp/terraform-plugin-go/tftypes"
 )
 
+// TestRedisMaxmemoryPolicySchema separates resource defaulting from read-only
+// data-source state. Policy changes must not require replacement or retain a
+// stale value through a plan modifier.
 func TestRedisMaxmemoryPolicySchema(t *testing.T) {
 	t.Parallel()
 
@@ -40,6 +43,8 @@ func TestRedisMaxmemoryPolicySchema(t *testing.T) {
 	}
 }
 
+// TestRedisMaxmemoryPolicyValidation allows null and unknown values during
+// planning while requiring concrete policies to use Redis's case-sensitive names.
 func TestRedisMaxmemoryPolicyValidation(t *testing.T) {
 	t.Parallel()
 
@@ -81,6 +86,9 @@ func TestRedisMaxmemoryPolicyValidation(t *testing.T) {
 	}
 }
 
+// TestRedisMaxmemoryPolicyPlan exercises framework-owned defaulting: removing
+// configuration resets the prior policy, while an unknown expression stays
+// unknown and policy changes remain in-place.
 func TestRedisMaxmemoryPolicyPlan(t *testing.T) {
 	t.Parallel()
 
@@ -162,6 +170,8 @@ func redisProtocolValue(t *testing.T, schemaType tftypes.Type, policy any) tfpro
 	return value
 }
 
+// TestRedisMaxmemoryPolicyStateBinding checks that embedding redisModel does
+// not lose the policy's tfsdk binding in resource or data-source state.
 func TestRedisMaxmemoryPolicyStateBinding(t *testing.T) {
 	t.Parallel()
 

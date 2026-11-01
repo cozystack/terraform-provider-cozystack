@@ -189,6 +189,9 @@ func TestRedisExpandKeysMatchConfigSpec(t *testing.T) {
 	assertSpecCoverage(t, emitted, redis.ConfigSpec{}, "tls")
 }
 
+// TestRedisMaxmemoryPolicyRoundTrip checks the wire contract independently of
+// schema validation: supported policy strings must survive the camel-cased API
+// key without normalization or substitution.
 func TestRedisMaxmemoryPolicyRoundTrip(t *testing.T) {
 	t.Parallel()
 
@@ -219,6 +222,9 @@ func TestRedisMaxmemoryPolicyRoundTrip(t *testing.T) {
 	}
 }
 
+// TestRedisMaxmemoryPolicyExpandUnset leaves unresolved input off the wire
+// rather than sending an invalid empty policy. Defaulting belongs to planning,
+// not model expansion.
 func TestRedisMaxmemoryPolicyExpandUnset(t *testing.T) {
 	t.Parallel()
 
@@ -239,6 +245,8 @@ func TestRedisMaxmemoryPolicyExpandUnset(t *testing.T) {
 	}
 }
 
+// TestRedisMaxmemoryPolicyFlattenLegacy treats an absent or null API field as
+// the legacy default, replacing any previously configured non-default value.
 func TestRedisMaxmemoryPolicyFlattenLegacy(t *testing.T) {
 	t.Parallel()
 
