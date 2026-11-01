@@ -17,10 +17,11 @@ resource "cozystack_redis" "cache" {
   name      = "cache"
   namespace = "tenant-root"
 
-  replicas     = 2
-  size         = "2Gi"
-  version      = "v8"
-  auth_enabled = true
+  replicas         = 2
+  size             = "2Gi"
+  version          = "v8"
+  auth_enabled     = true
+  maxmemory_policy = "allkeys-lru"
 }
 
 # Size with an explicit request instead of a preset.
@@ -47,6 +48,7 @@ resource "cozystack_redis" "sized" {
 
 - `auth_enabled` (Boolean) Generate a password and require authentication.
 - `external` (Boolean) Enable external access from outside the cluster.
+- `maxmemory_policy` (String) Redis eviction policy when a nonzero `maxmemory` limit is reached. Defaults to `noeviction`, which refuses writes rather than evicting keys. Allowed values: `noeviction`, `allkeys-lru`, `allkeys-lfu`, `volatile-lru`, `volatile-lfu`, `allkeys-random`, `volatile-random`, `volatile-ttl`. Requires a Cozystack Redis API and chart with `maxmemoryPolicy` support to change the policy; older charts may ignore the value even when the API accepts it. Removing this attribute resets the policy to `noeviction`.
 - `replicas` (Number) Number of Redis replicas.
 - `resources` (Attributes) Explicit CPU and memory per replica. Overrides `resources_preset` for any field set. (see [below for nested schema](#nestedatt--resources))
 - `resources_preset` (String) Sizing preset applied when `resources` is omitted (e.g. `t1.nano`).
