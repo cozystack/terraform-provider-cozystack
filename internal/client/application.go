@@ -2,13 +2,16 @@ package client
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"net/http"
 	"time"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	utilnet "k8s.io/apimachinery/pkg/util/net"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/dynamic"
 )
@@ -159,32 +162,65 @@ func (c *Client) Delete(ctx context.Context, res Resource, namespace, name strin
 }
 
 // WaitForReady polls the application until its Ready condition is true or the
-// timeout elapses, returning the most recent observation.
+// timeout elapses, returning the most recent observation. Transient API and
+// connection errors are retried within the same timeout; other errors stop the wait.
 func (c *Client) WaitForReady(
 	ctx context.Context,
 	res Resource,
 	namespace, name string,
 	timeout time.Duration,
 ) (Application, error) {
-	var last Application
+	var (
+		last        Application
+		lastReadErr error
+	)
 
 	condition := func(ctx context.Context) (bool, error) {
 		app, err := c.Get(ctx, res, namespace, name)
 		if err != nil {
+			if ctx.Err() != nil {
+				return false, ctx.Err()
+			}
+
+			if isRetryableReadError(err) {
+				lastReadErr = err
+
+				return false, nil
+			}
+
 			return false, err
 		}
 
 		last = app
+		lastReadErr = nil
 
 		return app.Status.Ready, nil
 	}
 
 	err := wait.PollUntilContextTimeout(ctx, readyPollInterval, timeout, true, condition)
 	if err != nil {
+		if errors.Is(err, context.DeadlineExceeded) && lastReadErr != nil {
+			err = fmt.Errorf("%w; last read failed: %w", err, lastReadErr)
+		}
+
 		return last, fmt.Errorf("waiting for %s %s/%s to become ready: %w", res.Kind, namespace, name, err)
 	}
 
 	return last, nil
+}
+
+// isRetryableReadError limits readiness retries to temporary API and transport
+// failures. Authorization, validation, and missing-object errors remain fatal.
+func isRetryableReadError(err error) bool {
+	var status apierrors.APIStatus
+	if errors.As(err, &status) && status.Status().Code == http.StatusBadGateway {
+		return true
+	}
+
+	return apierrors.IsServiceUnavailable(err) || apierrors.IsInternalError(err) ||
+		apierrors.IsTimeout(err) || apierrors.IsServerTimeout(err) || apierrors.IsTooManyRequests(err) ||
+		utilnet.IsTimeout(err) || utilnet.IsProbableEOF(err) || utilnet.IsConnectionReset(err) ||
+		utilnet.IsHTTP2ConnectionLost(err) || utilnet.IsConnectionRefused(err)
 }
 
 // toUnstructured renders an Application as an unstructured Cozystack object.

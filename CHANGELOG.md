@@ -10,6 +10,10 @@ The pinned API also adds a `Valkey` kind and optional fields on several existing
 
 - `cozystack_tenant`: new `tracing_central` attribute (default `false`), also on the data source. It sends the tenant's traces to the shared VictoriaTraces store in `tenant-root` instead of a per-tenant backend, and needs `monitoring = true` on the tenant and `tenant-root` hosting the store.
 
+### Fixes
+
+- `wait_for_ready` retries temporary API and connection failures within the existing timeout. Permanent read failures and cancellation no longer report a misleading timeout; the created or updated object is still kept in state.
+
 ### Breaking changes
 
 - `cozystack_httpcache` (resource and data source) is removed, following Cozystack, which dropped the HTTPCache application and its ResourceDefinition: a cluster on this API no longer serves the kind. Remove the resource from your configuration and run `terraform state rm` for each instance before upgrading the provider.

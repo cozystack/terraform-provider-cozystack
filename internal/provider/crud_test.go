@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -12,6 +13,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -451,7 +453,72 @@ func TestPersistApplication_ReadinessTimeoutKeepsTheObject(t *testing.T) {
 		t.Errorf("result = %s/%s, want tenant-root/assets", result.Namespace, result.Name)
 	}
 
-	if !diags.HasError() {
-		t.Error("diagnostics = none, want the readiness timeout reported")
+	if diags.ErrorsCount() != 1 {
+		t.Fatalf("diagnostics = %v, want the readiness timeout reported", diags)
+	}
+	if summary := diags.Errors()[0].Summary(); summary != "Timed out waiting for Bucket to become ready" {
+		t.Errorf("summary = %q, want a timeout diagnostic", summary)
+	}
+}
+
+// Readiness errors must leave the persisted object available to be recorded in
+// state, for updates as well as creates, without calling every error a timeout.
+func TestPersistApplication_ReadinessErrorKeepsTheObject(t *testing.T) {
+	t.Parallel()
+
+	for _, create := range []bool{true, false} {
+		for _, cause := range []string{"forbidden", "canceled", "forbidden after timeout", "canceled after timeout"} {
+			t.Run(fmt.Sprintf("create=%t/%s", create, cause), func(t *testing.T) {
+				t.Parallel()
+
+				ctx, cancel := context.WithCancel(context.Background())
+				defer cancel()
+
+				dyn := fakeOutputsDynamic()
+				api := client.New(dyn)
+				app := &client.Application{Name: "assets", Namespace: "tenant-root", Spec: map[string]any{}}
+				if !create {
+					if _, err := api.Create(ctx, client.BucketResource(), app); err != nil {
+						t.Fatalf("seeding existing object: %v", err)
+					}
+				}
+
+				persisted := false
+				reads := 0
+				dyn.PrependReactor("*", "buckets", func(action k8stesting.Action) (bool, runtime.Object, error) {
+					if action.GetVerb() == "create" || action.GetVerb() == "update" {
+						persisted = true
+					}
+					if action.GetVerb() != "get" || !persisted {
+						return false, nil, nil
+					}
+					reads++
+					if reads == 1 && strings.HasSuffix(cause, " after timeout") {
+						return true, nil, fmt.Errorf("request timed out: %w", context.DeadlineExceeded)
+					}
+					if strings.HasPrefix(cause, "canceled") {
+						cancel()
+						return true, nil, context.Canceled
+					}
+
+					return true, nil, apierrors.NewForbidden(schema.GroupResource{Resource: "buckets"}, app.Name, errors.New("denied"))
+				})
+
+				var diags diag.Diagnostics
+				result, ok := persistApplication(ctx, api, client.BucketResource(), create, app, true, time.Minute, &diags)
+				if !ok || result.Name != app.Name || result.Namespace != app.Namespace {
+					t.Errorf("result = %+v, ok = %t, want the persisted object", result, ok)
+				}
+				if diags.ErrorsCount() != 1 {
+					t.Fatalf("diagnostics = %v, want one readiness failure", diags)
+				}
+				if summary := diags.Errors()[0].Summary(); summary != "Unable to wait for Bucket to become ready" {
+					t.Errorf("summary = %q, want a failure rather than a timeout", summary)
+				}
+				if detail := diags.Errors()[0].Detail(); !strings.Contains(detail, strings.Fields(cause)[0]) {
+					t.Errorf("detail = %q, want the original %s failure", detail, cause)
+				}
+			})
+		}
 	}
 }
