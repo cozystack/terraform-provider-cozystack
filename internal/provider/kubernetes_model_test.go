@@ -314,6 +314,8 @@ func TestKubernetesFlatten_OIDC(t *testing.T) {
 	}
 }
 
+// TestKubernetesExpandOIDCUserKeysMatchUserSpec guards user entries separately
+// because recursive ConfigSpec traversal stops at the OIDC users slice.
 func TestKubernetesExpandOIDCUserKeysMatchUserSpec(t *testing.T) {
 	t.Parallel()
 
@@ -494,6 +496,9 @@ func TestKubernetesFlatten_RoundTrip(t *testing.T) {
 	}
 }
 
+// TestKubernetesExpandKeysMatchConfigSpec leaves addons and control-plane sizing
+// server-managed. substrate, proxmox, talos.registryMirrors, controlPlane.kubelet,
+// and controlPlane.apiServer.admissionControllers remain unmodelled.
 func TestKubernetesExpandKeysMatchConfigSpec(t *testing.T) {
 	t.Parallel()
 
@@ -504,9 +509,6 @@ func TestKubernetesExpandKeysMatchConfigSpec(t *testing.T) {
 		t.Fatalf("expand diagnostics: %v", diags)
 	}
 
-	// Addons and control-plane component sizing stay server-managed. The pinned
-	// API's substrate, proxmox, talos.registryMirrors, controlPlane.kubelet, and
-	// controlPlane.apiServer.admissionControllers are not modelled yet.
 	assertSpecCoverage(t, got.Spec, kubernetes.ConfigSpec{}, "addons", "substrate", "proxmox",
 		"talos.registryMirrors", "controlPlane.controllerManager", "controlPlane.konnectivity",
 		"controlPlane.replicas", "controlPlane.scheduler", "controlPlane.kubelet",

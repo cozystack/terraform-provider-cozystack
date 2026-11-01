@@ -98,6 +98,8 @@ func TestMariadbFlatten_RoundTrip(t *testing.T) {
 	}
 }
 
+// TestMariadbExpandKeysMatchConfigSpec excludes the deprecated inline backup
+// block and the pinned API's unmodelled TLS block.
 func TestMariadbExpandKeysMatchConfigSpec(t *testing.T) {
 	t.Parallel()
 
@@ -108,7 +110,5 @@ func TestMariadbExpandKeysMatchConfigSpec(t *testing.T) {
 		t.Fatalf("expand diagnostics: %v", diags)
 	}
 
-	// The deprecated inline backup block is intentionally not managed; tls was
-	// added by the pinned API and is not modelled yet.
 	assertSpecCoverage(t, got.Spec, mariadb.ConfigSpec{}, "backup", "tls")
 }

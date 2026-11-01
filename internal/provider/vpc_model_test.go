@@ -87,6 +87,9 @@ func TestVPCFlatten_RoundTrip(t *testing.T) {
 	}
 }
 
+// TestVPCExpandKeysMatchConfigSpec guards representative slice elements because
+// ConfigSpec checks only collection names. Only the provider's unexposed
+// Subnet.allowSubnets field is omitted from the element guards.
 func TestVPCExpandKeysMatchConfigSpec(t *testing.T) {
 	t.Parallel()
 
@@ -104,7 +107,6 @@ func TestVPCExpandKeysMatchConfigSpec(t *testing.T) {
 		t.Fatalf("subnets = %v, want one element", subnets)
 	}
 	subnet, _ := subnets[0].(map[string]any)
-	// allowSubnets is not exposed by the provider.
 	assertSpecCoverage(t, subnet, vpc.Subnet{}, "allowSubnets")
 
 	peers, _ := got.Spec["peers"].([]any)

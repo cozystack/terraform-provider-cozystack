@@ -112,6 +112,8 @@ func TestVMInstanceFlatten_RoundTrip(t *testing.T) {
 	}
 }
 
+// TestVMInstanceExpandKeysMatchConfigSpec populates CPU, memory, and sockets for
+// resource-block coverage; subnets and firmware remain unmodelled.
 func TestVMInstanceExpandKeysMatchConfigSpec(t *testing.T) {
 	t.Parallel()
 
@@ -122,6 +124,5 @@ func TestVMInstanceExpandKeysMatchConfigSpec(t *testing.T) {
 		t.Fatalf("expand diagnostics: %v", diags)
 	}
 
-	// firmware was added by the pinned API and is not modelled yet.
 	assertSpecCoverage(t, got.Spec, vminstance.ConfigSpec{}, "subnets", "firmware")
 }

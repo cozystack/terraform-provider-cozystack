@@ -249,6 +249,9 @@ func TestClickhouseVersionValidator(t *testing.T) {
 	}
 }
 
+// TestClickhouseExpandKeysMatchConfigSpec checks the managed backup.useSystemBucket
+// while omitting legacy or unmodelled backup fields individually, so new backup
+// fields remain detectable.
 func TestClickhouseExpandKeysMatchConfigSpec(t *testing.T) {
 	t.Parallel()
 
@@ -259,8 +262,6 @@ func TestClickhouseExpandKeysMatchConfigSpec(t *testing.T) {
 		t.Fatalf("expand diagnostics: %v", diags)
 	}
 
-	// Only backup.useSystemBucket is managed; the remaining backup fields
-	// belong to the legacy backup flow or are not modelled yet.
 	assertSpecCoverage(t, got.Spec, clickhouse.ConfigSpec{}, "clickhouseKeeper",
 		"backup.cleanupStrategy", "backup.enabled", "backup.endpoint", "backup.endpointCA",
 		"backup.resticPassword", "backup.s3AccessKey", "backup.s3Bucket", "backup.s3CredentialsSecret",

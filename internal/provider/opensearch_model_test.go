@@ -85,6 +85,8 @@ func TestOpensearchFlatten_RoundTrip(t *testing.T) {
 	}
 }
 
+// TestOpensearchExpandKeysMatchConfigSpec checks modelled fields while images,
+// nodeRoles, dashboards, and TLS remain outside the provider's surface.
 func TestOpensearchExpandKeysMatchConfigSpec(t *testing.T) {
 	t.Parallel()
 
@@ -95,6 +97,5 @@ func TestOpensearchExpandKeysMatchConfigSpec(t *testing.T) {
 		t.Fatalf("expand diagnostics: %v", diags)
 	}
 
-	// tls was added by the pinned API and is not modelled yet.
 	assertSpecCoverage(t, got.Spec, opensearch.ConfigSpec{}, "images", "nodeRoles", "dashboards", "tls")
 }

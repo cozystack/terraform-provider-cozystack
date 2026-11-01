@@ -20,6 +20,8 @@ func assertSpecCoverage(t *testing.T, emitted map[string]any, spec any, omit ...
 	}
 }
 
+// specCoverageErrors sorts diagnostics so negative coverage assertions remain
+// deterministic despite map iteration order.
 func specCoverageErrors(emitted map[string]any, spec any, omit ...string) []string {
 	tags := configSpecJSONTags(spec)
 	keys := emittedSpecJSONTags(emitted, reflect.TypeOf(spec))
@@ -44,6 +46,8 @@ func specCoverageErrors(emitted map[string]any, spec any, omit ...string) []stri
 	return errors
 }
 
+// configSpecJSONTags derives dotted paths from types so nil optional blocks
+// retain coverage of their nested fields.
 func configSpecJSONTags(spec any) map[string]bool {
 	tags := map[string]bool{}
 
@@ -110,6 +114,9 @@ func emittedSpecJSONTags(emitted map[string]any, typ reflect.Type) map[string]bo
 	return keys
 }
 
+// TestConfigSpecJSONTags requires value and nil-pointer specs to yield the same
+// tagged paths. Ignored fields are excluded, and map/slice elements stay outside
+// recursive traversal.
 func TestConfigSpecJSONTags(t *testing.T) {
 	t.Parallel()
 
@@ -131,8 +138,6 @@ func TestConfigSpecJSONTags(t *testing.T) {
 		"map": true, "slice": true,
 	}
 
-	// A nil pointer still has a type; optional nested fields must not disappear
-	// from coverage just because no value was supplied to the guard.
 	for _, input := range []any{spec{}, (*spec)(nil)} {
 		if got := configSpecJSONTags(input); !reflect.DeepEqual(got, want) {
 			t.Errorf("configSpecJSONTags(%T) = %v, want %v", input, got, want)
@@ -140,6 +145,9 @@ func TestConfigSpecJSONTags(t *testing.T) {
 	}
 }
 
+// TestSpecCoverageNestedPaths limits omissions to missing paths and their
+// descendants. Similarly named siblings and unexpected emitted keys must still
+// produce diagnostics, even inside omitted blocks.
 func TestSpecCoverageNestedPaths(t *testing.T) {
 	t.Parallel()
 

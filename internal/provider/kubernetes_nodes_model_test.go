@@ -59,6 +59,9 @@ func fullKubernetesNodesKubelet() types.Object {
 	})
 }
 
+// TestKubernetesNodesExpandKeysMatchConfigSpec recursively checks talos, kubelet,
+// and images while GPUs have a separate element guard. The listed omissions are
+// pinned API fields that the provider does not model yet.
 func TestKubernetesNodesExpandKeysMatchConfigSpec(t *testing.T) {
 	t.Parallel()
 
@@ -69,7 +72,6 @@ func TestKubernetesNodesExpandKeysMatchConfigSpec(t *testing.T) {
 		t.Fatalf("expand diagnostics: %v", diags)
 	}
 
-	// Added by the pinned API and not modelled yet.
 	assertSpecCoverage(t, got.Spec, kubernetesnodes.ConfigSpec{},
 		"substrate", "proxmox", "osImage", "kernelModules", "logSerialConsole", "podCpuLimit", "podCpuRequest",
 		"readyUnknownTimeout", "readyFalseTimeout", "maxNodeProvisionTime", "talos.registryMirrors")

@@ -84,6 +84,8 @@ func TestPackageFlatten_RoundTrip(t *testing.T) {
 	}
 }
 
+// TestPackageExpandKeysMatchConfigSpec relies on packageSpecGuard tracking
+// upstream PackageSpec changes; component values remain an opaque passthrough.
 func TestPackageExpandKeysMatchConfigSpec(t *testing.T) {
 	t.Parallel()
 

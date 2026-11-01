@@ -30,6 +30,8 @@ func fullKafkaModel() kafkaModel {
 	}
 }
 
+// TestKafkaExpand_TopicsAndBrokers guards a topic explicitly because slices stop
+// recursive ConfigSpec traversal; only the unexposed topic config is omitted.
 func TestKafkaExpand_TopicsAndBrokers(t *testing.T) {
 	t.Parallel()
 
@@ -49,7 +51,6 @@ func TestKafkaExpand_TopicsAndBrokers(t *testing.T) {
 	if topic["name"] != "events" || topic["partitions"] != int64(3) {
 		t.Errorf("topic = %v, want {name:events, partitions:3}", topic)
 	}
-	// Topic config is not exposed by the provider.
 	assertSpecCoverage(t, topic, kafka.Topic{}, "config")
 
 	kafkaSpec, _ := got.Spec["kafka"].(map[string]any)
@@ -94,6 +95,8 @@ func TestKafkaFlatten_RoundTrip(t *testing.T) {
 	}
 }
 
+// TestKafkaExpandKeysMatchConfigSpec populates broker resources for nested
+// coverage; version and controller storage remain unmodelled.
 func TestKafkaExpandKeysMatchConfigSpec(t *testing.T) {
 	t.Parallel()
 
@@ -104,6 +107,5 @@ func TestKafkaExpandKeysMatchConfigSpec(t *testing.T) {
 		t.Fatalf("expand diagnostics: %v", diags)
 	}
 
-	// Added by the pinned API and not modelled yet.
 	assertSpecCoverage(t, got.Spec, kafka.ConfigSpec{}, "version", "kafka.controllerStorageSize")
 }

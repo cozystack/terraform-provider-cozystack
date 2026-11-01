@@ -150,6 +150,8 @@ func TestRabbitmqFlatten_ExplicitLegacyPreset(t *testing.T) {
 	}
 }
 
+// TestRabbitmqExpandKeysMatchConfigSpec checks nested resource sizing while
+// excluding the unmodelled TLS block.
 func TestRabbitmqExpandKeysMatchConfigSpec(t *testing.T) {
 	t.Parallel()
 
@@ -160,6 +162,5 @@ func TestRabbitmqExpandKeysMatchConfigSpec(t *testing.T) {
 		t.Fatalf("expand diagnostics: %v", diags)
 	}
 
-	// Added by the pinned API and not modelled yet.
 	assertSpecCoverage(t, got.Spec, rabbitmq.ConfigSpec{}, "tls")
 }

@@ -104,6 +104,9 @@ func TestPostgresqlFlatten_RoundTrip(t *testing.T) {
 	}
 }
 
+// TestPostgresqlExpandKeysMatchConfigSpec guards backup.useSystemBucket; other
+// backup fields stay with the platform's default BackupClass. The postgresql,
+// quorum, bootstrap, and autoscaling blocks remain unmodelled.
 func TestPostgresqlExpandKeysMatchConfigSpec(t *testing.T) {
 	t.Parallel()
 
@@ -114,10 +117,7 @@ func TestPostgresqlExpandKeysMatchConfigSpec(t *testing.T) {
 		t.Fatalf("expand diagnostics: %v", diags)
 	}
 
-	// autoscaling was added by the pinned API and is not modelled yet.
 	assertSpecCoverage(t, got.Spec, postgresql.ConfigSpec{}, "postgresql", "quorum", "bootstrap", "autoscaling",
-		// Only backup.useSystemBucket is managed; the other backup fields stay
-		// with the platform-managed default BackupClass.
 		"backup.destinationPath", "backup.enabled", "backup.endpointCA", "backup.endpointURL",
 		"backup.retentionPolicy", "backup.s3AccessKey", "backup.s3CredentialsSecret",
 		"backup.s3SecretKey", "backup.schedule")
