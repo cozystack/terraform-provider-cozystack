@@ -3,6 +3,7 @@ package client_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -188,5 +189,36 @@ func TestWaitForReady_KeepsLastObservationAfterReadFailure(t *testing.T) {
 	}
 	if got.Name != "dev" || got.ResourceVersion != "42" || reads < 2 {
 		t.Errorf("last observation = %+v, reads = %d, want the successful read retained after a failed read", got, reads)
+	}
+}
+
+func TestWaitForReady_KeepsLastObservationAfterPermanentReadFailure(t *testing.T) {
+	t.Parallel()
+
+	seed := &unstructured.Unstructured{Object: map[string]any{
+		"apiVersion": "apps.cozystack.io/v1alpha1",
+		"kind":       "Tenant",
+		"metadata":   map[string]any{"name": "dev", "namespace": "tenant-root", "resourceVersion": "42"},
+	}}
+	dyn := newFake(seed)
+	readErr := apierrors.NewForbidden(schema.GroupResource{Resource: "tenants"}, "dev", errors.New("denied"))
+	reads := 0
+	dyn.PrependReactor("get", "tenants", func(k8stesting.Action) (bool, runtime.Object, error) {
+		reads++
+		if reads == 1 {
+			return false, nil, nil
+		}
+
+		return true, nil, fmt.Errorf("reading tenant: %w", readErr)
+	})
+
+	got, err := client.New(dyn).WaitForReady(
+		context.Background(), client.TenantResource(), "tenant-root", "dev", 6*time.Second,
+	)
+	if !errors.Is(err, readErr) {
+		t.Fatalf("WaitForReady() error = %v, want the original error", err)
+	}
+	if got.Name != "dev" || got.Namespace != "tenant-root" || got.ResourceVersion != "42" || reads != 2 {
+		t.Errorf("last observation = %+v, reads = %d, want the successful read retained after a permanent read failure", got, reads)
 	}
 }
