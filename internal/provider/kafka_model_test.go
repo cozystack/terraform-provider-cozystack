@@ -49,6 +49,8 @@ func TestKafkaExpand_TopicsAndBrokers(t *testing.T) {
 	if topic["name"] != "events" || topic["partitions"] != int64(3) {
 		t.Errorf("topic = %v, want {name:events, partitions:3}", topic)
 	}
+	// Topic config is not exposed by the provider.
+	assertSpecCoverage(t, topic, kafka.Topic{}, "config")
 
 	kafkaSpec, _ := got.Spec["kafka"].(map[string]any)
 	if kafkaSpec["size"] != "10Gi" {
