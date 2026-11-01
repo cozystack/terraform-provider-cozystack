@@ -17,7 +17,7 @@ func fullOpensearchModel() opensearchModel {
 		Name:                 types.StringValue("search"),
 		Namespace:            types.StringValue("tenant-root"),
 		Replicas:             types.Int64Value(3),
-		Resources:            types.ObjectNull(resourcesObjectType()),
+		Resources:            resourcesBlock(),
 		ResourcesPreset:      types.StringValue("c1.medium"),
 		Size:                 types.StringValue("10Gi"),
 		StorageClass:         types.StringValue(""),
@@ -85,6 +85,8 @@ func TestOpensearchFlatten_RoundTrip(t *testing.T) {
 	}
 }
 
+// TestOpensearchExpandKeysMatchConfigSpec checks modelled fields while images,
+// nodeRoles, dashboards, and TLS remain outside the provider's surface.
 func TestOpensearchExpandKeysMatchConfigSpec(t *testing.T) {
 	t.Parallel()
 
@@ -95,11 +97,5 @@ func TestOpensearchExpandKeysMatchConfigSpec(t *testing.T) {
 		t.Fatalf("expand diagnostics: %v", diags)
 	}
 
-	emitted := make(map[string]bool, len(got.Spec))
-	for key := range got.Spec {
-		emitted[key] = true
-	}
-
-	// tls was added by the pinned API and is not modelled yet.
-	assertSpecCoverage(t, emitted, opensearch.ConfigSpec{}, "images", "nodeRoles", "dashboards", "tls")
+	assertSpecCoverage(t, got.Spec, opensearch.ConfigSpec{}, "images", "nodeRoles", "dashboards", "tls")
 }

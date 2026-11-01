@@ -17,16 +17,21 @@ func fullKafkaModel() kafkaModel {
 		"replicas":   types.Int64Value(2),
 	})
 
+	broker := kafkaBrokerDefault("10Gi").Attributes()
+	broker["resources"] = resourcesBlock()
+
 	return kafkaModel{
 		Name:      types.StringValue("queue"),
 		Namespace: types.StringValue("tenant-root"),
 		External:  types.BoolValue(false),
 		TLS:       tlsBlock(true),
 		Topics:    types.ListValueMust(types.ObjectType{AttrTypes: kafkaTopicObjectType()}, []attr.Value{topic}),
-		Kafka:     kafkaBrokerDefault("10Gi"),
+		Kafka:     types.ObjectValueMust(kafkaBrokerObjectType(), broker),
 	}
 }
 
+// TestKafkaExpand_TopicsAndBrokers guards a topic explicitly because slices stop
+// recursive ConfigSpec traversal; only the unexposed topic config is omitted.
 func TestKafkaExpand_TopicsAndBrokers(t *testing.T) {
 	t.Parallel()
 
@@ -46,6 +51,7 @@ func TestKafkaExpand_TopicsAndBrokers(t *testing.T) {
 	if topic["name"] != "events" || topic["partitions"] != int64(3) {
 		t.Errorf("topic = %v, want {name:events, partitions:3}", topic)
 	}
+	assertSpecCoverage(t, topic, kafka.Topic{}, "config")
 
 	kafkaSpec, _ := got.Spec["kafka"].(map[string]any)
 	if kafkaSpec["size"] != "10Gi" {
@@ -89,6 +95,8 @@ func TestKafkaFlatten_RoundTrip(t *testing.T) {
 	}
 }
 
+// TestKafkaExpandKeysMatchConfigSpec populates broker resources for nested
+// coverage; version and controller storage remain unmodelled.
 func TestKafkaExpandKeysMatchConfigSpec(t *testing.T) {
 	t.Parallel()
 
@@ -99,11 +107,5 @@ func TestKafkaExpandKeysMatchConfigSpec(t *testing.T) {
 		t.Fatalf("expand diagnostics: %v", diags)
 	}
 
-	emitted := make(map[string]bool, len(got.Spec))
-	for key := range got.Spec {
-		emitted[key] = true
-	}
-
-	// Added by the pinned API and not modelled yet.
-	assertSpecCoverage(t, emitted, kafka.ConfigSpec{}, "version")
+	assertSpecCoverage(t, got.Spec, kafka.ConfigSpec{}, "version", "kafka.controllerStorageSize")
 }

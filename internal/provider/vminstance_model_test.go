@@ -30,10 +30,14 @@ func fullVMInstanceModel() vminstanceModel {
 		Networks:          types.ListNull(types.ObjectType{AttrTypes: vmNetworkObjectType()}),
 		Gpus:              types.ListNull(types.ObjectType{AttrTypes: vmGpuObjectType()}),
 		CPUModel:          types.StringValue(""),
-		Resources:         types.ObjectNull(vmResourcesObjectType()),
-		SSHKeys:           types.ListNull(types.StringType),
-		CloudInit:         types.StringValue(""),
-		CloudInitSeed:     types.StringValue(""),
+		Resources: types.ObjectValueMust(vmResourcesObjectType(), map[string]attr.Value{
+			"cpu":     types.StringValue("2"),
+			"memory":  types.StringValue("4Gi"),
+			"sockets": types.StringValue("1"),
+		}),
+		SSHKeys:       types.ListNull(types.StringType),
+		CloudInit:     types.StringValue(""),
+		CloudInitSeed: types.StringValue(""),
 	}
 }
 
@@ -108,6 +112,8 @@ func TestVMInstanceFlatten_RoundTrip(t *testing.T) {
 	}
 }
 
+// TestVMInstanceExpandKeysMatchConfigSpec populates CPU, memory, and sockets for
+// resource-block coverage; subnets and firmware remain unmodelled.
 func TestVMInstanceExpandKeysMatchConfigSpec(t *testing.T) {
 	t.Parallel()
 
@@ -118,11 +124,5 @@ func TestVMInstanceExpandKeysMatchConfigSpec(t *testing.T) {
 		t.Fatalf("expand diagnostics: %v", diags)
 	}
 
-	emitted := make(map[string]bool, len(got.Spec))
-	for key := range got.Spec {
-		emitted[key] = true
-	}
-
-	// firmware was added by the pinned API and is not modelled yet.
-	assertSpecCoverage(t, emitted, vminstance.ConfigSpec{}, "subnets", "firmware")
+	assertSpecCoverage(t, got.Spec, vminstance.ConfigSpec{}, "subnets", "firmware")
 }

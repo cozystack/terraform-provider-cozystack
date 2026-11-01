@@ -173,11 +173,6 @@ func TestRedisExpandKeysMatchConfigSpec(t *testing.T) {
 		t.Fatalf("expand diagnostics: %v", diags)
 	}
 
-	emitted := make(map[string]bool, len(got.Spec))
-	for key := range got.Spec {
-		emitted[key] = true
-	}
-
 	// Added by the pinned API and not modelled yet.
-	assertSpecCoverage(t, emitted, redis.ConfigSpec{}, "tls")
+	assertSpecCoverage(t, got.Spec, redis.ConfigSpec{}, "tls")
 }

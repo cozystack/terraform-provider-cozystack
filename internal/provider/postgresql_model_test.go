@@ -17,7 +17,7 @@ func fullPostgresqlModel() postgresqlModel {
 		Name:            types.StringValue("pg"),
 		Namespace:       types.StringValue("tenant-root"),
 		Replicas:        types.Int64Value(2),
-		Resources:       types.ObjectNull(resourcesObjectType()),
+		Resources:       resourcesBlock(),
 		ResourcesPreset: types.StringValue("t1.micro"),
 		Size:            types.StringValue("10Gi"),
 		StorageClass:    types.StringValue(""),
@@ -51,8 +51,8 @@ func TestPostgresqlExpand_Users(t *testing.T) {
 	}
 }
 
-// The users map is not a top-level key, so the ConfigSpec guard cannot see a
-// field the API drops from a user entry.
+// Map entries are outside the recursive ConfigSpec guard, so check a user
+// explicitly to catch fields added to or removed from the API.
 func TestPostgresqlExpandUserKeysMatchUserSpec(t *testing.T) {
 	t.Parallel()
 
@@ -63,7 +63,7 @@ func TestPostgresqlExpandUserKeysMatchUserSpec(t *testing.T) {
 		t.Fatalf("expand diagnostics: %v", diags)
 	}
 
-	assertSpecCoverage(t, nestedSpecKeys(t, got.Spec, "users", "app"), postgresql.User{})
+	assertSpecCoverage(t, nestedSpec(t, got.Spec, "users", "app"), postgresql.User{})
 }
 
 func TestPostgresqlFlatten_RoundTrip(t *testing.T) {
@@ -104,6 +104,9 @@ func TestPostgresqlFlatten_RoundTrip(t *testing.T) {
 	}
 }
 
+// TestPostgresqlExpandKeysMatchConfigSpec guards backup.useSystemBucket; other
+// backup fields stay with the platform's default BackupClass. The postgresql,
+// quorum, bootstrap, and autoscaling blocks remain unmodelled.
 func TestPostgresqlExpandKeysMatchConfigSpec(t *testing.T) {
 	t.Parallel()
 
@@ -114,11 +117,8 @@ func TestPostgresqlExpandKeysMatchConfigSpec(t *testing.T) {
 		t.Fatalf("expand diagnostics: %v", diags)
 	}
 
-	emitted := make(map[string]bool, len(got.Spec))
-	for key := range got.Spec {
-		emitted[key] = true
-	}
-
-	// autoscaling was added by the pinned API and is not modelled yet.
-	assertSpecCoverage(t, emitted, postgresql.ConfigSpec{}, "postgresql", "quorum", "bootstrap", "autoscaling")
+	assertSpecCoverage(t, got.Spec, postgresql.ConfigSpec{}, "postgresql", "quorum", "bootstrap", "autoscaling",
+		"backup.destinationPath", "backup.enabled", "backup.endpointCA", "backup.endpointURL",
+		"backup.retentionPolicy", "backup.s3AccessKey", "backup.s3CredentialsSecret",
+		"backup.s3SecretKey", "backup.schedule")
 }

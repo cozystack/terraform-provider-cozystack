@@ -2,8 +2,6 @@ package provider
 
 import (
 	"context"
-	"reflect"
-	"strings"
 	"testing"
 
 	"github.com/cozystack/cozystack/api/apps/v1alpha1/tenant"
@@ -260,50 +258,6 @@ func TestExpandKeysMatchConfigSpec(t *testing.T) {
 		t.Fatalf("expand diagnostics: %v", diags)
 	}
 
-	emitted := make(map[string]bool, len(got.Spec))
-	for key := range got.Spec {
-		emitted[key] = true
-	}
-
 	// Added by the pinned API and not modelled yet.
-	assertSpecCoverage(t, emitted, tenant.ConfigSpec{}, "gatewayClass", "computeplane")
-}
-
-// assertSpecCoverage checks that every emitted spec key is a valid ConfigSpec
-// json tag, and that every tag except the intentionally-omitted ones is emitted.
-func assertSpecCoverage(t *testing.T, emitted map[string]bool, spec any, omit ...string) {
-	t.Helper()
-
-	omitted := make(map[string]bool, len(omit))
-	for _, key := range omit {
-		omitted[key] = true
-	}
-
-	tags := configSpecJSONTags(spec)
-
-	for key := range emitted {
-		if !tags[key] {
-			t.Errorf("expand emits %q, which is not a ConfigSpec json tag", key)
-		}
-	}
-
-	for tag := range tags {
-		if !emitted[tag] && !omitted[tag] {
-			t.Errorf("ConfigSpec has %q but expand does not emit it", tag)
-		}
-	}
-}
-
-func configSpecJSONTags(spec any) map[string]bool {
-	tags := map[string]bool{}
-
-	typ := reflect.TypeOf(spec)
-	for i := range typ.NumField() {
-		name := strings.Split(typ.Field(i).Tag.Get("json"), ",")[0]
-		if name != "" && name != "-" {
-			tags[name] = true
-		}
-	}
-
-	return tags
+	assertSpecCoverage(t, got.Spec, tenant.ConfigSpec{}, "gatewayClass", "computeplane")
 }

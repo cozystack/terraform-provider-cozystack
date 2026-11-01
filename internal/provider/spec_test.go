@@ -386,6 +386,14 @@ func flattenSpec(t *testing.T, model specModel, spec map[string]any) {
 	}
 }
 
+// resourcesBlock exercises both resource fields in spec-coverage fixtures.
+func resourcesBlock() types.Object {
+	return types.ObjectValueMust(resourcesObjectType(), map[string]attr.Value{
+		"cpu":    types.StringValue("500m"),
+		"memory": types.StringValue("512Mi"),
+	})
+}
+
 // tlsBlock builds a tls block with an explicit enabled flag.
 func tlsBlock(enabled bool) types.Object {
 	return types.ObjectValueMust(tlsObjectType(), map[string]attr.Value{attrEnabled: types.BoolValue(enabled)})

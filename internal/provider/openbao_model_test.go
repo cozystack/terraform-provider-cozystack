@@ -19,7 +19,7 @@ func fullOpenbaoModel() openbaoModel {
 		External:        types.BoolValue(false),
 		UI:              types.BoolValue(true),
 		ResourcesPreset: types.StringValue("t1.small"),
-		Resources:       types.ObjectNull(resourcesObjectType()),
+		Resources:       resourcesBlock(),
 	}
 }
 
@@ -83,22 +83,5 @@ func TestOpenbaoExpandKeysMatchConfigSpec(t *testing.T) {
 		t.Fatalf("expand diagnostics: %v", diags)
 	}
 
-	emitted := make(map[string]bool, len(got.Spec))
-	for key := range got.Spec {
-		emitted[key] = true
-	}
-
-	tags := configSpecJSONTags(openbao.ConfigSpec{})
-
-	for key := range emitted {
-		if !tags[key] {
-			t.Errorf("expand emits %q, not an openbao.ConfigSpec json tag", key)
-		}
-	}
-
-	for tag := range tags {
-		if !emitted[tag] {
-			t.Errorf("openbao.ConfigSpec has %q but expand does not emit it", tag)
-		}
-	}
+	assertSpecCoverage(t, got.Spec, openbao.ConfigSpec{})
 }

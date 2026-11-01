@@ -85,21 +85,25 @@ func TestVMDiskFlatten_RoundTrip(t *testing.T) {
 	}
 }
 
+// TestVMDiskExpandKeysMatchConfigSpec combines mutually exclusive source shapes
+// to cover every supported expansion path. Interactive uploads and
+// bindImmediately remain unmanaged.
 func TestVMDiskExpandKeysMatchConfigSpec(t *testing.T) {
 	t.Parallel()
 
 	model := fullVMDiskModel()
+	source := model.Source.Attributes()
+	for _, name := range []string{"disk", "image"} {
+		source[name] = types.ObjectValueMust(vmdiskNameObjectType(), map[string]attr.Value{
+			"name": types.StringValue("base"),
+		})
+	}
+	model.Source = types.ObjectValueMust(vmdiskSourceObjectType(), source)
 
 	got, diags := model.expand(context.Background())
 	if diags.HasError() {
 		t.Fatalf("expand diagnostics: %v", diags)
 	}
 
-	emitted := make(map[string]bool, len(got.Spec))
-	for key := range got.Spec {
-		emitted[key] = true
-	}
-
-	// Added by the pinned API and not modelled yet.
-	assertSpecCoverage(t, emitted, vmdisk.ConfigSpec{}, "bindImmediately")
+	assertSpecCoverage(t, got.Spec, vmdisk.ConfigSpec{}, "bindImmediately", "source.upload")
 }

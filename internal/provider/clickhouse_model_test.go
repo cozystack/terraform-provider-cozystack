@@ -23,7 +23,7 @@ func fullClickhouseModel() clickhouseModel {
 		Namespace:       types.StringValue("tenant-root"),
 		Replicas:        types.Int64Value(2),
 		Shards:          types.Int64Value(1),
-		Resources:       types.ObjectNull(resourcesObjectType()),
+		Resources:       resourcesBlock(),
 		ResourcesPreset: types.StringValue("t1.small"),
 		Size:            types.StringValue("10Gi"),
 		StorageClass:    types.StringValue(""),
@@ -249,6 +249,9 @@ func TestClickhouseVersionValidator(t *testing.T) {
 	}
 }
 
+// TestClickhouseExpandKeysMatchConfigSpec checks the managed backup.useSystemBucket
+// while omitting legacy or unmodelled backup fields individually, so new backup
+// fields remain detectable.
 func TestClickhouseExpandKeysMatchConfigSpec(t *testing.T) {
 	t.Parallel()
 
@@ -259,10 +262,8 @@ func TestClickhouseExpandKeysMatchConfigSpec(t *testing.T) {
 		t.Fatalf("expand diagnostics: %v", diags)
 	}
 
-	emitted := make(map[string]bool, len(got.Spec))
-	for key := range got.Spec {
-		emitted[key] = true
-	}
-
-	assertSpecCoverage(t, emitted, clickhouse.ConfigSpec{}, "clickhouseKeeper")
+	assertSpecCoverage(t, got.Spec, clickhouse.ConfigSpec{}, "clickhouseKeeper",
+		"backup.cleanupStrategy", "backup.enabled", "backup.endpoint", "backup.endpointCA",
+		"backup.resticPassword", "backup.s3AccessKey", "backup.s3Bucket", "backup.s3CredentialsSecret",
+		"backup.s3PathOverride", "backup.s3Region", "backup.s3SecretKey", "backup.schedule")
 }

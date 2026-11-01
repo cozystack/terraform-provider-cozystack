@@ -17,7 +17,7 @@ func fullMongodbModel() mongodbModel {
 		Name:            types.StringValue("docs"),
 		Namespace:       types.StringValue("tenant-root"),
 		Replicas:        types.Int64Value(3),
-		Resources:       types.ObjectNull(resourcesObjectType()),
+		Resources:       resourcesBlock(),
 		ResourcesPreset: types.StringValue("t1.small"),
 		Size:            types.StringValue("10Gi"),
 		StorageClass:    types.StringValue(""),
@@ -96,10 +96,5 @@ func TestMongodbExpandKeysMatchConfigSpec(t *testing.T) {
 		t.Fatalf("expand diagnostics: %v", diags)
 	}
 
-	emitted := make(map[string]bool, len(got.Spec))
-	for key := range got.Spec {
-		emitted[key] = true
-	}
-
-	assertSpecCoverage(t, emitted, mongodb.ConfigSpec{}, "backup", "bootstrap", "shardingConfig")
+	assertSpecCoverage(t, got.Spec, mongodb.ConfigSpec{}, "backup", "bootstrap", "shardingConfig")
 }

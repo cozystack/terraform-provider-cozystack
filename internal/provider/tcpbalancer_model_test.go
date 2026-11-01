@@ -15,7 +15,7 @@ func fullTCPBalancerModel() tcpbalancerModel {
 		Name:            types.StringValue("lb"),
 		Namespace:       types.StringValue("tenant-root"),
 		Replicas:        types.Int64Value(2),
-		Resources:       types.ObjectNull(resourcesObjectType()),
+		Resources:       resourcesBlock(),
 		ResourcesPreset: types.StringValue("t1.nano"),
 		External:        types.BoolValue(false),
 		WhitelistHTTP:   types.BoolValue(true),
@@ -87,10 +87,5 @@ func TestTCPBalancerExpandKeysMatchConfigSpec(t *testing.T) {
 		t.Fatalf("expand diagnostics: %v", diags)
 	}
 
-	emitted := make(map[string]bool, len(got.Spec))
-	for key := range got.Spec {
-		emitted[key] = true
-	}
-
-	assertSpecCoverage(t, emitted, tcpbalancer.ConfigSpec{}, "httpAndHttps")
+	assertSpecCoverage(t, got.Spec, tcpbalancer.ConfigSpec{}, "httpAndHttps")
 }

@@ -84,6 +84,8 @@ func TestPackageFlatten_RoundTrip(t *testing.T) {
 	}
 }
 
+// TestPackageExpandKeysMatchConfigSpec relies on packageSpecGuard tracking
+// upstream PackageSpec changes; component values remain an opaque passthrough.
 func TestPackageExpandKeysMatchConfigSpec(t *testing.T) {
 	t.Parallel()
 
@@ -94,10 +96,5 @@ func TestPackageExpandKeysMatchConfigSpec(t *testing.T) {
 		t.Fatalf("expand diagnostics: %v", diags)
 	}
 
-	emitted := make(map[string]bool, len(got.Spec))
-	for key := range got.Spec {
-		emitted[key] = true
-	}
-
-	assertSpecCoverage(t, emitted, packageSpecGuard{})
+	assertSpecCoverage(t, got.Spec, packageSpecGuard{})
 }

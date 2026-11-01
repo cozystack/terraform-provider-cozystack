@@ -15,13 +15,21 @@ func fullVPCModel() vpcModel {
 		"name": types.StringValue("web"),
 		"cidr": types.StringValue("10.0.0.0/24"),
 	})
+	peer := types.ObjectValueMust(vpcPeerObjectType(), map[string]attr.Value{
+		"tenant_namespace": types.StringValue("tenant-foo"),
+		"vpc_name":         types.StringValue("net"),
+	})
+	route := types.ObjectValueMust(vpcRouteObjectType(), map[string]attr.Value{
+		"cidr":        types.StringValue("0.0.0.0/0"),
+		"next_hop_ip": types.StringValue("10.0.0.1"),
+	})
 
 	return vpcModel{
 		Name:      types.StringValue("net"),
 		Namespace: types.StringValue("tenant-root"),
 		Subnets:   types.ListValueMust(types.ObjectType{AttrTypes: vpcSubnetObjectType()}, []attr.Value{subnet}),
-		Peers:     types.ListNull(types.ObjectType{AttrTypes: vpcPeerObjectType()}),
-		Routes:    types.ListNull(types.ObjectType{AttrTypes: vpcRouteObjectType()}),
+		Peers:     types.ListValueMust(types.ObjectType{AttrTypes: vpcPeerObjectType()}, []attr.Value{peer}),
+		Routes:    types.ListValueMust(types.ObjectType{AttrTypes: vpcRouteObjectType()}, []attr.Value{route}),
 	}
 }
 
@@ -79,6 +87,9 @@ func TestVPCFlatten_RoundTrip(t *testing.T) {
 	}
 }
 
+// TestVPCExpandKeysMatchConfigSpec guards representative slice elements because
+// ConfigSpec checks only collection names. Only the provider's unexposed
+// Subnet.allowSubnets field is omitted from the element guards.
 func TestVPCExpandKeysMatchConfigSpec(t *testing.T) {
 	t.Parallel()
 
@@ -89,10 +100,26 @@ func TestVPCExpandKeysMatchConfigSpec(t *testing.T) {
 		t.Fatalf("expand diagnostics: %v", diags)
 	}
 
-	emitted := make(map[string]bool, len(got.Spec))
-	for key := range got.Spec {
-		emitted[key] = true
-	}
+	assertSpecCoverage(t, got.Spec, vpc.ConfigSpec{})
 
-	assertSpecCoverage(t, emitted, vpc.ConfigSpec{})
+	subnets, _ := got.Spec["subnets"].([]any)
+	if len(subnets) != 1 {
+		t.Fatalf("subnets = %v, want one element", subnets)
+	}
+	subnet, _ := subnets[0].(map[string]any)
+	assertSpecCoverage(t, subnet, vpc.Subnet{}, "allowSubnets")
+
+	peers, _ := got.Spec["peers"].([]any)
+	if len(peers) != 1 {
+		t.Fatalf("peers = %v, want one element", peers)
+	}
+	peer, _ := peers[0].(map[string]any)
+	assertSpecCoverage(t, peer, vpc.Peer{})
+
+	routes, _ := got.Spec["routes"].([]any)
+	if len(routes) != 1 {
+		t.Fatalf("routes = %v, want one element", routes)
+	}
+	route, _ := routes[0].(map[string]any)
+	assertSpecCoverage(t, route, vpc.Route{})
 }

@@ -17,7 +17,7 @@ func fullMariadbModel() mariadbModel {
 		Name:            types.StringValue("db"),
 		Namespace:       types.StringValue("tenant-root"),
 		Replicas:        types.Int64Value(2),
-		Resources:       types.ObjectNull(resourcesObjectType()),
+		Resources:       resourcesBlock(),
 		ResourcesPreset: types.StringValue("t1.nano"),
 		Size:            types.StringValue("10Gi"),
 		StorageClass:    types.StringValue(""),
@@ -49,8 +49,8 @@ func TestMariadbExpand_Users(t *testing.T) {
 	}
 }
 
-// The users map is not a top-level key, so the ConfigSpec guard cannot see a
-// field the API drops from a user entry.
+// Map entries are outside the recursive ConfigSpec guard, so check a user
+// explicitly to catch fields added to or removed from the API.
 func TestMariadbExpandUserKeysMatchUserSpec(t *testing.T) {
 	t.Parallel()
 
@@ -61,7 +61,7 @@ func TestMariadbExpandUserKeysMatchUserSpec(t *testing.T) {
 		t.Fatalf("expand diagnostics: %v", diags)
 	}
 
-	assertSpecCoverage(t, nestedSpecKeys(t, got.Spec, "users", "app"), mariadb.User{})
+	assertSpecCoverage(t, nestedSpec(t, got.Spec, "users", "app"), mariadb.User{})
 }
 
 func TestMariadbFlatten_RoundTrip(t *testing.T) {
@@ -98,6 +98,8 @@ func TestMariadbFlatten_RoundTrip(t *testing.T) {
 	}
 }
 
+// TestMariadbExpandKeysMatchConfigSpec excludes the deprecated inline backup
+// block and the pinned API's unmodelled TLS block.
 func TestMariadbExpandKeysMatchConfigSpec(t *testing.T) {
 	t.Parallel()
 
@@ -108,12 +110,5 @@ func TestMariadbExpandKeysMatchConfigSpec(t *testing.T) {
 		t.Fatalf("expand diagnostics: %v", diags)
 	}
 
-	emitted := make(map[string]bool, len(got.Spec))
-	for key := range got.Spec {
-		emitted[key] = true
-	}
-
-	// The deprecated inline backup block is intentionally not managed; tls was
-	// added by the pinned API and is not modelled yet.
-	assertSpecCoverage(t, emitted, mariadb.ConfigSpec{}, "backup", "tls")
+	assertSpecCoverage(t, got.Spec, mariadb.ConfigSpec{}, "backup", "tls")
 }

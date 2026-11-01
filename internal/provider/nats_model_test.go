@@ -17,7 +17,7 @@ func fullNatsModel() natsModel {
 		Name:            types.StringValue("bus"),
 		Namespace:       types.StringValue("tenant-root"),
 		Replicas:        types.Int64Value(2),
-		Resources:       types.ObjectNull(resourcesObjectType()),
+		Resources:       resourcesBlock(),
 		ResourcesPreset: types.StringValue("t1.nano"),
 		StorageClass:    types.StringValue(""),
 		External:        types.BoolValue(false),
@@ -82,10 +82,5 @@ func TestNatsExpandKeysMatchConfigSpec(t *testing.T) {
 		t.Fatalf("expand diagnostics: %v", diags)
 	}
 
-	emitted := make(map[string]bool, len(got.Spec))
-	for key := range got.Spec {
-		emitted[key] = true
-	}
-
-	assertSpecCoverage(t, emitted, nats.ConfigSpec{}, "jetstream", "config")
+	assertSpecCoverage(t, got.Spec, nats.ConfigSpec{}, "jetstream", "config")
 }
