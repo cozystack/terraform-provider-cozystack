@@ -21,6 +21,9 @@ import (
 	k8stesting "k8s.io/client-go/testing"
 )
 
+// TestWaitForReady_RetriesTransientReadErrors covers API and transport failures.
+// A structured 502 may omit its Kubernetes Reason; it must still allow the next
+// successful read to complete the wait.
 func TestWaitForReady_RetriesTransientReadErrors(t *testing.T) {
 	t.Parallel()
 
@@ -74,6 +77,8 @@ func TestWaitForReady_RetriesTransientReadErrors(t *testing.T) {
 	}
 }
 
+// TestWaitForReady_StopsOnPermanentReadErrors preserves the original cause for
+// callers to inspect, rather than replacing an actionable failure with a timeout.
 func TestWaitForReady_StopsOnPermanentReadErrors(t *testing.T) {
 	t.Parallel()
 
@@ -111,6 +116,9 @@ func TestWaitForReady_StopsOnPermanentReadErrors(t *testing.T) {
 	}
 }
 
+// TestWaitForReady_TransientErrorsRespectTimeout bounds retries by the overall
+// deadline, even when it expires before the next poll, and retains the last API
+// failure so the timeout still explains why observation failed.
 func TestWaitForReady_TransientErrorsRespectTimeout(t *testing.T) {
 	t.Parallel()
 
@@ -134,6 +142,8 @@ func TestWaitForReady_TransientErrorsRespectTimeout(t *testing.T) {
 	}
 }
 
+// TestWaitForReady_CancellationStopsRetries gives cancellation precedence over
+// a retryable API error returned by the same read.
 func TestWaitForReady_CancellationStopsRetries(t *testing.T) {
 	t.Parallel()
 
@@ -162,6 +172,9 @@ func TestWaitForReady_CancellationStopsRetries(t *testing.T) {
 	}
 }
 
+// TestWaitForReady_KeepsLastObservationAfterReadFailure prevents failed GETs
+// from replacing a prior server snapshot with their zero-value result, even
+// when the wait eventually returns a deadline error.
 func TestWaitForReady_KeepsLastObservationAfterReadFailure(t *testing.T) {
 	t.Parallel()
 
