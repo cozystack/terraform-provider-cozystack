@@ -51,6 +51,7 @@ func (d *tenantDataSource) Schema(
 			attrID:             schema.StringAttribute{Computed: true, MarkdownDescription: "Synthetic identifier `namespace/name`."},
 			attrName:           schema.StringAttribute{Required: true, MarkdownDescription: "Tenant name (`metadata.name`)."},
 			attrNamespace:      schema.StringAttribute{Required: true, MarkdownDescription: "Parent tenant namespace."},
+			"gpu":              schema.SingleNestedAttribute{Computed: true, MarkdownDescription: "GPU entitlement settings.", Attributes: map[string]schema.Attribute{"vgpu": schema.BoolAttribute{Computed: true, MarkdownDescription: "Configured vGPU entitlement; effective only when the parent is entitled too."}}},
 			attrHost:           schema.StringAttribute{Computed: true, MarkdownDescription: "Hostname used to access tenant services."},
 			attrEtcd:           schema.BoolAttribute{Computed: true, MarkdownDescription: "Whether a dedicated etcd cluster is deployed."},
 			attrMonitoring:     schema.BoolAttribute{Computed: true, MarkdownDescription: "Whether a dedicated monitoring stack is deployed."},

@@ -219,11 +219,7 @@ func (m *kubernetesNodesModel) expand(ctx context.Context) (*client.Application,
 
 	diags.Append(setOptionalStringList(ctx, spec, "roles", m.Roles)...)
 
-	// A pool's GPU entries have the same {name} shape as a VM instance's — the
-	// nodes are KubeVirt VMs — so the VM object type and decode struct are reused.
-	diags.Append(setOptionalObjectList(ctx, spec, "gpus", m.Gpus, func(gpu vmNameData) map[string]any {
-		return map[string]any{attrName: gpu.Name.ValueString()}
-	})...)
+	diags.Append(setOptionalObjectList(ctx, spec, "gpus", m.Gpus, expandGPU)...)
 
 	if diags.HasError() {
 		return nil, diags
@@ -251,7 +247,7 @@ var _ configValidator = (*kubernetesNodesResourceModel)(nil)
 // already torn down. Values that are still unknown at plan time are left to the
 // apply-time call in expand.
 func (m *kubernetesNodesModel) validateConfig() diag.Diagnostics {
-	var diags diag.Diagnostics
+	diags := validateGPUEntries(m.Gpus)
 
 	if m.Name.IsUnknown() || m.Cluster.IsUnknown() {
 		return diags
@@ -376,9 +372,7 @@ func (m *kubernetesNodesModel) flatten(app *client.Application) diag.Diagnostics
 
 	m.Resources = resources
 
-	gpus, gpuDiags := specObjectListOrNull(app.Spec["gpus"], vmGpuObjectType(), func(gpu map[string]any) map[string]attr.Value {
-		return map[string]attr.Value{attrName: types.StringValue(specString(gpu, attrName))}
-	})
+	gpus, gpuDiags := specObjectListOrNull(app.Spec["gpus"], vmGpuObjectType(), flattenGPU)
 	diags.Append(gpuDiags...)
 
 	m.Gpus = gpus

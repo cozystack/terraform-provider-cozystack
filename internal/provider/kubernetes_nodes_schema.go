@@ -79,18 +79,7 @@ func k8sNodesSizingAttributes() map[string]rschema.Attribute {
 				"use `[\"ingress-nginx\"]` for a pool hosting the tenant ingress controller.",
 		},
 		attrResources: k8sNodesResourcesAttribute(),
-		"gpus": rschema.ListNestedAttribute{
-			Optional:            true,
-			MarkdownDescription: "GPUs to attach to each node (the NVIDIA driver needs at least 4 GiB of memory).",
-			NestedObject: rschema.NestedAttributeObject{
-				Attributes: map[string]rschema.Attribute{
-					attrName: rschema.StringAttribute{
-						Required:            true,
-						MarkdownDescription: "GPU resource name, such as `nvidia.com/AD102GL_L40S`.",
-					},
-				},
-			},
-		},
+		"gpus":        vmGPUResourceAttribute(),
 	}
 }
 
@@ -217,7 +206,7 @@ func k8sNodesDataSourceAttributes() map[string]dsschema.Attribute {
 				attrMemory: dsschema.StringAttribute{Computed: true, MarkdownDescription: "Memory available to each node."},
 			},
 		},
-		"gpus":                 vmNameListDataSourceAttribute("GPUs attached to each node."),
+		"gpus":                 vmGPUDataSourceAttribute(),
 		"max_unhealthy":        dsschema.StringAttribute{Computed: true, MarkdownDescription: "Unhealthy-node budget before remediation pauses."},
 		"node_startup_timeout": dsschema.StringAttribute{Computed: true, MarkdownDescription: "Machine startup budget before remediation."},
 		attrVersion:            dsschema.StringAttribute{Computed: true, MarkdownDescription: "Kubernetes version the pool joins."},

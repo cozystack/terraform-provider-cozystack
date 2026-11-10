@@ -13,6 +13,10 @@ resource "cozystack_vminstance" "vm" {
   instance_profile = "ubuntu"
   run_strategy     = "Always"
 
+  gpus = [
+    { class_name = "example-passthrough", count = 1 },
+  ]
+
   disks = [
     { name = cozystack_vmdisk.os.name },
   ]

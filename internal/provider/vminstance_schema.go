@@ -86,7 +86,7 @@ func vminstanceComputeAttributes() map[string]rschema.Attribute {
 			},
 		},
 		"networks": vmNameListResourceAttribute("Networks to attach the VM to.", "Network attachment name."),
-		"gpus":     vmNameListResourceAttribute("GPUs to attach (NVIDIA driver requires at least 4 GiB RAM).", "GPU resource name."),
+		"gpus":     vmGPUResourceAttribute(),
 		"cpu_model": rschema.StringAttribute{
 			Optional: true, Computed: true,
 			Default:             stringdefault.StaticString(""),
@@ -185,7 +185,7 @@ func vminstanceDataSourceSchema() dsschema.Schema {
 			},
 		},
 		"networks":  vmNameListDataSourceAttribute("Attached networks."),
-		"gpus":      vmNameListDataSourceAttribute("Attached GPUs."),
+		"gpus":      vmGPUDataSourceAttribute(),
 		"cpu_model": dsschema.StringAttribute{Computed: true, MarkdownDescription: "CPU model."},
 		attrResources: dsschema.SingleNestedAttribute{
 			Computed:            true,

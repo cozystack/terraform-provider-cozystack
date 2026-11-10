@@ -5,6 +5,10 @@ resource "cozystack_tenant" "team_a" {
   monitoring = true
   ingress    = true
 
+  gpu = {
+    vgpu = true
+  }
+
   resource_quotas = {
     cpu    = "8"
     memory = "16Gi"

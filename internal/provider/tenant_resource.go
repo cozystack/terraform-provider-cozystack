@@ -6,6 +6,7 @@ import (
 
 	"github.com/cozystack/terraform-provider-cozystack/internal/client"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -131,12 +132,14 @@ func tenantSchema() schema.Schema {
 	attributes := map[string]schema.Attribute{}
 	maps.Copy(attributes, tenantIdentityAttributes())
 	maps.Copy(attributes, tenantSpecAttributes())
+	attributes["gpu"] = schema.SingleNestedAttribute{Optional: true, MarkdownDescription: "GPU entitlement settings. Requires GPU step 1 support on the server.", Attributes: map[string]schema.Attribute{"vgpu": schema.BoolAttribute{Optional: true, MarkdownDescription: "Permit vGPU classes when the parent tenant is also entitled. Omit to leave entitlement to the server."}}}
 	maps.Copy(attributes, tenantStatusAttributes())
 	maps.Copy(attributes, waitBehaviorAttributes())
 
 	return schema.Schema{
 		MarkdownDescription: "A Cozystack tenant: an isolated namespace under a parent tenant " +
-			"in which other Cozystack applications are deployed.",
+			"in which other Cozystack applications are deployed. The gpu block requires GPU step 1 support on the server. " +
+			"After import, copy any gpu entitlement into configuration before applying; omitting it removes that explicit setting.",
 		Attributes: attributes,
 	}
 }
@@ -234,4 +237,15 @@ func boolToggle(description string) schema.BoolAttribute {
 		Default:             booldefault.StaticBool(false),
 		MarkdownDescription: description,
 	}
+}
+
+func (m *tenantResourceModel) flatten(app *client.Application) diag.Diagnostics {
+	configured := m.GPU
+	imported := m.ID.IsNull()
+	diags := m.tenantModel.flatten(app)
+	if !imported {
+		m.GPU = keepConfiguredFields(configured, m.GPU, tenantGPUObjectType(), &diags)
+	}
+
+	return diags
 }

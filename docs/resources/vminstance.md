@@ -28,6 +28,10 @@ resource "cozystack_vminstance" "vm" {
   instance_profile = "ubuntu"
   run_strategy     = "Always"
 
+  gpus = [
+    { class_name = "example-passthrough", count = 1 },
+  ]
+
   disks = [
     { name = cozystack_vmdisk.os.name },
   ]
@@ -67,7 +71,7 @@ resource "cozystack_vminstance" "vm" {
 - `external_allow_icmp` (Boolean) Accept ICMP traffic to the VM in PortList mode (preserves ping and PMTU discovery).
 - `external_method` (String) Method to pass through traffic to the VM (`PortList` or `WholeIP`).
 - `external_ports` (List of Number) Ports to forward from outside the cluster.
-- `gpus` (Attributes List) GPUs to attach (NVIDIA driver requires at least 4 GiB RAM). (see [below for nested schema](#nestedatt--gpus))
+- `gpus` (Attributes List) GPUs to attach. Use either raw resource names or GPUClass names throughout the list, never both. Class entries require GPU step 1 support on the server. The server validates class availability, entitlement and compatibility. NVIDIA drivers need at least 4 GiB RAM. (see [below for nested schema](#nestedatt--gpus))
 - `instance_profile` (String) Virtual machine preferences profile.
 - `instance_type` (String) Virtual machine instance type.
 - `networks` (Attributes List) Networks to attach the VM to. (see [below for nested schema](#nestedatt--networks))
@@ -101,9 +105,11 @@ Optional:
 <a id="nestedatt--gpus"></a>
 ### Nested Schema for `gpus`
 
-Required:
+Optional:
 
-- `name` (String) GPU resource name.
+- `class_name` (String) GPUClass name. Mutually exclusive with name.
+- `count` (Number) Positive number of GPUs from the class, per VM or worker. The server uses one when omitted. Not valid with a raw name.
+- `name` (String) Raw device-plugin resource name. Mutually exclusive with class_name; count must be omitted.
 
 
 <a id="nestedatt--networks"></a>

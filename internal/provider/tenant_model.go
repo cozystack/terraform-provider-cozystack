@@ -35,6 +35,7 @@ type tenantModel struct {
 	Name            types.String `tfsdk:"name"`
 	Namespace       types.String `tfsdk:"namespace"`
 	Host            types.String `tfsdk:"host"`
+	GPU             types.Object `tfsdk:"gpu"`
 	Etcd            types.Bool   `tfsdk:"etcd"`
 	Monitoring      types.Bool   `tfsdk:"monitoring"`
 	TracingCentral  types.Bool   `tfsdk:"tracing_central"`
@@ -76,6 +77,8 @@ func (m *tenantModel) expand(ctx context.Context) (*client.Application, diag.Dia
 		"resourceQuotas":   quotas,
 	}
 
+	diags.Append(expandTenantGPU(ctx, spec, m.GPU)...)
+
 	// gateway is emitted only when the practitioner set it. The chart resolves
 	// true to "this tenant owns a Gateway" and both false and a missing key to
 	// "publish through the nearest ancestor that owns one" — the helper says so
@@ -102,6 +105,12 @@ func (m *tenantModel) flatten(tenant *client.Application) diag.Diagnostics {
 	m.Name = types.StringValue(tenant.Name)
 	m.Namespace = types.StringValue(tenant.Namespace)
 	m.Host = types.StringValue(specString(tenant.Spec, attrHost))
+	m.GPU = types.ObjectNull(tenantGPUObjectType())
+	if gpu, ok := tenant.Spec["gpu"].(map[string]any); ok {
+		if value, ok := gpu["vgpu"].(bool); ok {
+			m.GPU = types.ObjectValueMust(tenantGPUObjectType(), map[string]attr.Value{"vgpu": types.BoolValue(value)})
+		}
+	}
 	m.Etcd = types.BoolValue(specBool(tenant.Spec, attrEtcd))
 	m.Monitoring = types.BoolValue(specBool(tenant.Spec, attrMonitoring))
 	m.TracingCentral = types.BoolValue(specBool(tenant.Spec, specTracingCentral))

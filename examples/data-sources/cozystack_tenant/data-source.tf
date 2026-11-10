@@ -11,3 +11,7 @@ output "root_tenant_namespace" {
 output "root_tenant_gateway" {
   value = data.cozystack_tenant.root.gateway
 }
+
+output "tenant_gpu" {
+  value = data.cozystack_tenant.root.gpu
+}

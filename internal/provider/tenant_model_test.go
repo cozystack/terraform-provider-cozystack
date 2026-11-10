@@ -17,6 +17,7 @@ func fullModel() tenantModel {
 		Name:            types.StringValue("dev"),
 		Namespace:       types.StringValue("tenant-root"),
 		Host:            types.StringValue("dev.example.test"),
+		GPU:             types.ObjectValueMust(tenantGPUObjectType(), map[string]attr.Value{"vgpu": types.BoolValue(true)}),
 		Etcd:            types.BoolValue(true),
 		Monitoring:      types.BoolValue(true),
 		TracingCentral:  types.BoolValue(true),
@@ -265,6 +266,15 @@ func TestExpandKeysMatchConfigSpec(t *testing.T) {
 		emitted[key] = true
 	}
 
+	// Remove the split when the pinned API includes https://github.com/cozystack/cozystack/pull/5008.
+	pending := map[string]bool{}
+	if emitted["gpu"] {
+		pending["gpu"] = true
+	}
+	assertSpecCoverage(t, pending, struct {
+		GPU struct{} `json:"gpu"`
+	}{})
+	delete(emitted, "gpu")
 	// Added by the pinned API and not modelled yet.
 	assertSpecCoverage(t, emitted, tenant.ConfigSpec{}, "gatewayClass", "computeplane")
 }

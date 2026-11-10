@@ -173,6 +173,7 @@ func TestTenantResourceModelRoundTrip(t *testing.T) {
 			Name:            types.StringValue("dev"),
 			Namespace:       types.StringValue("tenant-root"),
 			Host:            types.StringValue(""),
+			GPU:             types.ObjectNull(tenantGPUObjectType()),
 			Etcd:            types.BoolValue(true),
 			Monitoring:      types.BoolValue(false),
 			Ingress:         types.BoolValue(false),
