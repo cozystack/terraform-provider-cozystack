@@ -8,6 +8,7 @@ The pinned API also adds a `Valkey` kind and optional fields on several existing
 
 ### Features
 
+- `cozystack_kubernetes_nodes`: new `worker_class_name` and `ssh_keys` attributes on the resource and data source. Setting them requires a Cozystack installation with WorkerClass support; existing classless pools remain classless.
 - `cozystack_tenant`: new `tracing_central` attribute (default `false`), also on the data source. It sends the tenant's traces to the shared VictoriaTraces store in `tenant-root` instead of a per-tenant backend, and needs `monitoring = true` on the tenant and `tenant-root` hosting the store.
 
 ### Breaking changes
