@@ -18,6 +18,9 @@ resource "cozystack_kubernetes_nodes" "gpu" {
   max_replicas  = 4
   roles         = ["gpu"]
 
+  worker_class_name = "talos"
+  ssh_keys          = []
+
   gpus = [
     { name = "nvidia.com/AD102GL_L40S" },
   ]

@@ -18,15 +18,17 @@ func fullKubernetesNodesModel() kubernetesNodesModel {
 	})
 
 	return kubernetesNodesModel{
-		Name:         types.StringValue("demo-md1"),
-		Namespace:    types.StringValue("tenant-root"),
-		Cluster:      types.StringValue("demo"),
-		StorageClass: types.StringValue("replicated"),
-		MinReplicas:  types.Int64Value(1),
-		MaxReplicas:  types.Int64Value(5),
-		InstanceType: types.StringValue("u1.medium"),
-		DiskSize:     types.StringValue("20Gi"),
-		Roles:        types.ListValueMust(types.StringType, []attr.Value{types.StringValue("ingress-nginx")}),
+		Name:            types.StringValue("demo-md1"),
+		Namespace:       types.StringValue("tenant-root"),
+		Cluster:         types.StringValue("demo"),
+		WorkerClassName: types.StringValue("talos"),
+		SSHKeys:         types.ListValueMust(types.StringType, []attr.Value{}),
+		StorageClass:    types.StringValue("replicated"),
+		MinReplicas:     types.Int64Value(1),
+		MaxReplicas:     types.Int64Value(5),
+		InstanceType:    types.StringValue("u1.medium"),
+		DiskSize:        types.StringValue("20Gi"),
+		Roles:           types.ListValueMust(types.StringType, []attr.Value{types.StringValue("ingress-nginx")}),
 		Resources: types.ObjectValueMust(resourcesObjectType(), map[string]attr.Value{
 			attrCPU:    types.StringValue("4"),
 			attrMemory: types.StringValue("8Gi"),
@@ -78,7 +80,28 @@ func TestKubernetesNodesExpandKeysMatchConfigSpec(t *testing.T) {
 		emitted[key] = true
 	}
 
-	// Added by the pinned API and not modelled yet.
+	// Remove the split when the pinned API includes the fields from https://github.com/cozystack/cozystack/pull/4911.
+	pending := map[string]bool{}
+	for _, key := range []string{"workerClassName", "sshKeys"} {
+		pending[key] = emitted[key]
+		delete(emitted, key)
+	}
+	assertSpecCoverage(t, pending, struct {
+		WorkerClassName string   `json:"workerClassName,omitempty"`
+		SSHKeys         []string `json:"sshKeys,omitempty"`
+	}{})
+	if _, ok := got.Spec["workerClassName"].(string); !ok {
+		t.Errorf("workerClassName = %T, want string", got.Spec["workerClassName"])
+	}
+	keys, ok := got.Spec["sshKeys"].([]any)
+	if !ok {
+		t.Fatalf("sshKeys = %T, want []any", got.Spec["sshKeys"])
+	}
+	for _, key := range keys {
+		if _, ok := key.(string); !ok {
+			t.Errorf("sshKeys item = %T, want string", key)
+		}
+	}
 	assertSpecCoverage(t, emitted, kubernetesnodes.ConfigSpec{},
 		"substrate", "proxmox", "osImage", "kernelModules", "logSerialConsole", "podCpuLimit", "podCpuRequest",
 		"readyUnknownTimeout", "readyFalseTimeout", "maxNodeProvisionTime")
@@ -441,6 +464,8 @@ func unsetKubernetesNodesModel() kubernetesNodesModel {
 		Name:               types.StringValue("demo-md1"),
 		Namespace:          types.StringValue("tenant-root"),
 		Cluster:            types.StringValue("demo"),
+		WorkerClassName:    types.StringNull(),
+		SSHKeys:            types.ListNull(types.StringType),
 		StorageClass:       types.StringValue("replicated"),
 		MinReplicas:        types.Int64Value(0),
 		MaxReplicas:        types.Int64Value(10),

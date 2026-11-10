@@ -23,13 +23,15 @@ const k8sNodesDescription = "A worker node pool for a Cozystack managed Kubernet
 	"its parent cluster by name: `cluster` names the `cozystack_kubernetes` object in the same namespace, and the " +
 	"pool itself must be named `<cluster>-<pool>`. A pool whose name collides with a node group the parent cluster " +
 	"still manages — the default `md0`, for instance — fails to render on an ownership conflict.\n\n" +
+	"Setting `worker_class_name` or `ssh_keys` requires a Cozystack installation with WorkerClass support " +
+	"([upstream change](https://github.com/cozystack/cozystack/pull/4911)); earlier releases do not support these settings.\n\n" +
 	"The `talos`, `images`, and `kubelet` blocks are left to the chart unless set, and stay out of state when " +
 	"unset, so a pool keeps following the Talos release, schematic, and images that ship with the installed " +
 	"Cozystack version — the same ones its parent cluster follows.\n\n" +
 	"A pool cannot report `Ready` until its workers join, which needs the parent control plane up first, so " +
 	"`wait_for_ready` on a pool created alongside its cluster will usually spend the whole `wait_timeout`.\n\n" +
 	"Import captures the overrides an existing pool carries. Copy the imported `talos`, `images`, `kubelet`, " +
-	"`roles`, and `gpus` values into the configuration before the first apply: an update replaces the whole " +
+	"`roles`, `gpus`, and `ssh_keys` values into the configuration before the first apply: an update replaces the whole " +
 	"spec, so an override present on the object but absent from configuration is removed by that apply — the " +
 	"plan shows the removal, but only the configuration can prevent it."
 
@@ -185,9 +187,28 @@ func k8sNodesChartField(description string) rschema.StringAttribute {
 	return rschema.StringAttribute{Optional: true, MarkdownDescription: description}
 }
 
+func k8sNodesWorkerAttributes() map[string]rschema.Attribute {
+	return map[string]rschema.Attribute{
+		"worker_class_name": rschema.StringAttribute{
+			Optional: true, Computed: true,
+			Validators: []validator.String{stringvalidator.LengthAtLeast(1)},
+			MarkdownDescription: "WorkerClass name. Omit to let the server select its default on creation. Existing " +
+				"classless pools remain classless. An explicit empty string is not allowed; omit the attribute instead. " +
+				"The server validates class compatibility and does not allow switching bootstrap families in place.",
+		},
+		"ssh_keys": rschema.ListAttribute{
+			Optional:    true,
+			ElementType: types.StringType,
+			MarkdownDescription: "SSH public keys for worker access. Kairos accepts at most one key; Talos rejects " +
+				"nonempty keys. An empty list disables access through these keys. Validated by the server.",
+		},
+	}
+}
+
 func kubernetesNodesSchema() rschema.Schema {
 	attributes := identityResourceAttributes(k8sNodesNameDescription)
 
+	maps.Copy(attributes, k8sNodesWorkerAttributes())
 	maps.Copy(attributes, k8sNodesSizingAttributes())
 	maps.Copy(attributes, k8sNodesLifecycleAttributes())
 	maps.Copy(attributes, statusResourceAttributes())
@@ -202,13 +223,15 @@ func kubernetesNodesSchema() rschema.Schema {
 // k8sNodesDataSourceAttributes returns the computed pool attributes.
 func k8sNodesDataSourceAttributes() map[string]dsschema.Attribute {
 	return map[string]dsschema.Attribute{
-		"cluster":        dsschema.StringAttribute{Computed: true, MarkdownDescription: "Parent Kubernetes cluster the pool attaches to."},
-		attrStorageClass: dsschema.StringAttribute{Computed: true, MarkdownDescription: "StorageClass for the worker node system disks."},
-		"min_replicas":   dsschema.Int64Attribute{Computed: true, MarkdownDescription: "Minimum number of nodes."},
-		"max_replicas":   dsschema.Int64Attribute{Computed: true, MarkdownDescription: "Maximum number of nodes."},
-		"instance_type":  dsschema.StringAttribute{Computed: true, MarkdownDescription: "Instance type."},
-		"disk_size":      dsschema.StringAttribute{Computed: true, MarkdownDescription: "System disk size for each worker VM."},
-		"roles":          dsschema.ListAttribute{Computed: true, ElementType: types.StringType, MarkdownDescription: "Node roles."},
+		"worker_class_name": dsschema.StringAttribute{Computed: true, MarkdownDescription: "WorkerClass name, absent for a legacy classless pool."},
+		"ssh_keys":          dsschema.ListAttribute{Computed: true, ElementType: types.StringType, MarkdownDescription: "SSH public keys authorized on the workers."},
+		"cluster":           dsschema.StringAttribute{Computed: true, MarkdownDescription: "Parent Kubernetes cluster the pool attaches to."},
+		attrStorageClass:    dsschema.StringAttribute{Computed: true, MarkdownDescription: "StorageClass for the worker node system disks."},
+		"min_replicas":      dsschema.Int64Attribute{Computed: true, MarkdownDescription: "Minimum number of nodes."},
+		"max_replicas":      dsschema.Int64Attribute{Computed: true, MarkdownDescription: "Maximum number of nodes."},
+		"instance_type":     dsschema.StringAttribute{Computed: true, MarkdownDescription: "Instance type."},
+		"disk_size":         dsschema.StringAttribute{Computed: true, MarkdownDescription: "System disk size for each worker VM."},
+		"roles":             dsschema.ListAttribute{Computed: true, ElementType: types.StringType, MarkdownDescription: "Node roles."},
 		attrResources: dsschema.SingleNestedAttribute{
 			Computed:            true,
 			MarkdownDescription: "Explicit CPU and memory per node, when set.",

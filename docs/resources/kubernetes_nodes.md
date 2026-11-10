@@ -4,20 +4,23 @@ page_title: "cozystack_kubernetes_nodes Resource - cozystack"
 subcategory: ""
 description: |-
   A worker node pool for a Cozystack managed Kubernetes cluster. The pool attaches to its parent cluster by name: cluster names the cozystack_kubernetes object in the same namespace, and the pool itself must be named <cluster>-<pool>. A pool whose name collides with a node group the parent cluster still manages — the default md0, for instance — fails to render on an ownership conflict.
+  Setting worker_class_name or ssh_keys requires a Cozystack installation with WorkerClass support (upstream change https://github.com/cozystack/cozystack/pull/4911); earlier releases do not support these settings.
   The talos, images, and kubelet blocks are left to the chart unless set, and stay out of state when unset, so a pool keeps following the Talos release, schematic, and images that ship with the installed Cozystack version — the same ones its parent cluster follows.
   A pool cannot report Ready until its workers join, which needs the parent control plane up first, so wait_for_ready on a pool created alongside its cluster will usually spend the whole wait_timeout.
-  Import captures the overrides an existing pool carries. Copy the imported talos, images, kubelet, roles, and gpus values into the configuration before the first apply: an update replaces the whole spec, so an override present on the object but absent from configuration is removed by that apply — the plan shows the removal, but only the configuration can prevent it.
+  Import captures the overrides an existing pool carries. Copy the imported talos, images, kubelet, roles, gpus, and ssh_keys values into the configuration before the first apply: an update replaces the whole spec, so an override present on the object but absent from configuration is removed by that apply — the plan shows the removal, but only the configuration can prevent it.
 ---
 
 # cozystack_kubernetes_nodes (Resource)
 
 A worker node pool for a Cozystack managed Kubernetes cluster. The pool attaches to its parent cluster by name: `cluster` names the `cozystack_kubernetes` object in the same namespace, and the pool itself must be named `<cluster>-<pool>`. A pool whose name collides with a node group the parent cluster still manages — the default `md0`, for instance — fails to render on an ownership conflict.
 
+Setting `worker_class_name` or `ssh_keys` requires a Cozystack installation with WorkerClass support ([upstream change](https://github.com/cozystack/cozystack/pull/4911)); earlier releases do not support these settings.
+
 The `talos`, `images`, and `kubelet` blocks are left to the chart unless set, and stay out of state when unset, so a pool keeps following the Talos release, schematic, and images that ship with the installed Cozystack version — the same ones its parent cluster follows.
 
 A pool cannot report `Ready` until its workers join, which needs the parent control plane up first, so `wait_for_ready` on a pool created alongside its cluster will usually spend the whole `wait_timeout`.
 
-Import captures the overrides an existing pool carries. Copy the imported `talos`, `images`, `kubelet`, `roles`, and `gpus` values into the configuration before the first apply: an update replaces the whole spec, so an override present on the object but absent from configuration is removed by that apply — the plan shows the removal, but only the configuration can prevent it.
+Import captures the overrides an existing pool carries. Copy the imported `talos`, `images`, `kubelet`, `roles`, `gpus`, and `ssh_keys` values into the configuration before the first apply: an update replaces the whole spec, so an override present on the object but absent from configuration is removed by that apply — the plan shows the removal, but only the configuration can prevent it.
 
 ## Example Usage
 
@@ -41,6 +44,9 @@ resource "cozystack_kubernetes_nodes" "gpu" {
   min_replicas  = 0
   max_replicas  = 4
   roles         = ["gpu"]
+
+  worker_class_name = "talos"
+  ssh_keys          = []
 
   gpus = [
     { name = "nvidia.com/AD102GL_L40S" },
@@ -74,11 +80,13 @@ resource "cozystack_kubernetes_nodes" "gpu" {
 - `node_startup_timeout` (String) How long a machine may take to reach `Ready` before it is remediated (Go duration). Raise it for slow first boots.
 - `resources` (Attributes) Explicit CPU and memory per node, replacing `instance_type` sizing. Set both fields or neither — setting only one is rejected when the pool renders. (see [below for nested schema](#nestedatt--resources))
 - `roles` (List of String) Node roles. Each role `r` labels the pool's nodes `node-role.kubernetes.io/<r>`; use `["ingress-nginx"]` for a pool hosting the tenant ingress controller.
+- `ssh_keys` (List of String) SSH public keys for worker access. Kairos accepts at most one key; Talos rejects nonempty keys. An empty list disables access through these keys. Validated by the server.
 - `storage_class` (String) StorageClass for the worker node system disks. Worker VMs live-migrate, so the class must serve ReadWriteMany volumes — prefer a replicated, DRBD-backed class. Changing a configured value replaces the pool: an existing volume is never migrated to another class.
 - `talos` (Attributes) Talos worker image configuration, kept in sync with the parent cluster's Talos settings. Every field follows the chart when unset. (see [below for nested schema](#nestedatt--talos))
 - `version` (String) Kubernetes major.minor version the pool joins. Must match the parent cluster's version and satisfy the Talos/Kubernetes support matrix against `talos.version`.
 - `wait_for_ready` (Boolean) Block on create/update until the `Ready` condition is true and any server-generated outputs the resource exposes are readable.
 - `wait_timeout` (String) Maximum time to wait when `wait_for_ready` is set (Go duration, e.g. `10m`). Readiness and outputs share this budget; outputs that never appear leave a warning and their attributes stay null until the next refresh.
+- `worker_class_name` (String) WorkerClass name. Omit to let the server select its default on creation. Existing classless pools remain classless. An explicit empty string is not allowed; omit the attribute instead. The server validates class compatibility and does not allow switching bootstrap families in place.
 
 ### Read-Only
 
