@@ -62,7 +62,7 @@ func vmNetworkObjectType() map[string]attr.Type {
 }
 
 func vmGpuObjectType() map[string]attr.Type {
-	return map[string]attr.Type{"name": types.StringType}
+	return map[string]attr.Type{"name": types.StringType, "class_name": types.StringType, "count": types.Int64Type}
 }
 
 func vmResourcesObjectType() map[string]attr.Type {
@@ -109,10 +109,7 @@ func (m *vminstanceModel) expand(ctx context.Context) (*client.Application, diag
 	})
 	diags.Append(nDiags...)
 
-	gpus, gDiags := expandObjectList(ctx, m.Gpus, func(g vmNameData) map[string]any {
-		return map[string]any{"name": g.Name.ValueString()}
-	})
-	diags.Append(gDiags...)
+	diags.Append(m.validateConfig()...)
 
 	sshKeys, kDiags := expandStringList(ctx, m.SSHKeys)
 	diags.Append(kDiags...)
@@ -134,13 +131,14 @@ func (m *vminstanceModel) expand(ctx context.Context) (*client.Application, diag
 		"instanceProfile":   m.InstanceProfile.ValueString(),
 		"disks":             disks,
 		"networks":          networks,
-		"gpus":              gpus,
 		"cpuModel":          m.CPUModel.ValueString(),
 		attrResources:       resources,
 		"sshKeys":           sshKeys,
 		"cloudInit":         m.CloudInit.ValueString(),
 		"cloudInitSeed":     m.CloudInitSeed.ValueString(),
 	}
+
+	diags.Append(setOptionalObjectList(ctx, spec, "gpus", m.Gpus, expandGPU)...)
 
 	return &client.Application{
 		Name:      m.Name.ValueString(),
@@ -218,7 +216,7 @@ func (m *vminstanceModel) flatten(app *client.Application) diag.Diagnostics {
 
 	m.Networks = networks
 
-	gpus, gDiags := flattenObjectList(app.Spec["gpus"], vmGpuObjectType(), vmNameValue)
+	gpus, gDiags := specObjectListOrNull(app.Spec["gpus"], vmGpuObjectType(), flattenGPU)
 	diags.Append(gDiags...)
 
 	m.Gpus = gpus
@@ -305,4 +303,16 @@ func vmResourceField(resources map[string]any, key string) attr.Value {
 	}
 
 	return types.StringValue(value)
+}
+
+func (m *vminstanceModel) validateConfig() diag.Diagnostics {
+	return validateGPUEntries(m.Gpus)
+}
+
+func (m *vminstanceResourceModel) flatten(app *client.Application) diag.Diagnostics {
+	configured := m.Gpus
+	diags := m.vminstanceModel.flatten(app)
+	m.Gpus = keepConfiguredList(configured, m.Gpus, types.ObjectType{AttrTypes: vmGpuObjectType()})
+
+	return diags
 }

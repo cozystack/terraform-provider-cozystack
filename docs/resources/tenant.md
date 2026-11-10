@@ -3,12 +3,12 @@
 page_title: "cozystack_tenant Resource - cozystack"
 subcategory: ""
 description: |-
-  A Cozystack tenant: an isolated namespace under a parent tenant in which other Cozystack applications are deployed.
+  A Cozystack tenant: an isolated namespace under a parent tenant in which other Cozystack applications are deployed. The gpu block requires GPU step 1 support on the server. After import, copy any gpu entitlement into configuration before applying; omitting it removes that explicit setting.
 ---
 
 # cozystack_tenant (Resource)
 
-A Cozystack tenant: an isolated namespace under a parent tenant in which other Cozystack applications are deployed.
+A Cozystack tenant: an isolated namespace under a parent tenant in which other Cozystack applications are deployed. The gpu block requires GPU step 1 support on the server. After import, copy any gpu entitlement into configuration before applying; omitting it removes that explicit setting.
 
 ## Example Usage
 
@@ -19,6 +19,10 @@ resource "cozystack_tenant" "team_a" {
 
   monitoring = true
   ingress    = true
+
+  gpu = {
+    vgpu = true
+  }
 
   resource_quotas = {
     cpu    = "8"
@@ -71,6 +75,7 @@ resource "cozystack_tenant" "team_d" {
 
 - `etcd` (Boolean) Deploy a dedicated etcd cluster for the tenant.
 - `gateway` (Boolean) Give the tenant a Gateway API Gateway of its own, with its own Service, load-balancer address and certificate, backed by the Cilium Gateway API controller. Without it the tenant publishes through the nearest ancestor that owns one — routing is not skipped, only ownership — which is why a tenant whose `host` is an apex the ancestor's certificate does not cover has to ask for `true`. In the pinned release `false` and leaving the attribute out resolve to the same thing; the attribute is still omitted from the spec when unset, because the chart distinguishes the states by the key's presence and rejects a null.
+- `gpu` (Attributes) GPU entitlement settings. Requires GPU step 1 support on the server. (see [below for nested schema](#nestedatt--gpu))
 - `host` (String) Hostname used to access tenant services. Defaults to a subdomain of the parent host.
 - `ingress` (Boolean) Deploy a dedicated ingress controller for the tenant.
 - `monitoring` (Boolean) Deploy a dedicated monitoring stack for the tenant.
@@ -88,6 +93,13 @@ resource "cozystack_tenant" "team_d" {
 - `status_namespace` (String) Namespace created for the tenant (`status.namespace`).
 - `uid` (String) Server-assigned object UID (`metadata.uid`).
 - `version` (String) Deployed chart version (`status.version`).
+
+<a id="nestedatt--gpu"></a>
+### Nested Schema for `gpu`
+
+Optional:
+
+- `vgpu` (Boolean) Permit vGPU classes when the parent tenant is also entitled. Omit to leave entitlement to the server.
 
 ## Import
 

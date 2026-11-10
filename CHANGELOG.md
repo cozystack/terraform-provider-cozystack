@@ -8,6 +8,8 @@ The pinned API also adds a `Valkey` kind and optional fields on several existing
 
 ### Features
 
+- `cozystack_tenant`: optional `gpu.vgpu` entitlement, without a provider-side default. `cozystack_vminstance` and `cozystack_kubernetes_nodes`: GPU entries can select `class_name` and optional `count`, while existing raw `name` entries remain supported. These additions require GPU step 1 support on the server.
+
 - `cozystack_tenant`: new `tracing_central` attribute (default `false`), also on the data source. It sends the tenant's traces to the shared VictoriaTraces store in `tenant-root` instead of a per-tenant backend, and needs `monitoring = true` on the tenant and `tenant-root` hosting the store.
 
 ### Breaking changes

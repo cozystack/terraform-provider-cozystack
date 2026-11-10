@@ -19,7 +19,7 @@ resource "cozystack_kubernetes_nodes" "gpu" {
   roles         = ["gpu"]
 
   gpus = [
-    { name = "nvidia.com/AD102GL_L40S" },
+    { class_name = "example-passthrough", count = 2 },
   ]
 
   kubelet = {

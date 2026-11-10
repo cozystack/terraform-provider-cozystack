@@ -43,7 +43,7 @@ resource "cozystack_kubernetes_nodes" "gpu" {
   roles         = ["gpu"]
 
   gpus = [
-    { name = "nvidia.com/AD102GL_L40S" },
+    { class_name = "example-passthrough", count = 2 },
   ]
 
   kubelet = {
@@ -64,7 +64,7 @@ resource "cozystack_kubernetes_nodes" "gpu" {
 ### Optional
 
 - `disk_size` (String) System disk size for each worker VM. Carries the Talos image, kubelet state, and the containerd image cache.
-- `gpus` (Attributes List) GPUs to attach to each node (the NVIDIA driver needs at least 4 GiB of memory). (see [below for nested schema](#nestedatt--gpus))
+- `gpus` (Attributes List) GPUs to attach. Use either raw resource names or GPUClass names throughout the list, never both. Class entries require GPU step 1 support on the server. The server validates class availability, entitlement and compatibility. NVIDIA drivers need at least 4 GiB RAM. (see [below for nested schema](#nestedatt--gpus))
 - `images` (Attributes) Image overrides for air-gapped or rate-limited registries. Each field follows the chart when unset. (see [below for nested schema](#nestedatt--images))
 - `instance_type` (String) Virtual machine instance type.
 - `kubelet` (Attributes) Kubelet resource reservations. The reserved CPU and memory fields are computed from `instance_type` when left unset. (see [below for nested schema](#nestedatt--kubelet))
@@ -90,9 +90,11 @@ resource "cozystack_kubernetes_nodes" "gpu" {
 <a id="nestedatt--gpus"></a>
 ### Nested Schema for `gpus`
 
-Required:
+Optional:
 
-- `name` (String) GPU resource name, such as `nvidia.com/AD102GL_L40S`.
+- `class_name` (String) GPUClass name. Mutually exclusive with name.
+- `count` (Number) Positive number of GPUs from the class, per VM or worker. The server uses one when omitted. Not valid with a raw name.
+- `name` (String) Raw device-plugin resource name. Mutually exclusive with class_name; count must be omitted.
 
 
 <a id="nestedatt--images"></a>

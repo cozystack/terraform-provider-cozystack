@@ -28,7 +28,7 @@ func fullVMInstanceModel() vminstanceModel {
 		InstanceProfile:   types.StringValue("ubuntu"),
 		Disks:             types.ListValueMust(types.ObjectType{AttrTypes: vmDiskObjectType()}, []attr.Value{disk}),
 		Networks:          types.ListNull(types.ObjectType{AttrTypes: vmNetworkObjectType()}),
-		Gpus:              types.ListNull(types.ObjectType{AttrTypes: vmGpuObjectType()}),
+		Gpus:              gpuTestList(gpuTestObject(types.StringValue("nvidia.com/example"), types.StringNull(), types.Int64Null())),
 		CPUModel:          types.StringValue(""),
 		Resources:         types.ObjectNull(vmResourcesObjectType()),
 		SSHKeys:           types.ListNull(types.StringType),

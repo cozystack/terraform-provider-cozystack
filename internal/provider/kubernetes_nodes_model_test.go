@@ -14,7 +14,8 @@ import (
 
 func fullKubernetesNodesModel() kubernetesNodesModel {
 	gpu := types.ObjectValueMust(vmGpuObjectType(), map[string]attr.Value{
-		attrName: types.StringValue("nvidia.com/AD102GL_L40S"),
+		attrName:     types.StringValue("nvidia.com/AD102GL_L40S"),
+		"class_name": types.StringNull(), "count": types.Int64Null(),
 	})
 
 	return kubernetesNodesModel{
