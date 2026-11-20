@@ -82,7 +82,7 @@ resource "cozystack_kubernetes_nodes" "gpu" {
 - `max_replicas` (Number) Maximum number of nodes in the pool; the cluster-autoscaler ceiling.
 - `max_unhealthy` (String) How many of the pool's nodes may be unhealthy before remediation pauses, as a percentage (`50%`) or a bare integer (`1`). Drop to `0%` once the pool is stable.
 - `min_replicas` (Number) Minimum number of nodes in the pool; the cluster-autoscaler floor.
-- `node_startup_timeout` (String) How long a machine may take to reach `Ready` before it is remediated (Go duration). Raise it for slow first boots.
+- `node_startup_timeout` (String) How long a machine may take to reach `Ready` before it is remediated (Go duration). Defaults to the chart's `20m`. Earlier provider versions defaulted to `10m`, so an upgrade can plan a timeout change when this attribute is omitted. Set `10m` explicitly to retain that behavior; configured overrides are not rewritten.
 - `resources` (Attributes) Explicit CPU and memory per node, replacing `instance_type` sizing. Set both fields or neither — setting only one is rejected when the pool renders. (see [below for nested schema](#nestedatt--resources))
 - `roles` (List of String) Node roles. Each role `r` labels the pool's nodes `node-role.kubernetes.io/<r>`; use `["ingress-nginx"]` for a pool hosting the tenant ingress controller.
 - `ssh_keys` (List of String) SSH public keys for worker access. Kairos accepts at most one key; Talos rejects nonempty keys. An empty list disables access through these keys. Validated by the server.

@@ -12,6 +12,10 @@ The pinned API also adds a `Valkey` kind and optional fields on several existing
 - `cozystack_kubernetes_nodes`: new typed `labels` and `taints` on the resource and data source, preserving omitted, empty and configured values through refresh, import and updates.
 - `cozystack_tenant`: new `tracing_central` attribute (default `false`), also on the data source. It sends the tenant's traces to the shared VictoriaTraces store in `tenant-root` instead of a per-tenant backend, and needs `monitoring = true` on the tenant and `tenant-root` hosting the store.
 
+### Fixes
+
+- `cozystack_kubernetes_nodes`: `node_startup_timeout` now defaults to the chart's `20m` instead of `10m`. Upgrading the provider can plan this change when the setting is omitted; set `node_startup_timeout = "10m"` explicitly to keep the previous timeout. Explicit overrides are preserved.
+
 ### Breaking changes
 
 - `cozystack_httpcache` (resource and data source) is removed, following Cozystack, which dropped the HTTPCache application and its ResourceDefinition: a cluster on this API no longer serves the kind. Remove the resource from your configuration and run `terraform state rm` for each instance before upgrading the provider.

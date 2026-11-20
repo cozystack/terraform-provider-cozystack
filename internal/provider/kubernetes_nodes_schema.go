@@ -130,9 +130,11 @@ func k8sNodesLifecycleAttributes() map[string]rschema.Attribute {
 		},
 		"node_startup_timeout": rschema.StringAttribute{
 			Optional: true, Computed: true,
-			Default: stringdefault.StaticString("10m"),
+			Default: stringdefault.StaticString("20m"),
 			MarkdownDescription: "How long a machine may take to reach `Ready` before it is remediated (Go " +
-				"duration). Raise it for slow first boots.",
+				"duration). Defaults to the chart's `20m`. Earlier provider versions defaulted to `10m`, so an " +
+				"upgrade can plan a timeout change when this attribute is omitted. Set `10m` explicitly to retain " +
+				"that behavior; configured overrides are not rewritten.",
 		},
 		attrVersion: rschema.StringAttribute{
 			Optional: true, Computed: true,
