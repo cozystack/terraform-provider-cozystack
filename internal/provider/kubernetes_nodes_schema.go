@@ -31,7 +31,7 @@ const k8sNodesDescription = "A worker node pool for a Cozystack managed Kubernet
 	"A pool cannot report `Ready` until its workers join, which needs the parent control plane up first, so " +
 	"`wait_for_ready` on a pool created alongside its cluster will usually spend the whole `wait_timeout`.\n\n" +
 	"Import captures the overrides an existing pool carries. Copy the imported `talos`, `images`, `kubelet`, " +
-	"`roles`, `gpus`, and `ssh_keys` values into the configuration before the first apply: an update replaces the whole " +
+	"`roles`, `gpus`, `labels`, `taints`, and `ssh_keys` values into the configuration before the first apply: an update replaces the whole " +
 	"spec, so an override present on the object but absent from configuration is removed by that apply — the " +
 	"plan shows the removal, but only the configuration can prevent it."
 
@@ -210,6 +210,7 @@ func kubernetesNodesSchema() rschema.Schema {
 
 	maps.Copy(attributes, k8sNodesWorkerAttributes())
 	maps.Copy(attributes, k8sNodesSizingAttributes())
+	maps.Copy(attributes, k8sNodesSchedulingAttributes())
 	maps.Copy(attributes, k8sNodesLifecycleAttributes())
 	maps.Copy(attributes, statusResourceAttributes())
 	maps.Copy(attributes, waitBehaviorAttributes())
@@ -232,6 +233,9 @@ func k8sNodesDataSourceAttributes() map[string]dsschema.Attribute {
 		"instance_type":     dsschema.StringAttribute{Computed: true, MarkdownDescription: "Instance type."},
 		"disk_size":         dsschema.StringAttribute{Computed: true, MarkdownDescription: "System disk size for each worker VM."},
 		"roles":             dsschema.ListAttribute{Computed: true, ElementType: types.StringType, MarkdownDescription: "Node roles."},
+		"labels":            dsschema.MapAttribute{Computed: true, ElementType: types.StringType, MarkdownDescription: "Custom node labels."},
+		"taints":            k8sNodesTaintsDataSourceAttribute(),
+
 		attrResources: dsschema.SingleNestedAttribute{
 			Computed:            true,
 			MarkdownDescription: "Explicit CPU and memory per node, when set.",
@@ -285,5 +289,31 @@ func kubernetesNodesDataSourceSchema() dsschema.Schema {
 	return dsschema.Schema{
 		MarkdownDescription: "Read an existing Cozystack Kubernetes worker node pool by name and namespace.",
 		Attributes:          attributes,
+	}
+}
+
+func k8sNodesTaintsAttribute() rschema.ListNestedAttribute {
+	return rschema.ListNestedAttribute{Optional: true, MarkdownDescription: "Node taints. Changing them rolls the pool. An explicit empty list removes configured taints; validation and workload tolerations remain server/operator responsibilities.", NestedObject: rschema.NestedAttributeObject{Attributes: map[string]rschema.Attribute{
+		"key":    rschema.StringAttribute{Required: true, Validators: []validator.String{stringvalidator.LengthAtLeast(1)}, MarkdownDescription: "Taint key."},
+		"value":  rschema.StringAttribute{Optional: true, MarkdownDescription: "Optional taint value; absent and explicitly empty values are preserved."},
+		"effect": rschema.StringAttribute{Required: true, Validators: []validator.String{stringvalidator.OneOf("NoSchedule", "PreferNoSchedule", "NoExecute")}, MarkdownDescription: "Scheduling or eviction effect."},
+	}}}
+}
+
+func k8sNodesTaintsDataSourceAttribute() dsschema.ListNestedAttribute {
+	return dsschema.ListNestedAttribute{Computed: true, MarkdownDescription: "Node taints.", NestedObject: dsschema.NestedAttributeObject{Attributes: map[string]dsschema.Attribute{
+		"key":    dsschema.StringAttribute{Computed: true, MarkdownDescription: "Taint key."},
+		"value":  dsschema.StringAttribute{Computed: true, MarkdownDescription: "Taint value, if present."},
+		"effect": dsschema.StringAttribute{Computed: true, MarkdownDescription: "Scheduling or eviction effect."},
+	}}}
+}
+
+func k8sNodesSchedulingAttributes() map[string]rschema.Attribute {
+	return map[string]rschema.Attribute{
+		"labels": rschema.MapAttribute{
+			Optional: true, ElementType: types.StringType,
+			MarkdownDescription: "Custom node labels. Put node roles in `roles`. Cluster API-synced labels change in place; other bootstrap labels roll the pool. Reserved keys are validated by the server.",
+		},
+		"taints": k8sNodesTaintsAttribute(),
 	}
 }

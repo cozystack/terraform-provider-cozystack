@@ -27,6 +27,8 @@ type kubernetesNodesModel struct {
 	InstanceType       types.String `tfsdk:"instance_type"`
 	DiskSize           types.String `tfsdk:"disk_size"`
 	Roles              types.List   `tfsdk:"roles"`
+	Labels             types.Map    `tfsdk:"labels"`
+	Taints             types.List   `tfsdk:"taints"`
 	Resources          types.Object `tfsdk:"resources"`
 	Gpus               types.List   `tfsdk:"gpus"`
 	Kubelet            types.Object `tfsdk:"kubelet"`
@@ -75,6 +77,7 @@ func (m *kubernetesNodesResourceModel) flatten(app *client.Application) diag.Dia
 	imported := m.ID.IsNull()
 
 	roles, gpus, sshKeys := m.Roles, m.Gpus, m.SSHKeys
+	labels, taints := m.Labels, m.Taints
 	kubelet, talos, images := m.Kubelet, m.Talos, m.Images
 
 	diags := m.kubernetesNodesModel.flatten(app)
@@ -82,6 +85,10 @@ func (m *kubernetesNodesResourceModel) flatten(app *client.Application) diag.Dia
 	m.SSHKeys = keepConfiguredList(sshKeys, m.SSHKeys, types.StringType)
 	m.Roles = keepConfiguredList(roles, m.Roles, types.StringType)
 	m.Gpus = keepConfiguredList(gpus, m.Gpus, types.ObjectType{AttrTypes: vmGpuObjectType()})
+	m.Taints = keepConfiguredList(taints, m.Taints, types.ObjectType{AttrTypes: k8sNodesTaintObjectType()})
+	if labels.IsNull() && len(m.Labels.Elements()) == 0 {
+		m.Labels = types.MapNull(types.StringType)
+	}
 
 	if imported {
 		return diags
@@ -223,6 +230,7 @@ func (m *kubernetesNodesModel) expand(ctx context.Context) (*client.Application,
 	setOptionalString(spec, "workerClassName", m.WorkerClassName)
 	diags.Append(setOptionalStringList(ctx, spec, "sshKeys", m.SSHKeys)...)
 	diags.Append(setOptionalStringList(ctx, spec, "roles", m.Roles)...)
+	diags.Append(m.expandScheduling(ctx, spec)...)
 
 	// A pool's GPU entries have the same {name} shape as a VM instance's — the
 	// nodes are KubeVirt VMs — so the VM object type and decode struct are reused.
@@ -371,6 +379,7 @@ func (m *kubernetesNodesModel) flatten(app *client.Application) diag.Diagnostics
 		m.WorkerClassName = types.StringValue(class)
 	}
 	m.SSHKeys = specStringListOrNull(app.Spec["sshKeys"])
+	diags.Append(m.flattenScheduling(app.Spec)...)
 	m.StorageClass = types.StringValue(specString(app.Spec, specStorageClass))
 	m.MinReplicas = types.Int64Value(specInt64(app.Spec, "minReplicas"))
 	m.MaxReplicas = types.Int64Value(specInt64(app.Spec, "maxReplicas"))
@@ -462,4 +471,55 @@ func flattenSpecObject(
 	}
 
 	return types.ObjectValue(objectType, build(fields))
+}
+
+func k8sNodesTaintObjectType() map[string]attr.Type {
+	return map[string]attr.Type{"key": types.StringType, "value": types.StringType, "effect": types.StringType}
+}
+
+type k8sNodesTaintData struct {
+	Key    types.String `tfsdk:"key"`
+	Value  types.String `tfsdk:"value"`
+	Effect types.String `tfsdk:"effect"`
+}
+
+func (m *kubernetesNodesModel) expandScheduling(ctx context.Context, spec map[string]any) diag.Diagnostics {
+	var diags diag.Diagnostics
+	if !m.Labels.IsNull() && !m.Labels.IsUnknown() {
+		labels := map[string]string{}
+		labelDiags := m.Labels.ElementsAs(ctx, &labels, false)
+		diags.Append(labelDiags...)
+		if !labelDiags.HasError() {
+			out := make(map[string]any, len(labels))
+			for key, value := range labels {
+				out[key] = value
+			}
+			spec["labels"] = out
+		}
+	}
+	diags.Append(setOptionalObjectList(ctx, spec, "taints", m.Taints, func(value k8sNodesTaintData) map[string]any {
+		out := map[string]any{"key": value.Key.ValueString(), "effect": value.Effect.ValueString()}
+		setOptionalString(out, "value", value.Value)
+
+		return out
+	})...)
+
+	return diags
+}
+
+func (m *kubernetesNodesModel) flattenScheduling(spec map[string]any) diag.Diagnostics {
+	var diags diag.Diagnostics
+	m.Labels = types.MapNull(types.StringType)
+	if raw, present := spec["labels"]; present && raw != nil {
+		value, labelDiags := types.MapValueFrom(context.Background(), types.StringType, raw)
+		diags.Append(labelDiags...)
+		m.Labels = value
+	}
+	taints, taintDiags := specObjectListOrNull(spec["taints"], k8sNodesTaintObjectType(), func(entry map[string]any) map[string]attr.Value {
+		return map[string]attr.Value{"key": types.StringValue(specString(entry, "key")), "value": specStringOrNull(entry, "value"), "effect": types.StringValue(specString(entry, "effect"))}
+	})
+	diags.Append(taintDiags...)
+	m.Taints = taints
+
+	return diags
 }

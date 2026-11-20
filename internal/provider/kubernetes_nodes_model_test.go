@@ -13,6 +13,7 @@ import (
 )
 
 func fullKubernetesNodesModel() kubernetesNodesModel {
+	labels, taints := schedulingValues()
 	gpu := types.ObjectValueMust(vmGpuObjectType(), map[string]attr.Value{
 		attrName: types.StringValue("nvidia.com/AD102GL_L40S"),
 	})
@@ -28,6 +29,8 @@ func fullKubernetesNodesModel() kubernetesNodesModel {
 		MaxReplicas:     types.Int64Value(5),
 		InstanceType:    types.StringValue("u1.medium"),
 		DiskSize:        types.StringValue("20Gi"),
+		Labels:          labels,
+		Taints:          taints,
 		Roles:           types.ListValueMust(types.StringType, []attr.Value{types.StringValue("ingress-nginx")}),
 		Resources: types.ObjectValueMust(resourcesObjectType(), map[string]attr.Value{
 			attrCPU:    types.StringValue("4"),
@@ -80,15 +83,21 @@ func TestKubernetesNodesExpandKeysMatchConfigSpec(t *testing.T) {
 		emitted[key] = true
 	}
 
-	// Remove the split when the pinned API includes the fields from https://github.com/cozystack/cozystack/pull/4911.
+	// These fields are absent from the pinned API module.
 	pending := map[string]bool{}
-	for _, key := range []string{"workerClassName", "sshKeys"} {
+	for _, key := range []string{"workerClassName", "sshKeys", "labels", "taints"} {
 		pending[key] = emitted[key]
 		delete(emitted, key)
 	}
 	assertSpecCoverage(t, pending, struct {
-		WorkerClassName string   `json:"workerClassName,omitempty"`
-		SSHKeys         []string `json:"sshKeys,omitempty"`
+		WorkerClassName string            `json:"workerClassName,omitempty"`
+		SSHKeys         []string          `json:"sshKeys,omitempty"`
+		Labels          map[string]string `json:"labels,omitempty"`
+		Taints          []struct {
+			Key    string `json:"key"`
+			Value  string `json:"value,omitempty"`
+			Effect string `json:"effect"`
+		} `json:"taints,omitempty"`
 	}{})
 	if _, ok := got.Spec["workerClassName"].(string); !ok {
 		t.Errorf("workerClassName = %T, want string", got.Spec["workerClassName"])
